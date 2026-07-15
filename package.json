@@ -15,7 +15,8 @@
     "dev": "npm run dev:web",
     "build": "npm run build:contracts && npm run build:catalog && npm run build:companion && npm run build:web",
     "test": "npm run test:contracts && npm run test:catalog",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck:solution && npm run typecheck --workspaces --if-present",
+    "typecheck:solution": "tsc -b --force --pretty false",
     "lint": "eslint . --max-warnings=0",
     "catalog:validate": "npm run validate --workspace @open-voice/catalog",
     "audit": "npm audit --audit-level=high",
@@ -33,7 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@types/node": "26.1.1",
+    "@types/node": "22.13.16",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",

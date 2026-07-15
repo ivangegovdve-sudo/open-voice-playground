@@ -38,6 +38,8 @@ It is test material, not a statement about supported engines or final counts.
 ## Build and deployment
 
 The build compiles contracts first, then catalog tooling, the reserved companion workspace, and the
-Vite web shell. Vercel serves the web output as a single-page application. CI installs from the lock
-file, then runs type checking, linting, tests, builds, and catalog validation without publishing or
-writing to remote systems.
+Vite web shell. The root TypeScript build-mode solution covers the three composite workspaces. The
+catalog test configuration stays non-composite because it aliases contract source; root typechecking
+runs its no-emit workspace check separately after the solution check. Vercel serves the web output as
+a single-page application. CI installs from the lock file, then runs type checking, linting, tests,
+builds, and catalog validation without publishing or writing to remote systems.

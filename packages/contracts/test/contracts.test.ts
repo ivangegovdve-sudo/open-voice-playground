@@ -145,6 +145,14 @@ describe('catalog record contracts', () => {
     expect(sourceSchema.safeParse(sourceWithoutRevision).success).toBe(false);
   });
 
+  it('returns a validation failure for malformed URLs instead of throwing', () => {
+    const sourceSchema = schema('SourceRecordSchema');
+    const malformedSource = { ...sourceRecord, canonicalUrl: 'http://[' };
+
+    expect(() => sourceSchema.safeParse(malformedSource)).not.toThrow();
+    expect(sourceSchema.safeParse(malformedSource).success).toBe(false);
+  });
+
   it('requires a voice ID to match its engine and upstream IDs', () => {
     const voiceSchema = schema('VoicePresetSchema');
 
