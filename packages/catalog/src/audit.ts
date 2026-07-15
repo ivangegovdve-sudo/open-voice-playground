@@ -120,7 +120,6 @@ function hasExactGitHubPath(value: string, expectedSegments: readonly string[]):
 
 const ApprovedPublicGitHubUrlSchema = z
   .string()
-  .url()
   .refine((value) => githubPathSegments(value) !== undefined, {
     message:
       'Expected a canonical credential-free public GitHub HTTPS URL without port, query, fragment, encoding, or normalized path segments',

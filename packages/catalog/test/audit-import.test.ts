@@ -357,6 +357,32 @@ describe('public repository audit import', () => {
     }
   });
 
+  it('rejects surrounding ASCII whitespace before URL normalization', () => {
+    const { validatePublicRepositoryAudit } = auditApi();
+    const ownerRepositoryUrl = 'https://github.com/example/fixture-tts-copy';
+    const invalidUrls = [
+      ` ${ownerRepositoryUrl}`,
+      `${ownerRepositoryUrl} `,
+      `\t${ownerRepositoryUrl}`,
+      `${ownerRepositoryUrl}\t`,
+      `\r${ownerRepositoryUrl}`,
+      `${ownerRepositoryUrl}\r`,
+      `\n${ownerRepositoryUrl}`,
+      `${ownerRepositoryUrl}\n`,
+      `\r\n${ownerRepositoryUrl}`,
+      `${ownerRepositoryUrl}\r\n`,
+    ];
+
+    for (const invalidUrl of invalidUrls) {
+      const audit = cloneAudit();
+      audit.approvedPublicSources[0]!.ownerRepositoryUrl = invalidUrl;
+
+      expect(() => validatePublicRepositoryAudit(audit)).toThrow(
+        /canonical|github|whitespace|url/i,
+      );
+    }
+  });
+
   it('exposes only the public-safe approved-source envelope', () => {
     const { validatePublicRepositoryAudit } = auditApi();
 
