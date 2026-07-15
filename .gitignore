@@ -10,8 +10,8 @@ playwright-report/
 test-results/
 target/
 .superpowers/
+*.tsbuildinfo
 *.log
 *.tmp
 .DS_Store
 Thumbs.db
-

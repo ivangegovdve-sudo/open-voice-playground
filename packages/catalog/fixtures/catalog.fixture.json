@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "foundation-fixture",
+  "generatedAt": "2026-07-15T00:00:00.000Z",
+  "engines": [
+    {
+      "id": "fixture-online",
+      "displayName": "Fixture Online Engine",
+      "classification": "open-source-client-external-service",
+      "runtimeModes": ["online"],
+      "languageTags": ["es-ES"],
+      "licenseIds": ["fixture-code-license"],
+      "sourceIds": ["fixture-online-source"]
+    },
+    {
+      "id": "fixture-gallery",
+      "displayName": "Fixture Sample Gallery",
+      "classification": "sample-only",
+      "runtimeModes": ["sample-only"],
+      "languageTags": ["fr-FR"],
+      "licenseIds": ["fixture-code-license"],
+      "sourceIds": ["fixture-gallery-source"]
+    },
+    {
+      "id": "fixture-browser",
+      "displayName": "Fixture Browser Engine",
+      "classification": "open-weight-local",
+      "runtimeModes": ["browser", "companion"],
+      "languageTags": ["en-US", "en-GB"],
+      "licenseIds": ["fixture-code-license", "fixture-weights-license"],
+      "sourceIds": ["fixture-browser-source"]
+    },
+    {
+      "id": "fixture-companion",
+      "displayName": "Fixture Companion Engine",
+      "classification": "open-weight-local",
+      "runtimeModes": ["companion"],
+      "languageTags": ["de-DE"],
+      "licenseIds": ["fixture-code-license", "fixture-weights-license"],
+      "sourceIds": ["fixture-companion-source"]
+    }
+  ],
+  "voices": [
+    {
+      "id": "fixture-online:voice-a",
+      "engineId": "fixture-online",
+      "upstreamId": "voice-a",
+      "displayName": "Fixture Online Voice",
+      "locale": "es-ES",
+      "gender": "unspecified",
+      "runtimeModes": ["online"],
+      "styleTags": [],
+      "licenseIds": ["fixture-voice-license"],
+      "sourceIds": ["fixture-online-source"]
+    },
+    {
+      "id": "fixture-gallery:voice-a",
+      "engineId": "fixture-gallery",
+      "upstreamId": "voice-a",
+      "displayName": "Fixture Listen-only Voice",
+      "locale": "fr-FR",
+      "gender": "unspecified",
+      "runtimeModes": ["sample-only"],
+      "styleTags": [],
+      "licenseIds": ["fixture-voice-license"],
+      "sourceIds": ["fixture-gallery-source"]
+    },
+    {
+      "id": "fixture-browser:voice-b",
+      "engineId": "fixture-browser",
+      "upstreamId": "voice-b",
+      "displayName": "Fixture Voice B",
+      "locale": "en-GB",
+      "gender": "neutral",
+      "runtimeModes": ["browser", "companion"],
+      "styleTags": [],
+      "licenseIds": ["fixture-voice-license"],
+      "sourceIds": ["fixture-browser-source"]
+    },
+    {
+      "id": "fixture-browser:voice-a",
+      "engineId": "fixture-browser",
+      "upstreamId": "voice-a",
+      "displayName": "Fixture Voice A",
+      "locale": "en-US",
+      "gender": "unspecified",
+      "runtimeModes": ["browser"],
+      "styleTags": ["neutral"],
+      "licenseIds": ["fixture-voice-license"],
+      "sourceIds": ["fixture-browser-source"]
+    },
+    {
+      "id": "fixture-companion:voice-a",
+      "engineId": "fixture-companion",
+      "upstreamId": "voice-a",
+      "displayName": "Fixture Companion Voice",
+      "locale": "de-DE",
+      "gender": "unspecified",
+      "runtimeModes": ["companion"],
+      "styleTags": [],
+      "licenseIds": ["fixture-voice-license"],
+      "sourceIds": ["fixture-companion-source"]
+    }
+  ],
+  "samples": [
+    {
+      "id": "fixture-gallery:sample-a",
+      "engineId": "fixture-gallery",
+      "voiceId": "fixture-gallery:voice-a",
+      "transcript": "A synthetic catalog fixture sample.",
+      "locale": "fr-FR",
+      "durationSeconds": 2.5,
+      "officialAudioUrl": "https://example.invalid/fixture-gallery/sample-a.wav",
+      "officialPageUrl": "https://example.invalid/fixture-gallery/demo",
+      "licenseId": "fixture-sample-license",
+      "sourceId": "fixture-gallery-source",
+      "verifiedAt": "2026-07-15T00:00:00.000Z"
+    }
+  ],
+  "licenses": [
+    {
+      "id": "fixture-voice-license",
+      "scope": "voice",
+      "name": "Fixture-only terms",
+      "exactUpstreamTerms": "Synthetic fixture data only; no production voice is represented.",
+      "evidenceUrl": "https://example.invalid/fixture-voices/license",
+      "attribution": "Fixture author",
+      "permitsRedistribution": false,
+      "permitsCommercialUse": false,
+      "reviewedAt": "2026-07-15T00:00:00.000Z",
+      "reviewStatus": "verified"
+    },
+    {
+      "id": "fixture-code-license",
+      "scope": "code",
+      "name": "MIT License",
+      "spdxId": "MIT",
+      "evidenceUrl": "https://opensource.org/license/mit",
+      "attribution": "Fixture author",
+      "permitsRedistribution": true,
+      "permitsCommercialUse": true,
+      "reviewedAt": "2026-07-15T00:00:00.000Z",
+      "reviewStatus": "verified"
+    },
+    {
+      "id": "fixture-weights-license",
+      "scope": "weights",
+      "name": "Fixture-only weights terms",
+      "exactUpstreamTerms": "Synthetic fixture metadata only; no production weights are represented.",
+      "evidenceUrl": "https://example.invalid/fixture-weights/license",
+      "attribution": "Fixture author",
+      "permitsRedistribution": false,
+      "permitsCommercialUse": false,
+      "reviewedAt": "2026-07-15T00:00:00.000Z",
+      "reviewStatus": "verified"
+    },
+    {
+      "id": "fixture-sample-license",
+      "scope": "sample",
+      "name": "Fixture-only terms",
+      "exactUpstreamTerms": "Synthetic fixture data only; no production asset is represented.",
+      "evidenceUrl": "https://example.invalid/fixture-gallery/license",
+      "attribution": "Fixture author",
+      "permitsRedistribution": false,
+      "permitsCommercialUse": false,
+      "reviewedAt": "2026-07-15T00:00:00.000Z",
+      "reviewStatus": "verified"
+    }
+  ],
+  "sources": [
+    {
+      "id": "fixture-online-source",
+      "canonicalUrl": "https://example.invalid/fixture-online",
+      "sourceClass": "official-documentation",
+      "upstreamRevision": "fixture-v1",
+      "retrievedAt": "2026-07-15T00:00:00.000Z",
+      "lastVerifiedAt": "2026-07-15T00:00:00.000Z",
+      "health": "healthy"
+    },
+    {
+      "id": "fixture-gallery-source",
+      "canonicalUrl": "https://example.invalid/fixture-gallery",
+      "sourceClass": "maintainer-demo",
+      "upstreamRevision": "fixture-v1",
+      "retrievedAt": "2026-07-15T00:00:00.000Z",
+      "lastVerifiedAt": "2026-07-15T00:00:00.000Z",
+      "health": "healthy"
+    },
+    {
+      "id": "fixture-browser-source",
+      "canonicalUrl": "https://example.invalid/fixture-browser",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "fixture-v1",
+      "retrievedAt": "2026-07-15T00:00:00.000Z",
+      "lastVerifiedAt": "2026-07-15T00:00:00.000Z",
+      "health": "healthy"
+    },
+    {
+      "id": "fixture-companion-source",
+      "canonicalUrl": "https://example.invalid/fixture-companion",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "fixture-v1",
+      "retrievedAt": "2026-07-15T00:00:00.000Z",
+      "lastVerifiedAt": "2026-07-15T00:00:00.000Z",
+      "health": "healthy"
+    }
+  ]
+}

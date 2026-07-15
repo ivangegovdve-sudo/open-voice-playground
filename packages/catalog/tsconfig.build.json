@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "types": ["node"],
+    "paths": {
+      "@open-voice/contracts": ["../contracts/dist/index.d.ts"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["test", "vitest.config.ts"]
+}
