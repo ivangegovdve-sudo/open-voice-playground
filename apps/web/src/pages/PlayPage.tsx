@@ -58,6 +58,13 @@ export function PlayPage() {
   const [output, setOutput] = useState<SynthesisOutput | null>(null);
   const operationSequence = useRef(0);
   const inFlightOperation = useRef<InFlightOperation | null>(null);
+  const selectedVoiceId = selectedVoice?.id;
+
+  useEffect(() => {
+    if (selectedVoiceId !== undefined) {
+      void recordRecent(selectedVoiceId);
+    }
+  }, [recordRecent, selectedVoiceId]);
 
   useEffect(() => {
     if (selectedVoice === undefined) {

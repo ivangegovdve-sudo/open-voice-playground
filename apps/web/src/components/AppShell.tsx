@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { MiniPlayer } from '../audio/MiniPlayer';
@@ -101,30 +102,33 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {navigationOpen ? (
-        <div
-          aria-label="Navigation"
-          aria-modal="true"
-          className="drawer drawer--navigation"
-          ref={navigationDrawer.dialogRef}
-          role="dialog"
-        >
-          <div className="drawer__header">
-            <strong>Navigate</strong>
-            <button
-              aria-label="Close navigation"
-              className="icon-button"
-              onClick={() => setNavigationOpen(false)}
-              type="button"
+      {navigationOpen
+        ? createPortal(
+            <div
+              aria-label="Navigation"
+              aria-modal="true"
+              className="drawer drawer--navigation"
+              ref={navigationDrawer.dialogRef}
+              role="dialog"
             >
-              <CloseIcon />
-            </button>
-          </div>
-          <nav aria-label="Mobile primary" className="mobile-nav">
-            <PrimaryLinks onNavigate={() => setNavigationOpen(false)} />
-          </nav>
-        </div>
-      ) : null}
+              <div className="drawer__header">
+                <strong>Navigate</strong>
+                <button
+                  aria-label="Close navigation"
+                  className="icon-button"
+                  onClick={() => setNavigationOpen(false)}
+                  type="button"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <nav aria-label="Mobile primary" className="mobile-nav">
+                <PrimaryLinks onNavigate={() => setNavigationOpen(false)} />
+              </nav>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <main id="main-content" tabIndex={-1}>
         {children}

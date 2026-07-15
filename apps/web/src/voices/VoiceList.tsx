@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type UIEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type UIEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { RUNTIME_LABELS } from '../catalog/catalog';
@@ -59,6 +59,35 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
             </span>
           ))}
         </div>
+
+        {runnable ? (
+          <div aria-label={`Evidence for ${voice.name}`} className="voice-row__evidence">
+            <span>Voice evidence</span>
+            <p>
+              License:{' '}
+              {voice.licenseIds.map((licenseId, index) => (
+                <span key={licenseId}>
+                  {index > 0 ? ', ' : null}
+                  <Link
+                    aria-label={`Voice license ${licenseId}`}
+                    to={`/about/sources#${licenseId}`}
+                  >
+                    {licenseId}
+                  </Link>
+                </span>
+              ))}
+              {' · '}Source:{' '}
+              {voice.sourceIds.map((sourceId, index) => (
+                <span key={sourceId}>
+                  {index > 0 ? ', ' : null}
+                  <Link aria-label={`Voice source ${sourceId}`} to={`/about/sources#${sourceId}`}>
+                    {sourceId}
+                  </Link>
+                </span>
+              ))}
+            </p>
+          </div>
+        ) : null}
 
         {voice.sample === null ? (
           <p className="voice-row__notice">
@@ -179,6 +208,7 @@ function MeasuredVoiceItem({
 
 export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
   const shouldVirtualize = voices.length > VIRTUALIZATION_THRESHOLD;
+  const resultSetKey = voices.map((voice) => voice.id).join('\u001f');
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(720);
@@ -189,6 +219,15 @@ export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
       Math.abs((current[voiceId] ?? 0) - height) < 1 ? current : { ...current, [voiceId]: height },
     );
   }, []);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (viewport !== null) {
+      viewport.scrollTop = 0;
+    }
+    setScrollTop(0);
+    setMeasuredHeights({});
+  }, [resultSetKey, shouldVirtualize]);
 
   useEffect(() => {
     if (

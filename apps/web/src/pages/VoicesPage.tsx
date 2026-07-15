@@ -1,4 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -113,35 +114,38 @@ export function VoicesPage() {
         </section>
       </div>
 
-      {filterDrawerOpen ? (
-        <div
-          aria-label="Voice filters"
-          aria-modal="true"
-          className="drawer drawer--filters"
-          ref={filterDrawer.dialogRef}
-          role="dialog"
-        >
-          <div className="drawer__header">
-            <strong>Voice filters</strong>
-            <button
-              aria-label="Close filters"
-              className="icon-button"
-              onClick={() => setFilterDrawerOpen(false)}
-              type="button"
+      {filterDrawerOpen
+        ? createPortal(
+            <div
+              aria-label="Voice filters"
+              aria-modal="true"
+              className="drawer drawer--filters"
+              ref={filterDrawer.dialogRef}
+              role="dialog"
             >
-              <CloseIcon />
-            </button>
-          </div>
-          <FilterPanel
-            catalog={catalog}
-            filters={filters}
-            idPrefix="mobile"
-            onClear={() => replaceFilters(EMPTY_FILTERS)}
-            onSort={(sort) => replaceFilters({ ...filters, sort })}
-            onToggle={toggleFilter}
-          />
-        </div>
-      ) : null}
+              <div className="drawer__header">
+                <strong>Voice filters</strong>
+                <button
+                  aria-label="Close filters"
+                  className="icon-button"
+                  onClick={() => setFilterDrawerOpen(false)}
+                  type="button"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <FilterPanel
+                catalog={catalog}
+                filters={filters}
+                idPrefix="mobile"
+                onClear={() => replaceFilters(EMPTY_FILTERS)}
+                onSort={(sort) => replaceFilters({ ...filters, sort })}
+                onToggle={toggleFilter}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

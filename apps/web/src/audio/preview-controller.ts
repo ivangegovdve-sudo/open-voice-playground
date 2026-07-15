@@ -38,9 +38,14 @@ export class PreviewController {
 
   private audio: AudioPort | null = null;
   private playVersion = 0;
+  private pauseRequested = false;
   private readonly listeners = new Set<() => void>();
 
   private readonly handlePlay: EventListener = () => {
+    if (this.pauseRequested) {
+      this.audio?.pause();
+      return;
+    }
     this.update({ status: 'playing', error: null });
   };
 
@@ -84,6 +89,7 @@ export class PreviewController {
   async play(track: PreviewTrack): Promise<void> {
     const playVersion = ++this.playVersion;
     this.releaseAudio();
+    this.pauseRequested = false;
     this.state = {
       status: 'loading',
       track,
@@ -114,10 +120,13 @@ export class PreviewController {
   }
 
   pause(): void {
-    this.audio?.pause();
-    if (this.audio !== null) {
-      this.update({ status: 'paused' });
+    if (this.audio === null) {
+      return;
     }
+    this.playVersion += 1;
+    this.pauseRequested = true;
+    this.audio.pause();
+    this.update({ status: 'paused' });
   }
 
   async resume(): Promise<void> {
@@ -126,6 +135,7 @@ export class PreviewController {
     }
     const audio = this.audio;
     const playVersion = this.playVersion;
+    this.pauseRequested = false;
     try {
       await audio.play();
       if (!this.isCurrentPlay(audio, playVersion)) {
@@ -153,6 +163,7 @@ export class PreviewController {
   stop(): void {
     this.playVersion += 1;
     this.releaseAudio();
+    this.pauseRequested = false;
     this.state = {
       status: 'idle',
       track: null,

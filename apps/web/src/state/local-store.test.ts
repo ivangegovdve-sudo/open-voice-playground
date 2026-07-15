@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { DB_VERSION, createLocalDataStore } from './local-store';
+import { DB_VERSION, createLocalDataStore, migrateLocalSnapshot } from './local-store';
 
 const databases: string[] = [];
 
@@ -8,6 +8,46 @@ function databaseName(): string {
   const name = `open-voice-test-${databases.length}`;
   databases.push(name);
   return name;
+}
+
+function openTestDatabase(name: string): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(name, DB_VERSION);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('state')) {
+        request.result.createObjectStore('state');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function writeRawState(name: string, key: string, value: unknown): Promise<void> {
+  const database = await openTestDatabase(name);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction('state', 'readwrite');
+      transaction.objectStore('state').put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function readRawState(name: string, key: string): Promise<unknown> {
+  const database = await openTestDatabase(name);
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = database.transaction('state').objectStore('state').get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    database.close();
+  }
 }
 
 afterEach(async () => {
@@ -24,6 +64,69 @@ afterEach(async () => {
 });
 
 describe('local data store', () => {
+  it('validates v1 snapshots and deterministically migrates known v0 data', () => {
+    const v0 = {
+      schemaVersion: 0,
+      favorites: ['fixture-browser:voice-a'],
+      recent: ['fixture-online:voice-a'],
+    };
+    expect(migrateLocalSnapshot(v0, 'indexeddb')).toEqual({
+      schemaVersion: DB_VERSION,
+      storage: 'indexeddb',
+      favorites: ['fixture-browser:voice-a'],
+      recent: ['fixture-online:voice-a'],
+      history: [],
+      modelCache: {},
+    });
+
+    const v1 = {
+      schemaVersion: DB_VERSION,
+      storage: 'memory',
+      favorites: ['fixture-browser:voice-b'],
+      recent: [],
+      history: [
+        {
+          id: 'known-history',
+          voiceId: 'fixture-browser:voice-b',
+          text: 'Known v1 data.',
+          createdAt: '2026-07-16T09:00:00.000Z',
+          outcome: 'complete',
+        },
+      ],
+      modelCache: { 'fixture-browser': 'cached' },
+    };
+    expect(migrateLocalSnapshot(v1, 'indexeddb')).toEqual({ ...v1, storage: 'indexeddb' });
+  });
+
+  it('quarantines a malformed snapshot and replaces it with clean validated state', async () => {
+    const dbName = databaseName();
+    const malformed = {
+      schemaVersion: DB_VERSION,
+      storage: 'indexeddb',
+      favorites: ['fixture-browser:voice-a', 42],
+      recent: [],
+      history: [],
+      modelCache: {},
+    };
+    await writeRawState(dbName, 'snapshot', malformed);
+
+    const snapshot = await createLocalDataStore({ dbName }).getSnapshot();
+
+    expect(snapshot).toEqual({
+      schemaVersion: DB_VERSION,
+      storage: 'indexeddb',
+      favorites: [],
+      recent: [],
+      history: [],
+      modelCache: {},
+    });
+    await expect(readRawState(dbName, 'snapshot:quarantine')).resolves.toEqual({
+      reason: 'invalid-local-snapshot',
+      value: malformed,
+    });
+    await expect(readRawState(dbName, 'snapshot')).resolves.toEqual(snapshot);
+  });
+
   it('persists versioned favorites and deduplicated recent presets', async () => {
     const dbName = databaseName();
     const first = createLocalDataStore({ dbName });

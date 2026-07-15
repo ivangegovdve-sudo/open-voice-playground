@@ -23,6 +23,14 @@ export function useModalDrawer(open: boolean, setOpen: Dispatch<SetStateAction<b
       return;
     }
 
+    const existingDialog = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'),
+    ).find((candidate) => candidate !== dialog);
+    if (existingDialog !== undefined) {
+      setOpen(false);
+      return;
+    }
+
     const previouslyFocused =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousBodyOverflow = document.body.style.overflow;
@@ -71,9 +79,29 @@ export function useModalDrawer(open: boolean, setOpen: Dispatch<SetStateAction<b
       }
     };
 
+    const blockBackgroundPointer = (event: Event) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    const containFocus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) {
+        event.stopPropagation();
+        focusableElements()[0]?.focus();
+      }
+    };
+
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('click', blockBackgroundPointer, true);
+    document.addEventListener('pointerdown', blockBackgroundPointer, true);
+    document.addEventListener('focusin', containFocus, true);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('click', blockBackgroundPointer, true);
+      document.removeEventListener('pointerdown', blockBackgroundPointer, true);
+      document.removeEventListener('focusin', containFocus, true);
       document.body.style.overflow = previousBodyOverflow;
       for (const [element, wasInert] of previousInertState) {
         if (!wasInert) {

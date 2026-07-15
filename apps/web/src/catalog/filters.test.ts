@@ -7,6 +7,7 @@ import {
   serializeFilterSearch,
   type CatalogVoice,
 } from './filters';
+import { seedCatalog } from './catalog';
 
 const voices: CatalogVoice[] = [
   {
@@ -94,5 +95,11 @@ describe('catalog filters', () => {
     expect(search).toContain('mode=browser');
     expect(search).toContain('mode=companion');
     expect(parseFilterSearch(search)).toEqual(filters);
+  });
+
+  it('filters fixture voices by the region published in their BCP47 locale', () => {
+    const result = filterVoices(seedCatalog.voices, { ...EMPTY_FILTERS, region: ['GB'] });
+
+    expect(result.map((voice) => voice.id)).toEqual(['fixture-browser:voice-b']);
   });
 });

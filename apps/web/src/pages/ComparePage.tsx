@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { RUNTIME_LABELS } from '../catalog/catalog';
+import type { CatalogVoice, RuntimeMode } from '../catalog/filters';
 import { DownloadIcon } from '../components/Icons';
 import {
   MAX_SYNTHESIS_CHARACTERS,
@@ -11,6 +12,10 @@ import {
 import { useAppServices, useLocalState } from '../state/AppState';
 
 const SLOT_LABELS = ['A', 'B', 'C'] as const;
+
+function defaultComparisonMode(voice: CatalogVoice): RuntimeMode {
+  return voice.runtimeModes.find((mode) => mode !== 'sample-only') ?? 'browser';
+}
 
 export function ComparePage() {
   const services = useAppServices();
@@ -25,6 +30,9 @@ export function ComparePage() {
     initialVoice !== null && runnableVoices.some((voice) => voice.id === initialVoice)
       ? [initialVoice]
       : [],
+  );
+  const [modesByVoiceId, setModesByVoiceId] = useState<Record<string, RuntimeMode>>(() =>
+    Object.fromEntries(runnableVoices.map((voice) => [voice.id, defaultComparisonMode(voice)])),
   );
   const [text, setText] = useState('The cartographer marked the quiet inlet at dawn.');
   const [status, setStatus] = useState(
@@ -57,7 +65,11 @@ export function ComparePage() {
     }
     const selected = selectedIds
       .map((id) => runnableVoices.find((voice) => voice.id === id))
-      .filter((voice) => voice !== undefined);
+      .filter((voice) => voice !== undefined)
+      .map((voice) => ({
+        voice,
+        mode: modesByVoiceId[voice.id] ?? defaultComparisonMode(voice),
+      }));
     setRunning(true);
     setResults([]);
     setStatus(`Running ${selected.length} preset${selected.length === 1 ? '' : 's'} sequentially…`);
@@ -67,7 +79,7 @@ export function ComparePage() {
       setStatus('Comparison finished. Unavailable runtimes stayed unavailable.');
       for (const result of next) {
         void recordHistory({
-          id: `${services.now().toISOString()}-${result.voiceId}`,
+          id: `${services.now().toISOString()}-${result.key}`,
           voiceId: result.voiceId,
           text,
           createdAt: services.now().toISOString(),
@@ -149,6 +161,7 @@ export function ComparePage() {
           <ul className="compare-choice-list">
             {runnableVoices.map((voice) => {
               const selected = selectedIds.includes(voice.id);
+              const selectedMode = modesByVoiceId[voice.id] ?? defaultComparisonMode(voice);
               return (
                 <li key={voice.id}>
                   <label>
@@ -167,6 +180,31 @@ export function ComparePage() {
                       </small>
                     </span>
                   </label>
+                  {voice.runtimeModes.length > 1 ? (
+                    <label className="compare-mode-choice">
+                      <span>Runtime for {voice.name}</span>
+                      <select
+                        aria-label={`Runtime for ${voice.name}`}
+                        disabled={running}
+                        onChange={(event) => {
+                          const nextMode = event.currentTarget.value as RuntimeMode;
+                          setModesByVoiceId((current) => ({
+                            ...current,
+                            [voice.id]: nextMode,
+                          }));
+                          setResults([]);
+                          setStatus('Runtime changed. Run the comparison again.');
+                        }}
+                        value={selectedMode}
+                      >
+                        {voice.runtimeModes.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {RUNTIME_LABELS[mode]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                 </li>
               );
             })}
@@ -178,12 +216,19 @@ export function ComparePage() {
         <div className="comparison-slots" aria-label="Comparison slots">
           {SLOT_LABELS.map((label, index) => {
             const voice = runnableVoices.find((candidate) => candidate.id === selectedIds[index]);
+            const selectedMode =
+              voice === undefined
+                ? undefined
+                : (modesByVoiceId[voice.id] ?? defaultComparisonMode(voice));
             const result =
-              voice === undefined ? undefined : results.find((item) => item.voiceId === voice.id);
+              voice === undefined || selectedMode === undefined
+                ? undefined
+                : results.find((item) => item.voiceId === voice.id && item.mode === selectedMode);
             return (
               <div className="comparison-slot" key={label}>
                 <span>{label}</span>
                 <strong>{voice?.name ?? 'Open slot'}</strong>
+                {selectedMode === undefined ? null : <em>{RUNTIME_LABELS[selectedMode]}</em>}
                 <small>
                   {result?.status ?? (voice === undefined ? 'Choose a preset' : 'Ready')}
                 </small>

@@ -67,28 +67,45 @@ export function AppStateProvider({
     };
   }, [services]);
 
+  const toggleFavorite = useCallback(
+    async (voiceId: string) => {
+      await services.store.toggleFavorite(voiceId);
+      await refresh();
+    },
+    [refresh, services],
+  );
+  const recordRecent = useCallback(
+    async (voiceId: string) => {
+      await services.store.recordRecent(voiceId);
+      await refresh();
+    },
+    [refresh, services],
+  );
+  const recordHistory = useCallback(
+    async (entry: HistoryEntry) => {
+      await services.store.recordHistory(entry);
+      await refresh();
+    },
+    [refresh, services],
+  );
+  const setModelCache = useCallback(
+    async (engineId: string, status: ModelCacheStatus) => {
+      await services.store.setModelCache(engineId, status);
+      await refresh();
+    },
+    [refresh, services],
+  );
+
   const localState = useMemo<LocalStateContextValue>(
     () => ({
       snapshot,
       loaded,
-      async toggleFavorite(voiceId) {
-        await services.store.toggleFavorite(voiceId);
-        await refresh();
-      },
-      async recordRecent(voiceId) {
-        await services.store.recordRecent(voiceId);
-        await refresh();
-      },
-      async recordHistory(entry) {
-        await services.store.recordHistory(entry);
-        await refresh();
-      },
-      async setModelCache(engineId, status) {
-        await services.store.setModelCache(engineId, status);
-        await refresh();
-      },
+      toggleFavorite,
+      recordRecent,
+      recordHistory,
+      setModelCache,
     }),
-    [loaded, refresh, services, snapshot],
+    [loaded, recordHistory, recordRecent, setModelCache, snapshot, toggleFavorite],
   );
 
   return (

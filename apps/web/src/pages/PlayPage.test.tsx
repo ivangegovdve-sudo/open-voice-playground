@@ -77,6 +77,29 @@ function renderPlay(services: AppServices) {
 }
 
 describe('play workbench with an available adapter', () => {
+  it('records a preset as recent when Play opens it and when the selection changes', async () => {
+    const user = userEvent.setup();
+    const services = servicesFor(runtimeAdapter());
+    renderPlay(services);
+
+    await waitFor(async () => {
+      await expect(services.store.getSnapshot()).resolves.toMatchObject({
+        recent: ['fixture-browser:voice-a'],
+      });
+    });
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Voice preset' }),
+      'fixture-browser:voice-b',
+    );
+
+    await waitFor(async () => {
+      await expect(services.store.getSnapshot()).resolves.toMatchObject({
+        recent: ['fixture-browser:voice-b', 'fixture-browser:voice-a'],
+      });
+    });
+  });
+
   it('shows readiness, engine controls, progress, WAV output, and completed local history', async () => {
     const user = userEvent.setup();
     const services = servicesFor(runtimeAdapter());

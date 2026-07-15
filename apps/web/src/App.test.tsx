@@ -4,6 +4,8 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { AppView } from './App';
+import { createDefaultServices } from './app-services';
+import { PreviewController, type AudioPort } from './audio/preview-controller';
 
 function LocationProbe() {
   const location = useLocation();
@@ -15,6 +17,42 @@ function renderRoute(route: string) {
     <MemoryRouter initialEntries={[route]}>
       <AppView />
       <LocationProbe />
+    </MemoryRouter>,
+  );
+}
+
+async function renderRouteWithPlayingPreview(route: string) {
+  let paused = true;
+  const audio: AudioPort = {
+    src: 'https://example.invalid/sample.wav',
+    currentTime: 0,
+    duration: 4,
+    get paused() {
+      return paused;
+    },
+    async play() {
+      paused = false;
+    },
+    pause() {
+      paused = true;
+    },
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const preview = new PreviewController(() => audio);
+  await preview.play({
+    id: 'modal-preview',
+    title: 'Modal preview',
+    audioUrl: audio.src,
+    transcript: 'Modal isolation transcript.',
+    sourceId: 'fixture-gallery-source',
+    licenseId: 'fixture-sample-license',
+  });
+  const services = { ...createDefaultServices(), preview };
+
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <AppView services={services} />
     </MemoryRouter>,
   );
 }
@@ -44,8 +82,10 @@ describe('application routes', () => {
     expect(button).toHaveAttribute('aria-expanded', 'true');
     const dialog = screen.getByRole('dialog', { name: 'Navigation' });
     const closeButton = within(dialog).getByRole('button', { name: 'Close navigation' });
+    const appRoot = document.querySelector('.app-shell')?.parentElement;
     expect(closeButton).toHaveFocus();
-    expect(document.querySelector('main')).toHaveAttribute('inert');
+    expect(appRoot).toHaveAttribute('inert');
+    expect(document.querySelector('main')?.closest('[inert]')).toBe(appRoot);
 
     await user.tab({ shift: true });
     expect(within(dialog).getByRole('link', { name: 'Sources' })).toHaveFocus();
@@ -55,7 +95,7 @@ describe('application routes', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
     expect(button).toHaveFocus();
-    expect(document.querySelector('main')).not.toHaveAttribute('inert');
+    expect(appRoot).not.toHaveAttribute('inert');
   });
 });
 
@@ -105,6 +145,41 @@ describe('voice explorer', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Voice filters' })).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it('isolates the whole app behind the filter drawer and blocks nested pointer interaction', async () => {
+    const user = userEvent.setup();
+    await renderRouteWithPlayingPreview('/voices');
+
+    const trigger = screen.getByRole('button', { name: 'Open filters' });
+    const navigationTrigger = screen.getByRole('button', { name: 'Open navigation' });
+    const themeButton = screen.getByRole('button', { name: 'Theme: System' });
+    const player = screen.getByRole('complementary', { name: 'Audio player' });
+    await user.click(trigger);
+
+    const dialog = screen.getByRole('dialog', { name: 'Voice filters' });
+    const appRoot = document.querySelector('.app-shell')?.parentElement;
+    expect(appRoot).toHaveAttribute('inert');
+    expect(themeButton.closest('[inert]')).toBe(appRoot);
+    expect(player.closest('[inert]')).toBe(appRoot);
+    expect(dialog.closest('[inert]')).toBeNull();
+
+    fireEvent.click(navigationTrigger);
+    expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
+    expect(navigationTrigger).toHaveAttribute('aria-expanded', 'false');
+
+    themeButton.focus();
+    fireEvent.focusIn(themeButton);
+    expect(within(dialog).getByRole('button', { name: 'Close filters' })).toHaveFocus();
+
+    const browserMode = within(dialog).getByRole('checkbox', { name: 'Runs in browser' });
+    await user.click(browserMode);
+    expect(browserMode).toBeChecked();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Voice filters' })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(appRoot).not.toHaveAttribute('inert');
   });
 });
 

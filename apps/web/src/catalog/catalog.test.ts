@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { RUNTIME_LABELS, seedCatalog } from './catalog';
+import { RUNTIME_LABELS, deriveRegionFromLocale, seedCatalog } from './catalog';
 
 describe('seed catalog adapter', () => {
   it('maps every validated fixture voice without changing its runtime mode', () => {
@@ -35,5 +35,13 @@ describe('seed catalog adapter', () => {
     expect(seedCatalog.sources.get('fixture-browser-source')?.url).toBe(
       'https://example.invalid/fixture-browser',
     );
+  });
+
+  it('derives only source-published BCP47 regions with a safe unspecified fallback', () => {
+    expect(deriveRegionFromLocale('zh-Hant-TW')).toBe('TW');
+    expect(deriveRegionFromLocale('en-US-u-ca-gregory')).toBe('US');
+    expect(deriveRegionFromLocale('en')).toBe('Unspecified');
+    expect(deriveRegionFromLocale('not_a_locale')).toBe('Unspecified');
+    expect(seedCatalog.voices.find((voice) => voice.locale === 'en-GB')?.region).toBe('GB');
   });
 });

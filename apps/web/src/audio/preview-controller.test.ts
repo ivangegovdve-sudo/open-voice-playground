@@ -250,6 +250,40 @@ describe('preview controller', () => {
     });
   });
 
+  it('stays intentionally paused when a pending play resolves after pause', async () => {
+    const audio = new DeferredAudio(firstTrack.audioUrl);
+    const controller = new PreviewController(() => audio);
+
+    const pendingPlay = controller.play(firstTrack);
+    controller.pause();
+    audio.resolve();
+    await pendingPlay;
+
+    expect(audio.paused).toBe(true);
+    expect(controller.getState()).toMatchObject({
+      status: 'paused',
+      track: firstTrack,
+      error: null,
+    });
+  });
+
+  it('stays intentionally paused when a pending play rejects after pause', async () => {
+    const audio = new DeferredAudio(firstTrack.audioUrl);
+    const controller = new PreviewController(() => audio);
+
+    const pendingPlay = controller.play(firstTrack);
+    controller.pause();
+    audio.reject();
+    await pendingPlay;
+
+    expect(audio.paused).toBe(true);
+    expect(controller.getState()).toMatchObject({
+      status: 'paused',
+      track: firstTrack,
+      error: null,
+    });
+  });
+
   it('ignores a pending resume resolution after a newer preview starts', async () => {
     const firstAudio = new DeferredResumeAudio(firstTrack.audioUrl);
     const secondAudio = new DeferredAudio(secondTrack.audioUrl);
@@ -290,6 +324,44 @@ describe('preview controller', () => {
       track: null,
       currentTime: 0,
       duration: 0,
+      error: null,
+    });
+  });
+
+  it('stays intentionally paused when a pending resume resolves after pause', async () => {
+    const audio = new DeferredResumeAudio(firstTrack.audioUrl);
+    const controller = new PreviewController(() => audio);
+    await controller.play(firstTrack);
+    controller.pause();
+
+    const pendingResume = controller.resume();
+    controller.pause();
+    audio.resolve();
+    await pendingResume;
+
+    expect(audio.paused).toBe(true);
+    expect(controller.getState()).toMatchObject({
+      status: 'paused',
+      track: firstTrack,
+      error: null,
+    });
+  });
+
+  it('stays intentionally paused when a pending resume rejects after pause', async () => {
+    const audio = new DeferredResumeAudio(firstTrack.audioUrl);
+    const controller = new PreviewController(() => audio);
+    await controller.play(firstTrack);
+    controller.pause();
+
+    const pendingResume = controller.resume();
+    controller.pause();
+    audio.reject();
+    await pendingResume;
+
+    expect(audio.paused).toBe(true);
+    expect(controller.getState()).toMatchObject({
+      status: 'paused',
+      track: firstTrack,
       error: null,
     });
   });

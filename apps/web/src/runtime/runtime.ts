@@ -1,3 +1,4 @@
+import { RUNTIME_LABELS } from '../catalog/catalog';
 import type { CatalogVoice, RuntimeMode } from '../catalog/filters';
 
 export const MAX_SYNTHESIS_CHARACTERS = 2000;
@@ -110,30 +111,54 @@ export function validateSynthesisText(text: string): TextValidation {
 }
 
 export type ComparisonResult = {
+  key: string;
   voiceId: string;
+  mode: RuntimeMode;
   status: 'complete' | 'unavailable' | 'cancelled' | 'error';
   output: SynthesisOutput | null;
   message: string | null;
 };
 
+export type ComparisonSelection = {
+  voice: CatalogVoice;
+  mode: RuntimeMode;
+};
+
+function comparisonKey(voiceId: string, mode: RuntimeMode): string {
+  return `${voiceId}:${mode}`;
+}
+
 export async function runSequentialComparison(
-  voices: readonly CatalogVoice[],
+  selections: readonly ComparisonSelection[],
   text: string,
   registry: RuntimeRegistry,
 ): Promise<ComparisonResult[]> {
-  if (voices.length > 3) {
+  if (selections.length > 3) {
     throw new Error('Choose no more than three presets.');
   }
-  if (voices.some((voice) => voice.runtimeModes.includes('sample-only'))) {
+  if (
+    selections.some(
+      ({ voice, mode }) => mode === 'sample-only' || voice.runtimeModes.includes('sample-only'),
+    )
+  ) {
     throw new Error('Sample-only presets cannot enter generation comparison.');
+  }
+  const invalidSelection = selections.find(({ voice, mode }) => !voice.runtimeModes.includes(mode));
+  if (invalidSelection !== undefined) {
+    throw new Error(
+      `${invalidSelection.voice.name} does not declare the ${RUNTIME_LABELS[invalidSelection.mode]} runtime.`,
+    );
   }
 
   const results: ComparisonResult[] = [];
-  for (const voice of voices) {
+  for (const { voice, mode } of selections) {
+    const key = comparisonKey(voice.id, mode);
     const adapter = registry.get(voice.engineId);
     if (adapter === null) {
       results.push({
+        key,
         voiceId: voice.id,
+        mode,
         status: 'unavailable',
         output: null,
         message: `No runtime adapter is registered for ${voice.engineName}.`,
@@ -142,11 +167,17 @@ export async function runSequentialComparison(
     }
 
     try {
-      const mode = voice.runtimeModes[0] ?? 'browser';
       const capability = await adapter.checkCapability(voice, mode);
+      if (capability.mode !== mode) {
+        throw new Error(
+          `Runtime adapter returned ${RUNTIME_LABELS[capability.mode]} for a ${RUNTIME_LABELS[mode]} request.`,
+        );
+      }
       if (!capability.available) {
         results.push({
+          key,
           voiceId: voice.id,
+          mode,
           status: 'unavailable',
           output: null,
           message: capability.reason,
@@ -154,13 +185,18 @@ export async function runSequentialComparison(
         continue;
       }
 
-      const request: SynthesisRequest = { voice, mode, text, controls: {} };
+      const controls = Object.fromEntries(
+        capability.controls.map((control) => [control.id, control.defaultValue]),
+      );
+      const request: SynthesisRequest = { voice, mode, text, controls };
       await adapter.prepare(request);
       const output = await adapter.synthesize(request, {});
-      results.push({ voiceId: voice.id, status: 'complete', output, message: null });
+      results.push({ key, voiceId: voice.id, mode, status: 'complete', output, message: null });
     } catch (error) {
       results.push({
+        key,
         voiceId: voice.id,
+        mode,
         status: 'error',
         output: null,
         message: error instanceof Error ? error.message : 'Generation failed.',

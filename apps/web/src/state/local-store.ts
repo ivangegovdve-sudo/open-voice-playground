@@ -3,6 +3,7 @@ export const DB_VERSION = 1;
 const DEFAULT_DATABASE_NAME = 'open-voice-playground';
 const STATE_STORE = 'state';
 const SNAPSHOT_KEY = 'snapshot';
+const QUARANTINE_KEY = 'snapshot:quarantine';
 const RECENT_LIMIT = 12;
 const HISTORY_LIMIT = 50;
 
@@ -54,6 +55,95 @@ function cloneSnapshot(snapshot: LocalSnapshot): LocalSnapshot {
   return structuredClone(snapshot);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isHistoryEntry(value: unknown): value is HistoryEntry {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.id === 'string' &&
+    typeof value.voiceId === 'string' &&
+    typeof value.text === 'string' &&
+    typeof value.createdAt === 'string' &&
+    (value.outcome === 'complete' ||
+      value.outcome === 'cancelled' ||
+      value.outcome === 'unavailable' ||
+      value.outcome === 'error')
+  );
+}
+
+function isHistory(value: unknown): value is HistoryEntry[] {
+  return Array.isArray(value) && value.every(isHistoryEntry);
+}
+
+function isModelCache(value: unknown): value is Record<string, ModelCacheStatus> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every(
+      (status) => status === 'not-cached' || status === 'checking' || status === 'cached',
+    )
+  );
+}
+
+export function migrateLocalSnapshot(
+  value: unknown,
+  storage: LocalSnapshot['storage'],
+): LocalSnapshot | null {
+  try {
+    if (!isRecord(value)) {
+      return null;
+    }
+
+    if (value.schemaVersion === 0) {
+      if (!isStringArray(value.favorites) || !isStringArray(value.recent)) {
+        return null;
+      }
+      const history = value.history === undefined ? [] : value.history;
+      const modelCache = value.modelCache === undefined ? {} : value.modelCache;
+      if (!isHistory(history) || !isModelCache(modelCache)) {
+        return null;
+      }
+      return {
+        schemaVersion: DB_VERSION,
+        storage,
+        favorites: [...value.favorites],
+        recent: [...value.recent].slice(0, RECENT_LIMIT),
+        history: [...history].slice(0, HISTORY_LIMIT),
+        modelCache: { ...modelCache },
+      };
+    }
+
+    if (
+      value.schemaVersion !== DB_VERSION ||
+      (value.storage !== 'indexeddb' && value.storage !== 'memory') ||
+      !isStringArray(value.favorites) ||
+      !isStringArray(value.recent) ||
+      !isHistory(value.history) ||
+      !isModelCache(value.modelCache)
+    ) {
+      return null;
+    }
+
+    return {
+      schemaVersion: DB_VERSION,
+      storage,
+      favorites: [...value.favorites],
+      recent: [...value.recent].slice(0, RECENT_LIMIT),
+      history: [...value.history].slice(0, HISTORY_LIMIT),
+      modelCache: { ...value.modelCache },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function openDatabase(factory: IDBFactory, name: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(name, DB_VERSION);
@@ -72,12 +162,32 @@ async function readIndexedDb(factory: IDBFactory, name: string): Promise<LocalSn
   const database = await openDatabase(factory, name);
   try {
     return await new Promise((resolve, reject) => {
-      const request = database.transaction(STATE_STORE).objectStore(STATE_STORE).get(SNAPSHOT_KEY);
+      const transaction = database.transaction(STATE_STORE, 'readwrite');
+      const objectStore = transaction.objectStore(STATE_STORE);
+      const request = objectStore.get(SNAPSHOT_KEY);
+      let snapshot = emptySnapshot('indexeddb');
       request.onsuccess = () => {
-        const value = request.result as LocalSnapshot | undefined;
-        resolve(value?.schemaVersion === DB_VERSION ? value : emptySnapshot('indexeddb'));
+        const value: unknown = request.result;
+        if (value === undefined) {
+          return;
+        }
+        const migrated = migrateLocalSnapshot(value, 'indexeddb');
+        if (migrated === null) {
+          objectStore.put({ reason: 'invalid-local-snapshot', value }, QUARANTINE_KEY);
+          objectStore.put(snapshot, SNAPSHOT_KEY);
+          return;
+        }
+        snapshot = migrated;
+        if (isRecord(value) && value.schemaVersion === 0) {
+          objectStore.put(snapshot, SNAPSHOT_KEY);
+        }
       };
       request.onerror = () => reject(request.error ?? new Error('Local state could not be read'));
+      transaction.oncomplete = () => resolve(snapshot);
+      transaction.onerror = () =>
+        reject(transaction.error ?? new Error('Local state could not be read'));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error('Local state read was aborted'));
     });
   } finally {
     database.close();

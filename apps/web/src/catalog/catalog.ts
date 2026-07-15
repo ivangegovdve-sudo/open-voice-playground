@@ -54,6 +54,14 @@ function languageName(locale: string): string {
   return languageNames.of(language) ?? language;
 }
 
+export function deriveRegionFromLocale(locale: string): string {
+  try {
+    return new Intl.Locale(locale).region ?? 'Unspecified';
+  } catch {
+    return 'Unspecified';
+  }
+}
+
 const samplesByVoice = new Map(
   fixture.samples.map((sample) => [
     sample.voiceId,
@@ -82,7 +90,7 @@ export const seedCatalog: SeedCatalog = {
       engineName: engine.displayName,
       locale: voice.locale,
       language: languageName(voice.locale),
-      region: 'Unspecified',
+      region: deriveRegionFromLocale(voice.locale),
       gender: voice.gender,
       styles: [...voice.styleTags],
       licenseIds: [...voice.licenseIds],
