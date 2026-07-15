@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T19:05:59.486Z",
+  "sources": [
+    {
+      "id": "browserai-source",
+      "canonicalUrl": "https://github.com/sauravpanda/BrowserAI",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7da5f50f7dbc00131399ea66e93fda0601e01a67",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "chatterbox-source",
+      "canonicalUrl": "https://github.com/resemble-ai/chatterbox",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "65b18437192794391a0308a8f705b1e33e633948",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "faster-whisper-source",
+      "canonicalUrl": "https://github.com/SYSTRAN/faster-whisper",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "ed9a06cd89a93e47838f564998a6c09b655d7f43",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "kokoro-source",
+      "canonicalUrl": "https://github.com/hexgrad/kokoro",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "dfb907a02bba8152ca444717ca5d78747ccb4bec",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pocket-tts-server-source",
+      "canonicalUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "0327291dc88e922521a84b7ccf86b3e31423d03e",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pocket-tts-source",
+      "canonicalUrl": "https://github.com/kyutai-labs/pocket-tts",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "9514983efd6411aa39ddf862391d16c38a062de7",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pyannote-audio-source",
+      "canonicalUrl": "https://github.com/pyannote/pyannote-audio",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "rvc-webui-source",
+      "canonicalUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7ef19867780cf703841ebafb565a4e47d1ea86ff",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "vibevoice-source",
+      "canonicalUrl": "https://github.com/microsoft/VibeVoice",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "303b2833e01cff4578ec278bbfe536da54bd19fe",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voice-agent-bootstrap-source",
+      "canonicalUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "521a916b0e6910feea65493b10b8e057d5fceaba",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voice-pro-source",
+      "canonicalUrl": "https://github.com/abus-aikorea/voice-pro",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7231384f797091dc0d6d0470360fc6fcc2095d0c",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voxcpm-source",
+      "canonicalUrl": "https://github.com/OpenBMB/VoxCPM",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "616d3d3e630a9c96c2853250eef91b0f39dcd5fa",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "whisper-cpp-source",
+      "canonicalUrl": "https://github.com/ggml-org/whisper.cpp",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "080bbbe85230f624f0b52127f1ae1218247989f9",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "whisper-source",
+      "canonicalUrl": "https://github.com/openai/whisper",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "04f449b8a437f1bbd3dba5c9f826aca972e7709a",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "zonos2-source",
+      "canonicalUrl": "https://github.com/Zyphra/ZONOS2",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "194c0a3ab67b90383a67646289f28d4ecb1c1f64",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    }
+  ]
+}

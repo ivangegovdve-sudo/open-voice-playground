@@ -1,0 +1,579 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-15T19:05:59.486Z",
+  "inventorySummary": {
+    "accessibleRepositories": 674,
+    "publicRepositories": 640,
+    "privateRepositories": 34,
+    "classifiedRepositories": 674,
+    "indexLookupStatus": "confirmed-absent",
+    "indexMdMatches": 0
+  },
+  "classificationSummary": {
+    "tts": 15,
+    "voice-conversion": 1,
+    "stt": 8,
+    "voice-agent-infrastructure": 5,
+    "unrelated-false-positive": 611,
+    "needs-review": 34
+  },
+  "approvedPublicSources": [
+    {
+      "id": "browserai-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/BrowserAI",
+      "canonicalUrl": "https://github.com/sauravpanda/BrowserAI",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "voice-agent-infrastructure",
+      "relevance": "BrowserAI documents local browser inference with WebGPU and a Kokoro-powered text-to-speech demo.",
+      "runtimeModes": ["browser"],
+      "reuseDecision": "candidate-engine",
+      "licenseRisk": "medium",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Integrated model terms require independent review",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Integrated voice rights require independent review",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/sauravpanda/BrowserAI/commit/7da5f50f7dbc00131399ea66e93fda0601e01a67",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7da5f50f7dbc00131399ea66e93fda0601e01a67",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "chatterbox-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/chatterbox",
+      "canonicalUrl": "https://github.com/resemble-ai/chatterbox",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "Chatterbox is an upstream open-source text-to-speech implementation with multilingual generation and cloning-oriented workflows.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox/blob/master/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Model-card terms require independent review",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Reference-voice rights require independent review",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/resemble-ai/chatterbox/commit/65b18437192794391a0308a8f705b1e33e633948",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "65b18437192794391a0308a8f705b1e33e633948",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "faster-whisper-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/faster-whisper",
+      "canonicalUrl": "https://github.com/SYSTRAN/faster-whisper",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "stt",
+      "relevance": "faster-whisper provides local Whisper transcription through CTranslate2 with CPU and GPU execution paths.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "medium",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Downloaded model weight terms require independent review",
+          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/SYSTRAN/faster-whisper/commit/ed9a06cd89a93e47838f564998a6c09b655d7f43",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "ed9a06cd89a93e47838f564998a6c09b655d7f43",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "kokoro-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/kokoro",
+      "canonicalUrl": "https://github.com/hexgrad/kokoro",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "Kokoro is a compact open-weight text-to-speech project suitable for local companion evaluation.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "candidate-engine",
+      "licenseRisk": "medium",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "Apache License 2.0",
+          "spdxId": "Apache-2.0",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Linked model-card terms require independent review",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Voice preset rights require independent review",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/hexgrad/kokoro/commit/dfb907a02bba8152ca444717ca5d78747ccb4bec",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "dfb907a02bba8152ca444717ca5d78747ccb4bec",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pocket-tts-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/pocket-tts",
+      "canonicalUrl": "https://github.com/kyutai-labs/pocket-tts",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "Pocket TTS targets efficient CPU synthesis and documents both browser implementations and local Python use.",
+      "runtimeModes": ["browser", "companion"],
+      "reuseDecision": "candidate-engine",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Linked model-card terms require independent review",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Bundled and reference-voice rights require independent review",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/kyutai-labs/pocket-tts/commit/9514983efd6411aa39ddf862391d16c38a062de7",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "9514983efd6411aa39ddf862391d16c38a062de7",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pocket-tts-server-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/pocket-tts-openai_streaming_server",
+      "canonicalUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "This upstream provides a local OpenAI-compatible streaming server and web UI for Pocket TTS.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Pocket TTS model terms require independent review",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Custom and cloned voice rights require independent review",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/commit/0327291dc88e922521a84b7ccf86b3e31423d03e",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "0327291dc88e922521a84b7ccf86b3e31423d03e",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "pyannote-audio-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/pyannote-audio",
+      "canonicalUrl": "https://github.com/pyannote/pyannote-audio",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "voice-agent-infrastructure",
+      "relevance": "pyannote.audio supplies local speaker diarization building blocks and documents optional hosted diarization services.",
+      "runtimeModes": ["companion", "online"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Pretrained pipeline access conditions require independent review",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Speaker data and derived embedding rights require independent review",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/pyannote/pyannote-audio/commit/b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "b749285c5cdd4636b2edc7f766f1352c8dde9369",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "rvc-webui-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/Retrieval-based-Voice-Conversion-WebUI",
+      "canonicalUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "voice-conversion",
+      "relevance": "RVC WebUI is a public upstream reference for retrieval-based voice conversion and is excluded from direct engine reuse.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Linked model asset terms require independent review",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Training and converted-voice rights require independent review",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/commit/7ef19867780cf703841ebafb565a4e47d1ea86ff",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7ef19867780cf703841ebafb565a4e47d1ea86ff",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "vibevoice-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/VibeVoice",
+      "canonicalUrl": "https://github.com/microsoft/VibeVoice",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "VibeVoice publishes upstream long-form and real-time text-to-speech implementations for research evaluation.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Linked model-card terms and usage guidance require independent review",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Speaker and generated-voice rights require independent review",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/microsoft/VibeVoice/commit/303b2833e01cff4578ec278bbfe536da54bd19fe",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "303b2833e01cff4578ec278bbfe536da54bd19fe",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voice-agent-bootstrap-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/ai-voice-agent-bootstrap",
+      "canonicalUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "voice-agent-infrastructure",
+      "relevance": "The bootstrap demonstrates browser microphone handling and short-lived sessions for an external real-time voice service.",
+      "runtimeModes": ["online"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "medium",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap/commit/521a916b0e6910feea65493b10b8e057d5fceaba",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "521a916b0e6910feea65493b10b8e057d5fceaba",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voice-pro-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/voice-pro",
+      "canonicalUrl": "https://github.com/abus-aikorea/voice-pro",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "Voice-Pro is a companion WebUI that combines multiple TTS, transcription, conversion, and cloning engines.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "Repository license metadata requires reconciliation",
+          "spdxId": "GPL-3.0",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro/blob/main/LICENSE",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "weights",
+          "name": "Bundled engine and model terms require independent review",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro#readme",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Cloning and converted-voice rights require independent review",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/abus-aikorea/voice-pro/commit/7231384f797091dc0d6d0470360fc6fcc2095d0c",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "7231384f797091dc0d6d0470360fc6fcc2095d0c",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "voxcpm-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/VoxCPM",
+      "canonicalUrl": "https://github.com/OpenBMB/VoxCPM",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "VoxCPM publishes multilingual streaming text-to-speech code and weights with explicit upstream license evidence.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "Apache License 2.0",
+          "spdxId": "Apache-2.0",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Apache License 2.0",
+          "spdxId": "Apache-2.0",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM#license",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "voice",
+          "name": "Voice design and cloning rights require independent review",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/OpenBMB/VoxCPM/commit/616d3d3e630a9c96c2853250eef91b0f39dcd5fa",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "616d3d3e630a9c96c2853250eef91b0f39dcd5fa",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "whisper-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/whisper",
+      "canonicalUrl": "https://github.com/openai/whisper",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "stt",
+      "relevance": "Whisper is the official upstream speech-recognition implementation and model source used by several audited derivatives.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "low",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/openai/whisper/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/openai/whisper#license",
+          "reviewStatus": "verified"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/openai/whisper/commit/04f449b8a437f1bbd3dba5c9f826aca972e7709a",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "04f449b8a437f1bbd3dba5c9f826aca972e7709a",
+      "retrievedAt": "2026-07-15T19:05:59.486Z",
+      "lastVerifiedAt": "2026-07-15T19:05:59.486Z",
+      "health": "healthy"
+    },
+    {
+      "id": "whisper-cpp-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/whisper.cpp",
+      "canonicalUrl": "https://github.com/ggml-org/whisper.cpp",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "stt",
+      "relevance": "whisper.cpp is a portable speech-to-text implementation with CPU, GPU, and browser/WASM integration paths.",
+      "runtimeModes": ["browser", "companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "medium",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Whisper model weight terms require independent review",
+          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/ggml-org/whisper.cpp/commit/080bbbe85230f624f0b52127f1ae1218247989f9",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "080bbbe85230f624f0b52127f1ae1218247989f9",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    },
+    {
+      "id": "zonos2-source",
+      "ownerRepositoryUrl": "https://github.com/ivangegovdve-sudo/ZONOS2",
+      "canonicalUrl": "https://github.com/Zyphra/ZONOS2",
+      "visibility": "public",
+      "approvalStatus": "approved-public",
+      "category": "tts",
+      "relevance": "ZONOS2 is an open-weight multilingual text-to-speech implementation with local GPU serving and a separate CPU port.",
+      "runtimeModes": ["companion"],
+      "reuseDecision": "reference-only",
+      "licenseRisk": "high",
+      "licenseDecisions": [
+        {
+          "scope": "code",
+          "name": "MIT License",
+          "spdxId": "MIT",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2/blob/main/LICENSE",
+          "reviewStatus": "verified"
+        },
+        {
+          "scope": "weights",
+          "name": "Repository-level terms and third-party notices require independent scope review",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2#license",
+          "reviewStatus": "needs-review"
+        },
+        {
+          "scope": "voice",
+          "name": "Reference-voice rights require independent review",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2#readme",
+          "reviewStatus": "needs-review"
+        }
+      ],
+      "provenanceEvidenceUrl": "https://github.com/Zyphra/ZONOS2/commit/194c0a3ab67b90383a67646289f28d4ecb1c1f64",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "194c0a3ab67b90383a67646289f28d4ecb1c1f64",
+      "retrievedAt": "2026-07-15T19:02:20.880Z",
+      "lastVerifiedAt": "2026-07-15T19:02:20.880Z",
+      "health": "healthy"
+    }
+  ]
+}

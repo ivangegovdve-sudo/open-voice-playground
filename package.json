@@ -19,6 +19,7 @@
     "typecheck:solution": "tsc -b --force --pretty false",
     "lint": "eslint . --max-warnings=0",
     "catalog:validate": "npm run validate --workspace @open-voice/catalog",
+    "catalog:audit:import": "npm run audit:import --workspace @open-voice/catalog --",
     "audit": "npm audit --audit-level=high",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

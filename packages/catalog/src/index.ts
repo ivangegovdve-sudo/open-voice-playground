@@ -11,6 +11,18 @@ import {
 } from '@open-voice/contracts';
 import { z } from 'zod';
 
+export {
+  AUDIT_CATEGORIES,
+  PublicAuditValidationError,
+  PublicRepositoryAuditSchema,
+  buildSourceRecordCatalogFromAudit,
+  importSourceRecordsFromAudit,
+  loadPublicRepositoryAudit,
+  validatePublicRepositoryAudit,
+  type PublicRepositoryAudit,
+  type SourceRecordCatalog,
+} from './audit.js';
+
 export const CatalogManifestSchema = z
   .object({
     schemaVersion: z.literal(1),

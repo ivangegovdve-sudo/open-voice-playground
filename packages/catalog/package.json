@@ -16,6 +16,7 @@
     "fixtures"
   ],
   "scripts": {
+    "audit:import": "tsx ./src/audit-cli.ts",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
