@@ -46,12 +46,16 @@ async function readCachedShell(page: Page): Promise<string> {
   });
 }
 
-function extractShellIdentity(shell: string): string {
-  const identity = shell.match(/<meta name="open-voice-shell" content="([a-f0-9]{12})">/)?.[1];
-  if (identity === undefined) {
-    throw new Error('The trusted shell has no build identity.');
-  }
-  return identity;
+async function readShellCacheVersion(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const prefix = 'open-voice-shell-';
+    const cacheName = (await window.caches.keys()).find((name) => name.startsWith(prefix));
+    const version = cacheName?.slice(prefix.length);
+    if (version === undefined || !/^[a-f0-9]{12}$/.test(version)) {
+      throw new Error('The versioned application shell cache is missing.');
+    }
+    return version;
+  });
 }
 
 async function waitForInstallingWorkerTerminalState(page: Page): Promise<string> {
@@ -85,10 +89,7 @@ async function waitForInstallingWorkerTerminalState(page: Page): Promise<string>
   });
 }
 
-test('first install rejects an HTML shell without the exact build identity', async ({
-  context,
-  page,
-}) => {
+test('first install rejects HTML that is not the exact built shell', async ({ context, page }) => {
   await context.addCookies([
     {
       name: 'open_voice_install_fixture',
@@ -209,14 +210,50 @@ test('non-app routes cannot refresh the cached application shell', async ({ page
 test('an allowlisted SPA route can refresh the cached application shell', async ({ page }) => {
   await page.goto('/');
   await waitForFirstController(page);
+  const trustedShell = await readCachedShell(page);
   await replaceCachedShell(page, 'stale shell');
 
   await page.goto('/voices');
 
   const refreshedShell = await readCachedShell(page);
-  expect(refreshedShell).not.toBe('stale shell');
+  expect(refreshedShell).toBe(trustedShell);
   expect(refreshedShell).toContain('<title>Open Voice Playground</title>');
-  expect(refreshedShell).toMatch(/<meta name="open-voice-shell" content="[a-f0-9]{12}">/);
+  expect(refreshedShell).not.toContain('open-voice-shell');
+});
+
+for (const [fixture, location] of [
+  ['comment-fake-head', 'an HTML comment'],
+  ['raw-text-fake-head', 'raw-text content'],
+  ['quoted-attribute-fake-head', 'a quoted attribute'],
+] as const) {
+  test(`a former shell marker inside ${location} cannot spoof the built shell bytes`, async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForFirstController(page);
+    const formerIdentity = await readShellCacheVersion(page);
+    const sentinel = `trusted shell before ${fixture}`;
+    await replaceCachedShell(page, sentinel);
+
+    const response = await page.goto(
+      `/voices?__pwa_fixture=${fixture}&__pwa_identity=${formerIdentity}`,
+    );
+
+    expect(response?.status()).toBe(200);
+    expect(await readCachedShell(page)).toBe(sentinel);
+  });
+}
+
+test('a one-byte near-match cannot replace the exact built shell', async ({ page }) => {
+  await page.goto('/');
+  await waitForFirstController(page);
+  const sentinel = 'trusted shell before one-byte near-match';
+  await replaceCachedShell(page, sentinel);
+
+  const response = await page.goto('/voices?__pwa_fixture=near-matching-shell');
+
+  expect(response?.status()).toBe(200);
+  expect(await readCachedShell(page)).toBe(sentinel);
 });
 
 for (const [fixture, elementName] of [
@@ -229,11 +266,13 @@ for (const [fixture, elementName] of [
   }) => {
     await page.goto('/');
     await waitForFirstController(page);
-    const identity = extractShellIdentity(await readCachedShell(page));
+    const formerIdentity = await readShellCacheVersion(page);
     const sentinel = `trusted shell before nested ${elementName}`;
     await replaceCachedShell(page, sentinel);
 
-    const response = await page.goto(`/voices?__pwa_fixture=${fixture}&__pwa_identity=${identity}`);
+    const response = await page.goto(
+      `/voices?__pwa_fixture=${fixture}&__pwa_identity=${formerIdentity}`,
+    );
 
     expect(response?.status()).toBe(200);
     expect(await readCachedShell(page)).toBe(sentinel);
@@ -245,36 +284,36 @@ test('marker text after a quoted head boundary cannot refresh the offline fallba
 }) => {
   await page.goto('/');
   await waitForFirstController(page);
-  const identity = extractShellIdentity(await readCachedShell(page));
+  const formerIdentity = await readShellCacheVersion(page);
   const sentinel = 'trusted shell before quoted head boundary';
   await replaceCachedShell(page, sentinel);
 
   const response = await page.goto(
-    `/voices?__pwa_fixture=quoted-head-identity&__pwa_identity=${identity}`,
+    `/voices?__pwa_fixture=quoted-head-identity&__pwa_identity=${formerIdentity}`,
   );
 
   expect(response?.status()).toBe(200);
   expect(await readCachedShell(page)).toBe(sentinel);
 });
 
-test('allowlisted routes require explicit shell identity before refreshing fallback', async ({
+test('allowlisted routes require exact built shell bytes before refreshing fallback', async ({
   context,
   page,
 }) => {
   await page.goto('/');
   await waitForFirstController(page);
   const trustedShell = await readCachedShell(page);
-  const identity = extractShellIdentity(trustedShell);
-  const wrongIdentity = identity === '000000000000' ? '111111111111' : '000000000000';
+  const formerIdentity = await readShellCacheVersion(page);
+  const wrongIdentity = formerIdentity === '000000000000' ? '111111111111' : '000000000000';
 
   const paths = [
     '/voices?__pwa_fixture=arbitrary-html',
     '/play?__pwa_fixture=error-html',
     `/voices?__pwa_fixture=wrong-identity&__pwa_identity=${wrongIdentity}`,
-    `/voices?__pwa_fixture=comment-identity&__pwa_identity=${identity}`,
-    `/voices?__pwa_fixture=duplicate-identity&__pwa_identity=${identity}`,
-    `/voices?__pwa_fixture=malformed-identity&__pwa_identity=${identity}`,
-    `/play?__pwa_fixture=body-identity&__pwa_identity=${identity}`,
+    `/voices?__pwa_fixture=comment-identity&__pwa_identity=${formerIdentity}`,
+    `/voices?__pwa_fixture=duplicate-identity&__pwa_identity=${formerIdentity}`,
+    `/voices?__pwa_fixture=malformed-identity&__pwa_identity=${formerIdentity}`,
+    `/play?__pwa_fixture=body-identity&__pwa_identity=${formerIdentity}`,
     '/voices?__pwa_fixture=redirect-login',
   ];
   for (const path of paths) {

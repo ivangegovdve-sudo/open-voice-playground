@@ -1,7 +1,7 @@
-/* global self, caches, fetch, URL, Response */
+/* global self, caches, crypto, fetch, URL, Response */
 
 const CACHE_VERSION = 'development'; // __VITE_CACHE_VERSION__
-const SHELL_IDENTITY = 'development'; // __VITE_SHELL_IDENTITY__
+const SHELL_DIGEST = 'development'; // __VITE_SHELL_DIGEST__
 const CACHE_NAME = `open-voice-shell-${CACHE_VERSION}`;
 const CORE_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 const BUILD_ASSETS = []; // __VITE_BUILD_ASSETS__
@@ -26,29 +26,16 @@ function isSpaAppRoute(pathname) {
   return SPA_APP_ROUTES.has(pathname) || /^\/engines\/[^/]+$/.test(pathname);
 }
 
-async function hasExplicitShellIdentity(response) {
+async function hasExactShellDigest(response) {
   if (!response.headers.get('content-type')?.includes('text/html')) {
     return false;
   }
-  const html = await response.clone().text();
-  const marker = `<meta name="open-voice-shell" content="${SHELL_IDENTITY}">`;
-  if ((html.match(/open-voice-shell/gi) ?? []).length !== 1) {
-    return false;
-  }
-  const headStart = html.indexOf('<head>');
-  const headEnd = html.indexOf('</head>', headStart + '<head>'.length);
-  if (
-    headStart < 0 ||
-    html.search(/<head\b/i) !== headStart ||
-    (html.match(/<head\b/gi) ?? []).length !== 1 ||
-    headEnd < headStart + '<head>'.length ||
-    html.search(/<\/head\b/i) !== headEnd ||
-    (html.match(/<\/head\b/gi) ?? []).length !== 1
-  ) {
-    return false;
-  }
-  const head = html.slice(headStart + '<head>'.length, headEnd);
-  return head.trimStart().startsWith(marker);
+  const shellBytes = await response.clone().arrayBuffer();
+  const digestBytes = await crypto.subtle.digest('SHA-256', shellBytes);
+  const digest = Array.from(new Uint8Array(digestBytes), (byte) =>
+    byte.toString(16).padStart(2, '0'),
+  ).join('');
+  return digest === SHELL_DIGEST;
 }
 
 function isExactResponseForRequest(response, requestUrl) {
@@ -74,9 +61,9 @@ async function precacheShell() {
         }
         if (
           (requestUrl.pathname === '/' || requestUrl.pathname === '/index.html') &&
-          !(await hasExplicitShellIdentity(response))
+          !(await hasExactShellDigest(response))
         ) {
-          throw new Error(`Shell document ${asset} did not match this build identity.`);
+          throw new Error(`Shell document ${asset} did not match the exact build bytes.`);
         }
         return [asset, response];
       }),
@@ -127,7 +114,7 @@ self.addEventListener('fetch', (event) => {
             isSpaAppRoute(url.pathname) &&
             response.ok &&
             isExactResponseForRequest(response, url) &&
-            (await hasExplicitShellIdentity(response))
+            (await hasExactShellDigest(response))
           ) {
             const cache = await caches.open(CACHE_NAME);
             await cache.put('/index.html', response.clone());
