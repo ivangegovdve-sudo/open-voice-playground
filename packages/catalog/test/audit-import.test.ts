@@ -252,6 +252,33 @@ describe('public repository audit import', () => {
     }
   });
 
+  it('rejects sources verified before they were retrieved', () => {
+    const { validatePublicRepositoryAudit } = auditApi();
+    const audit = cloneAudit();
+    audit.approvedPublicSources[0]!.lastVerifiedAt = '2026-07-14T23:59:59.999Z';
+
+    expect(() => validatePublicRepositoryAudit(audit)).toThrow(
+      /lastVerifiedAt|retrievedAt|chronology|before/i,
+    );
+  });
+
+  it('compares sub-millisecond timestamps without losing precision', () => {
+    const { validatePublicRepositoryAudit } = auditApi();
+    const invalidAudit = cloneAudit();
+    invalidAudit.approvedPublicSources[0]!.retrievedAt = '2026-07-15T00:00:00.0009Z';
+    invalidAudit.approvedPublicSources[0]!.lastVerifiedAt = '2026-07-15T00:00:00.0001Z';
+
+    expect(() => validatePublicRepositoryAudit(invalidAudit)).toThrow(
+      /lastVerifiedAt|retrievedAt|chronology|precision|before/i,
+    );
+
+    const validAudit = cloneAudit();
+    validAudit.approvedPublicSources[0]!.retrievedAt = '2026-07-15T00:00:00.0001Z';
+    validAudit.approvedPublicSources[0]!.lastVerifiedAt = '2026-07-15T00:00:00.0009Z';
+
+    expect(() => validatePublicRepositoryAudit(validAudit)).not.toThrow();
+  });
+
   it('binds provenance and license evidence to the canonical repository and revision', () => {
     const { validatePublicRepositoryAudit } = auditApi();
     const otherRevision = '1123456789abcdef0123456789abcdef01234567';
@@ -281,6 +308,51 @@ describe('public repository audit import', () => {
     for (const audit of invalidAudits) {
       expect(() => validatePublicRepositoryAudit(audit)).toThrow(
         /canonical|revision|provenance|license|evidence/i,
+      );
+    }
+  });
+
+  it('rejects GitHub URL normalization and encoded-path binding bypasses', () => {
+    const { validatePublicRepositoryAudit } = auditApi();
+    const canonicalUrl = 'https://github.com/example/fixture-tts';
+    const invalidAudits = [
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.licenseDecisions[0]!.evidenceUrl = `${canonicalUrl}/blob/${fixtureRevision}/../../../../other/repository/blob/${fixtureRevision}/LICENSE`;
+        return audit;
+      })(),
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.ownerRepositoryUrl =
+          'https://github.com/owner/placeholder/../repo';
+        return audit;
+      })(),
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.ownerRepositoryUrl = 'https://github.com:8443/owner/repo';
+        return audit;
+      })(),
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.ownerRepositoryUrl =
+          'https://github.com/owner/placeholder/%2e%2e/repo';
+        return audit;
+      })(),
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.licenseDecisions[0]!.evidenceUrl = `${canonicalUrl}/blob/${fixtureRevision}/LICENSE%2Fextra`;
+        return audit;
+      })(),
+      (() => {
+        const audit = cloneAudit();
+        audit.approvedPublicSources[0]!.licenseDecisions[0]!.evidenceUrl = `${canonicalUrl}/blob/${fixtureRevision}/%2e%2e/%2e%2e/other/LICENSE`;
+        return audit;
+      })(),
+    ];
+
+    for (const audit of invalidAudits) {
+      expect(() => validatePublicRepositoryAudit(audit)).toThrow(
+        /canonical|github|evidence|path|port|url/i,
       );
     }
   });

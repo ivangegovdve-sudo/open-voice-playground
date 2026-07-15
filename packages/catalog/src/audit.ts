@@ -22,36 +22,118 @@ const RecordIdSchema = z
   .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'Expected a lowercase record slug');
 const IsoDateTimeSchema = z.string().datetime({ offset: true });
 
+type IsoInstantParts = {
+  epochSecond: number;
+  fractionalSecond: string;
+};
+
+function parseIsoInstantParts(value: string): IsoInstantParts | undefined {
+  const match = /^(.*?)(?:\.(\d+))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
+  if (match === null) {
+    return undefined;
+  }
+  const epochMilliseconds = Date.parse(`${match[1]}${match[3]}`);
+  if (!Number.isFinite(epochMilliseconds)) {
+    return undefined;
+  }
+  return {
+    epochSecond: epochMilliseconds / 1_000,
+    fractionalSecond: match[2] ?? '',
+  };
+}
+
+function compareIsoInstants(left: string, right: string): number {
+  const leftParts = parseIsoInstantParts(left);
+  const rightParts = parseIsoInstantParts(right);
+  if (leftParts === undefined || rightParts === undefined) {
+    return 0;
+  }
+  if (leftParts.epochSecond !== rightParts.epochSecond) {
+    return leftParts.epochSecond < rightParts.epochSecond ? -1 : 1;
+  }
+  const precision = Math.max(leftParts.fractionalSecond.length, rightParts.fractionalSecond.length);
+  for (let index = 0; index < precision; index += 1) {
+    const leftDigit =
+      index < leftParts.fractionalSecond.length ? leftParts.fractionalSecond.charCodeAt(index) : 48;
+    const rightDigit =
+      index < rightParts.fractionalSecond.length
+        ? rightParts.fractionalSecond.charCodeAt(index)
+        : 48;
+    if (leftDigit !== rightDigit) {
+      return leftDigit < rightDigit ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+function parseCanonicalPublicGitHubUrl(value: string): URL | undefined {
+  try {
+    const url = new URL(value);
+    if (
+      value !== url.href ||
+      url.protocol !== 'https:' ||
+      url.host !== 'github.com' ||
+      url.port !== '' ||
+      url.username !== '' ||
+      url.password !== '' ||
+      url.search !== '' ||
+      url.hash !== ''
+    ) {
+      return undefined;
+    }
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+function githubPathSegments(value: string): string[] | undefined {
+  const url = parseCanonicalPublicGitHubUrl(value);
+  if (url === undefined || !url.pathname.startsWith('/')) {
+    return undefined;
+  }
+  const segments = url.pathname.slice(1).split('/');
+  if (
+    segments.length === 0 ||
+    segments.some(
+      (segment) =>
+        segment.length === 0 ||
+        segment === '.' ||
+        segment === '..' ||
+        !/^[A-Za-z0-9._-]+$/.test(segment),
+    )
+  ) {
+    return undefined;
+  }
+  return segments;
+}
+
+function hasExactGitHubPath(value: string, expectedSegments: readonly string[]): boolean {
+  const actualSegments = githubPathSegments(value);
+  return (
+    actualSegments !== undefined &&
+    actualSegments.length === expectedSegments.length &&
+    actualSegments.every((segment, index) => segment === expectedSegments[index]) &&
+    value === `https://github.com/${expectedSegments.join('/')}`
+  );
+}
+
 const ApprovedPublicGitHubUrlSchema = z
   .string()
   .url()
-  .refine(
-    (value) => {
-      try {
-        const url = new URL(value);
-        return (
-          url.protocol === 'https:' &&
-          url.hostname.toLowerCase() === 'github.com' &&
-          !url.username &&
-          !url.password &&
-          !url.search &&
-          !url.hash
-        );
-      } catch {
-        return false;
-      }
-    },
-    { message: 'Expected a credential-free public GitHub HTTPS URL without query or fragment' },
-  );
+  .refine((value) => githubPathSegments(value) !== undefined, {
+    message:
+      'Expected a canonical credential-free public GitHub HTTPS URL without port, query, fragment, encoding, or normalized path segments',
+  });
 
 const GitHubRepositoryUrlSchema = ApprovedPublicGitHubUrlSchema.refine(
   (value) => {
-    const url = new URL(value);
-    const segments = url.pathname.split('/').filter(Boolean);
+    const segments = githubPathSegments(value);
     return (
+      segments !== undefined &&
       segments.length === 2 &&
-      segments.every((segment) => /^[A-Za-z0-9._-]+$/.test(segment)) &&
-      url.pathname === `/${segments[0]}/${segments[1]}`
+      /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(segments[0] ?? '') &&
+      hasExactGitHubPath(value, segments)
     );
   },
   { message: 'Expected a canonical public GitHub repository URL' },
@@ -118,8 +200,26 @@ const ApprovedPublicSourceSchema = z
   })
   .strict()
   .superRefine((source, context) => {
-    const expectedProvenanceUrl = `${source.canonicalUrl}/commit/${source.upstreamRevision}`;
-    if (source.provenanceEvidenceUrl !== expectedProvenanceUrl) {
+    if (compareIsoInstants(source.lastVerifiedAt, source.retrievedAt) < 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['lastVerifiedAt'],
+        message: 'lastVerifiedAt cannot be before retrievedAt',
+      });
+    }
+
+    const canonicalSegments = githubPathSegments(source.canonicalUrl);
+    if (canonicalSegments === undefined || canonicalSegments.length !== 2) {
+      return;
+    }
+
+    if (
+      !hasExactGitHubPath(source.provenanceEvidenceUrl, [
+        ...canonicalSegments,
+        'commit',
+        source.upstreamRevision,
+      ])
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['provenanceEvidenceUrl'],
@@ -127,11 +227,19 @@ const ApprovedPublicSourceSchema = z
       });
     }
 
-    const licenseEvidencePrefix = `${source.canonicalUrl}/blob/${source.upstreamRevision}/`;
     source.licenseDecisions.forEach((decision, index) => {
+      const evidenceSegments = githubPathSegments(decision.evidenceUrl);
+      const evidencePath = evidenceSegments?.slice(4);
       if (
-        !decision.evidenceUrl.startsWith(licenseEvidencePrefix) ||
-        decision.evidenceUrl.length === licenseEvidencePrefix.length
+        evidenceSegments === undefined ||
+        evidencePath === undefined ||
+        evidencePath.length === 0 ||
+        !hasExactGitHubPath(decision.evidenceUrl, [
+          ...canonicalSegments,
+          'blob',
+          source.upstreamRevision,
+          ...evidencePath,
+        ])
       ) {
         context.addIssue({
           code: 'custom',
