@@ -12,7 +12,6 @@ import {
 import { z } from 'zod';
 
 export {
-  AUDIT_CATEGORIES,
   PublicAuditValidationError,
   PublicRepositoryAuditSchema,
   buildSourceRecordCatalogFromAudit,

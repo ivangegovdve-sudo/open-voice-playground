@@ -3,16 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { SourceRecordSchema, type SourceRecord } from '@open-voice/contracts';
 import { z } from 'zod';
 
-export const AUDIT_CATEGORIES = [
+const ApprovedAuditCategorySchema = z.enum([
   'tts',
   'voice-conversion',
   'stt',
   'voice-agent-infrastructure',
-  'unrelated-false-positive',
-  'needs-review',
-] as const;
-
-const AuditCategorySchema = z.enum(AUDIT_CATEGORIES);
+]);
 const AuditRuntimeModeSchema = z.enum([
   'browser',
   'online',
@@ -26,31 +22,36 @@ const RecordIdSchema = z
   .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, 'Expected a lowercase record slug');
 const IsoDateTimeSchema = z.string().datetime({ offset: true });
 
-const HttpsUrlSchema = z
+const ApprovedPublicGitHubUrlSchema = z
   .string()
   .url()
   .refine(
     (value) => {
       try {
-        return new URL(value).protocol === 'https:';
+        const url = new URL(value);
+        return (
+          url.protocol === 'https:' &&
+          url.hostname.toLowerCase() === 'github.com' &&
+          !url.username &&
+          !url.password &&
+          !url.search &&
+          !url.hash
+        );
       } catch {
         return false;
       }
     },
-    { message: 'Expected an HTTPS URL' },
+    { message: 'Expected a credential-free public GitHub HTTPS URL without query or fragment' },
   );
 
-const GitHubRepositoryUrlSchema = HttpsUrlSchema.refine(
+const GitHubRepositoryUrlSchema = ApprovedPublicGitHubUrlSchema.refine(
   (value) => {
     const url = new URL(value);
     const segments = url.pathname.split('/').filter(Boolean);
     return (
-      url.hostname.toLowerCase() === 'github.com' &&
       segments.length === 2 &&
-      !url.username &&
-      !url.password &&
-      !url.search &&
-      !url.hash
+      segments.every((segment) => /^[A-Za-z0-9._-]+$/.test(segment)) &&
+      url.pathname === `/${segments[0]}/${segments[1]}`
     );
   },
   { message: 'Expected a canonical public GitHub repository URL' },
@@ -62,7 +63,7 @@ const LicenseDecisionSchema = z
     name: z.string().trim().min(1),
     spdxId: z.string().trim().min(1).optional(),
     exactUpstreamTerms: z.string().trim().min(1).optional(),
-    evidenceUrl: HttpsUrlSchema,
+    evidenceUrl: ApprovedPublicGitHubUrlSchema,
     reviewStatus: z.enum(['verified', 'restricted', 'needs-review']),
   })
   .strict()
@@ -81,7 +82,7 @@ const ApprovedPublicSourceSchema = z
     canonicalUrl: GitHubRepositoryUrlSchema,
     visibility: z.literal('public'),
     approvalStatus: z.literal('approved-public'),
-    category: AuditCategorySchema.exclude(['unrelated-false-positive', 'needs-review']),
+    category: ApprovedAuditCategorySchema,
     relevance: z.string().trim().min(1),
     runtimeModes: z
       .array(AuditRuntimeModeSchema)
@@ -96,7 +97,7 @@ const ApprovedPublicSourceSchema = z
         (decisions) => new Set(decisions.map(({ scope }) => scope)).size === decisions.length,
         'License decision scopes must be unique',
       ),
-    provenanceEvidenceUrl: HttpsUrlSchema,
+    provenanceEvidenceUrl: ApprovedPublicGitHubUrlSchema,
     sourceClass: z.enum([
       'official-repository',
       'model-card',
@@ -104,7 +105,9 @@ const ApprovedPublicSourceSchema = z
       'official-space',
       'official-documentation',
     ]),
-    upstreamRevision: z.string().trim().min(1),
+    upstreamRevision: z
+      .string()
+      .regex(/^[0-9a-fA-F]{40}$/, 'Expected an exact 40-hex Git commit revision'),
     retrievedAt: IsoDateTimeSchema,
     contentHash: z
       .string()
@@ -113,82 +116,40 @@ const ApprovedPublicSourceSchema = z
     lastVerifiedAt: IsoDateTimeSchema,
     health: z.enum(['healthy', 'degraded', 'unavailable']),
   })
-  .strict();
-
-const InventorySummarySchema = z
-  .object({
-    accessibleRepositories: z.number().int().nonnegative(),
-    publicRepositories: z.number().int().nonnegative(),
-    privateRepositories: z.number().int().nonnegative(),
-    classifiedRepositories: z.number().int().nonnegative(),
-    indexLookupStatus: z.enum(['found', 'confirmed-absent']),
-    indexMdMatches: z.number().int().nonnegative(),
-  })
   .strict()
-  .superRefine((summary, context) => {
-    if (
-      summary.publicRepositories + summary.privateRepositories !==
-      summary.accessibleRepositories
-    ) {
+  .superRefine((source, context) => {
+    const expectedProvenanceUrl = `${source.canonicalUrl}/commit/${source.upstreamRevision}`;
+    if (source.provenanceEvidenceUrl !== expectedProvenanceUrl) {
       context.addIssue({
         code: 'custom',
-        path: ['accessibleRepositories'],
-        message: 'Public and private inventory counts must equal the accessible count',
+        path: ['provenanceEvidenceUrl'],
+        message: 'Provenance evidence must bind the canonical repository to the exact revision',
       });
     }
-    if (summary.classifiedRepositories !== summary.accessibleRepositories) {
-      context.addIssue({
-        code: 'custom',
-        path: ['classifiedRepositories'],
-        message: 'Classified count must equal the accessible inventory count',
-      });
-    }
-    const expectedIndexMatches = summary.indexLookupStatus === 'found' ? 1 : 0;
-    if (
-      (expectedIndexMatches === 0 && summary.indexMdMatches !== 0) ||
-      (expectedIndexMatches === 1 && summary.indexMdMatches < 1)
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['indexMdMatches'],
-        message: 'Index lookup status and match count must agree',
-      });
-    }
-  });
 
-const ClassificationSummarySchema = z
-  .object({
-    tts: z.number().int().nonnegative(),
-    'voice-conversion': z.number().int().nonnegative(),
-    stt: z.number().int().nonnegative(),
-    'voice-agent-infrastructure': z.number().int().nonnegative(),
-    'unrelated-false-positive': z.number().int().nonnegative(),
-    'needs-review': z.number().int().nonnegative(),
-  })
-  .strict();
+    const licenseEvidencePrefix = `${source.canonicalUrl}/blob/${source.upstreamRevision}/`;
+    source.licenseDecisions.forEach((decision, index) => {
+      if (
+        !decision.evidenceUrl.startsWith(licenseEvidencePrefix) ||
+        decision.evidenceUrl.length === licenseEvidencePrefix.length
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['licenseDecisions', index, 'evidenceUrl'],
+          message: 'License evidence must bind the canonical repository to the exact revision',
+        });
+      }
+    });
+  });
 
 export const PublicRepositoryAuditSchema = z
   .object({
     schemaVersion: z.literal(1),
     generatedAt: IsoDateTimeSchema,
-    inventorySummary: InventorySummarySchema,
-    classificationSummary: ClassificationSummarySchema,
     approvedPublicSources: z.array(ApprovedPublicSourceSchema),
   })
   .strict()
   .superRefine((audit, context) => {
-    const classificationCount = AUDIT_CATEGORIES.reduce(
-      (sum, category) => sum + audit.classificationSummary[category],
-      0,
-    );
-    if (classificationCount !== audit.inventorySummary.classifiedRepositories) {
-      context.addIssue({
-        code: 'custom',
-        path: ['classificationSummary'],
-        message: 'Classification counts must equal the classified inventory count',
-      });
-    }
-
     const seenIds = new Set<string>();
     const seenUrls = new Set<string>();
     audit.approvedPublicSources.forEach((source, index) => {
@@ -236,6 +197,16 @@ export function validatePublicRepositoryAudit(input: unknown): PublicRepositoryA
   return parsed.data;
 }
 
+function compareSourceRecordIds(left: SourceRecord, right: SourceRecord): number {
+  if (left.id < right.id) {
+    return -1;
+  }
+  if (left.id > right.id) {
+    return 1;
+  }
+  return 0;
+}
+
 export function importSourceRecordsFromAudit(input: unknown): SourceRecord[] {
   const audit = validatePublicRepositoryAudit(input);
   return audit.approvedPublicSources
@@ -252,7 +223,7 @@ export function importSourceRecordsFromAudit(input: unknown): SourceRecord[] {
       };
       return SourceRecordSchema.parse(source);
     })
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort(compareSourceRecordIds);
 }
 
 export type SourceRecordCatalog = {

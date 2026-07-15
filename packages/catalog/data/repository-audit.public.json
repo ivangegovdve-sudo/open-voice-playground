@@ -1,22 +1,6 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-07-15T19:05:59.486Z",
-  "inventorySummary": {
-    "accessibleRepositories": 674,
-    "publicRepositories": 640,
-    "privateRepositories": 34,
-    "classifiedRepositories": 674,
-    "indexLookupStatus": "confirmed-absent",
-    "indexMdMatches": 0
-  },
-  "classificationSummary": {
-    "tts": 15,
-    "voice-conversion": 1,
-    "stt": 8,
-    "voice-agent-infrastructure": 5,
-    "unrelated-false-positive": 611,
-    "needs-review": 34
-  },
   "approvedPublicSources": [
     {
       "id": "browserai-source",
@@ -34,19 +18,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI/blob/7da5f50f7dbc00131399ea66e93fda0601e01a67/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Integrated model terms require independent review",
-          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI#readme",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI/blob/7da5f50f7dbc00131399ea66e93fda0601e01a67/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Integrated voice rights require independent review",
-          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI#readme",
+          "evidenceUrl": "https://github.com/sauravpanda/BrowserAI/blob/7da5f50f7dbc00131399ea66e93fda0601e01a67/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -73,19 +57,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/resemble-ai/chatterbox/blob/master/LICENSE",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox/blob/65b18437192794391a0308a8f705b1e33e633948/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Model-card terms require independent review",
-          "evidenceUrl": "https://github.com/resemble-ai/chatterbox#readme",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox/blob/65b18437192794391a0308a8f705b1e33e633948/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Reference-voice rights require independent review",
-          "evidenceUrl": "https://github.com/resemble-ai/chatterbox#readme",
+          "evidenceUrl": "https://github.com/resemble-ai/chatterbox/blob/65b18437192794391a0308a8f705b1e33e633948/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -112,13 +96,13 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE",
+          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper/blob/ed9a06cd89a93e47838f564998a6c09b655d7f43/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Downloaded model weight terms require independent review",
-          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper#readme",
+          "evidenceUrl": "https://github.com/SYSTRAN/faster-whisper/blob/ed9a06cd89a93e47838f564998a6c09b655d7f43/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -145,19 +129,19 @@
           "scope": "code",
           "name": "Apache License 2.0",
           "spdxId": "Apache-2.0",
-          "evidenceUrl": "https://github.com/hexgrad/kokoro/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro/blob/dfb907a02bba8152ca444717ca5d78747ccb4bec/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Linked model-card terms require independent review",
-          "evidenceUrl": "https://github.com/hexgrad/kokoro#readme",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro/blob/dfb907a02bba8152ca444717ca5d78747ccb4bec/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Voice preset rights require independent review",
-          "evidenceUrl": "https://github.com/hexgrad/kokoro#readme",
+          "evidenceUrl": "https://github.com/hexgrad/kokoro/blob/dfb907a02bba8152ca444717ca5d78747ccb4bec/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -184,19 +168,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts/blob/9514983efd6411aa39ddf862391d16c38a062de7/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Linked model-card terms require independent review",
-          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts#readme",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts/blob/9514983efd6411aa39ddf862391d16c38a062de7/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Bundled and reference-voice rights require independent review",
-          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts#readme",
+          "evidenceUrl": "https://github.com/kyutai-labs/pocket-tts/blob/9514983efd6411aa39ddf862391d16c38a062de7/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -223,19 +207,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/blob/0327291dc88e922521a84b7ccf86b3e31423d03e/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Pocket TTS model terms require independent review",
-          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server#readme",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/blob/0327291dc88e922521a84b7ccf86b3e31423d03e/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Custom and cloned voice rights require independent review",
-          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server#readme",
+          "evidenceUrl": "https://github.com/teddybear082/pocket-tts-openai_streaming_server/blob/0327291dc88e922521a84b7ccf86b3e31423d03e/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -262,19 +246,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/pyannote/pyannote-audio/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio/blob/b749285c5cdd4636b2edc7f766f1352c8dde9369/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Pretrained pipeline access conditions require independent review",
-          "evidenceUrl": "https://github.com/pyannote/pyannote-audio#readme",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio/blob/b749285c5cdd4636b2edc7f766f1352c8dde9369/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Speaker data and derived embedding rights require independent review",
-          "evidenceUrl": "https://github.com/pyannote/pyannote-audio#readme",
+          "evidenceUrl": "https://github.com/pyannote/pyannote-audio/blob/b749285c5cdd4636b2edc7f766f1352c8dde9369/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -301,19 +285,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/7ef19867780cf703841ebafb565a4e47d1ea86ff/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Linked model asset terms require independent review",
-          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI#readme",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/7ef19867780cf703841ebafb565a4e47d1ea86ff/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Training and converted-voice rights require independent review",
-          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI#readme",
+          "evidenceUrl": "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/7ef19867780cf703841ebafb565a4e47d1ea86ff/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -340,19 +324,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/microsoft/VibeVoice/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice/blob/303b2833e01cff4578ec278bbfe536da54bd19fe/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Linked model-card terms and usage guidance require independent review",
-          "evidenceUrl": "https://github.com/microsoft/VibeVoice#readme",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice/blob/303b2833e01cff4578ec278bbfe536da54bd19fe/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Speaker and generated-voice rights require independent review",
-          "evidenceUrl": "https://github.com/microsoft/VibeVoice#readme",
+          "evidenceUrl": "https://github.com/microsoft/VibeVoice/blob/303b2833e01cff4578ec278bbfe536da54bd19fe/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -379,7 +363,7 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/AI-Engineer-Skool/ai-voice-agent-bootstrap/blob/521a916b0e6910feea65493b10b8e057d5fceaba/LICENSE",
           "reviewStatus": "verified"
         }
       ],
@@ -406,19 +390,19 @@
           "scope": "code",
           "name": "Repository license metadata requires reconciliation",
           "spdxId": "GPL-3.0",
-          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro/blob/7231384f797091dc0d6d0470360fc6fcc2095d0c/LICENSE",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "weights",
           "name": "Bundled engine and model terms require independent review",
-          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro#readme",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro/blob/7231384f797091dc0d6d0470360fc6fcc2095d0c/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Cloning and converted-voice rights require independent review",
-          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro#readme",
+          "evidenceUrl": "https://github.com/abus-aikorea/voice-pro/blob/7231384f797091dc0d6d0470360fc6fcc2095d0c/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -445,20 +429,20 @@
           "scope": "code",
           "name": "Apache License 2.0",
           "spdxId": "Apache-2.0",
-          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM/blob/616d3d3e630a9c96c2853250eef91b0f39dcd5fa/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Apache License 2.0",
           "spdxId": "Apache-2.0",
-          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM#license",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM/blob/616d3d3e630a9c96c2853250eef91b0f39dcd5fa/README.md",
           "reviewStatus": "verified"
         },
         {
           "scope": "voice",
           "name": "Voice design and cloning rights require independent review",
-          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM#readme",
+          "evidenceUrl": "https://github.com/OpenBMB/VoxCPM/blob/616d3d3e630a9c96c2853250eef91b0f39dcd5fa/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -485,14 +469,14 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/openai/whisper/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/openai/whisper/blob/04f449b8a437f1bbd3dba5c9f826aca972e7709a/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/openai/whisper#license",
+          "evidenceUrl": "https://github.com/openai/whisper/blob/04f449b8a437f1bbd3dba5c9f826aca972e7709a/README.md",
           "reviewStatus": "verified"
         }
       ],
@@ -519,13 +503,13 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp/blob/master/LICENSE",
+          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp/blob/080bbbe85230f624f0b52127f1ae1218247989f9/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Whisper model weight terms require independent review",
-          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp#readme",
+          "evidenceUrl": "https://github.com/ggml-org/whisper.cpp/blob/080bbbe85230f624f0b52127f1ae1218247989f9/README.md",
           "reviewStatus": "needs-review"
         }
       ],
@@ -552,19 +536,19 @@
           "scope": "code",
           "name": "MIT License",
           "spdxId": "MIT",
-          "evidenceUrl": "https://github.com/Zyphra/ZONOS2/blob/main/LICENSE",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2/blob/194c0a3ab67b90383a67646289f28d4ecb1c1f64/LICENSE",
           "reviewStatus": "verified"
         },
         {
           "scope": "weights",
           "name": "Repository-level terms and third-party notices require independent scope review",
-          "evidenceUrl": "https://github.com/Zyphra/ZONOS2#license",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2/blob/194c0a3ab67b90383a67646289f28d4ecb1c1f64/README.md",
           "reviewStatus": "needs-review"
         },
         {
           "scope": "voice",
           "name": "Reference-voice rights require independent review",
-          "evidenceUrl": "https://github.com/Zyphra/ZONOS2#readme",
+          "evidenceUrl": "https://github.com/Zyphra/ZONOS2/blob/194c0a3ab67b90383a67646289f28d4ecb1c1f64/README.md",
           "reviewStatus": "needs-review"
         }
       ],
