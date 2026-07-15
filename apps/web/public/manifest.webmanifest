@@ -1,0 +1,36 @@
+{
+  "name": "Open Voice Playground",
+  "short_name": "Voice Atlas",
+  "description": "Browse and compare preset voices with explicit runtime, source, and license context.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4efe4",
+  "theme_color": "#111318",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Voice atlas",
+      "short_name": "Voices",
+      "url": "/voices"
+    },
+    {
+      "name": "Speech workbench",
+      "short_name": "Play",
+      "url": "/play"
+    },
+    {
+      "name": "Compare presets",
+      "short_name": "Compare",
+      "url": "/compare"
+    }
+  ]
+}

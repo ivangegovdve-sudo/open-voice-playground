@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Open Voice Playground waveform mark">
+  <rect width="512" height="512" rx="96" fill="#111318"/>
+  <path d="M72 256h58l28-86 46 178 50-242 48 300 42-190 38 80h58" fill="none" stroke="#f4efe4" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="158" cy="170" r="17" fill="#f26b5b"/>
+  <circle cx="344" cy="216" r="17" fill="#59c3c3"/>
+</svg>

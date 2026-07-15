@@ -1,0 +1,79 @@
+import { RUNTIME_LABELS } from '../catalog/catalog';
+import { useAppServices } from '../state/AppState';
+
+export function CompanionPage() {
+  const { catalog } = useAppServices();
+  const companionVoices = catalog.voices.filter((voice) =>
+    voice.runtimeModes.includes('companion'),
+  );
+
+  return (
+    <div className="page page--companion">
+      <header className="page-intro page-intro--split">
+        <div>
+          <h1>Local companion</h1>
+          <p>
+            A future Windows tray companion can run heavier preset engines on this machine. The
+            public app stays useful without it.
+          </p>
+        </div>
+        <div className="connection-state" role="status">
+          <span aria-hidden="true" />
+          Not connected
+        </div>
+      </header>
+
+      <section aria-labelledby="companion-boundary" className="companion-boundary">
+        <div className="section-heading">
+          <h2 id="companion-boundary">Narrow local boundary</h2>
+          <span>{RUNTIME_LABELS.companion}</span>
+        </div>
+        <ol>
+          <li>
+            <span>01</span>
+            <div>
+              <strong>Preset identifiers only</strong>
+              <p>
+                No voice uploads, cloning, arbitrary model URLs, filesystem paths, or shell
+                commands.
+              </p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <strong>Explicit pairing</strong>
+              <p>The companion is never contacted until a user pairs and chooses its runtime.</p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <strong>Local lifecycle</strong>
+              <p>
+                Generated audio and history remain on this device; cloud history is not part of this
+                app.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="companion-seed" className="companion-seed">
+        <div className="section-heading">
+          <h2 id="companion-seed">Companion-ready fixture entries</h2>
+          <span>{companionVoices.length} presets</span>
+        </div>
+        <ul>
+          {companionVoices.map((voice) => (
+            <li key={voice.id}>
+              <strong>{voice.name}</strong>
+              <span>{voice.engineName}</span>
+              <small>Unavailable until a verified adapter and paired companion are present.</small>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}

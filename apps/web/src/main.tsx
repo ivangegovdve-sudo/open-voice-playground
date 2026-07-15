@@ -1,6 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { App } from './App';
+import { registerServiceWorker } from './pwa';
+import './styles.css';
+
 const rootElement = document.querySelector('#root');
 
 if (rootElement === null) {
@@ -9,9 +13,8 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <main>
-      <h1>Open Voice Playground</h1>
-      <p>Workspace foundation is ready. Product UI arrives in a later task.</p>
-    </main>
+    <App />
   </StrictMode>,
 );
+
+registerServiceWorker();
