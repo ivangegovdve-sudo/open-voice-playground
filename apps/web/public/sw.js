@@ -31,17 +31,24 @@ async function hasExplicitShellIdentity(response) {
     return false;
   }
   const html = await response.clone().text();
-  const headStart = /<head(?:\s[^>]*)?>/i.exec(html);
-  const headEnd = html.search(/<\/head\s*>/i);
-  if (headStart === null || headEnd < headStart.index + headStart[0].length) {
+  const marker = `<meta name="open-voice-shell" content="${SHELL_IDENTITY}">`;
+  if ((html.match(/open-voice-shell/gi) ?? []).length !== 1) {
     return false;
   }
-  const head = html
-    .slice(headStart.index + headStart[0].length, headEnd)
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, '');
-  return head.includes(`<meta name="open-voice-shell" content="${SHELL_IDENTITY}">`);
+  const headStart = html.indexOf('<head>');
+  const headEnd = html.indexOf('</head>', headStart + '<head>'.length);
+  if (
+    headStart < 0 ||
+    html.search(/<head\b/i) !== headStart ||
+    (html.match(/<head\b/gi) ?? []).length !== 1 ||
+    headEnd < headStart + '<head>'.length ||
+    html.search(/<\/head\b/i) !== headEnd ||
+    (html.match(/<\/head\b/gi) ?? []).length !== 1
+  ) {
+    return false;
+  }
+  const head = html.slice(headStart + '<head>'.length, headEnd);
+  return head.trimStart().startsWith(marker);
 }
 
 function isExactResponseForRequest(response, requestUrl) {

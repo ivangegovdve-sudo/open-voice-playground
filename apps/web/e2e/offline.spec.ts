@@ -46,6 +46,14 @@ async function readCachedShell(page: Page): Promise<string> {
   });
 }
 
+function extractShellIdentity(shell: string): string {
+  const identity = shell.match(/<meta name="open-voice-shell" content="([a-f0-9]{12})">/)?.[1];
+  if (identity === undefined) {
+    throw new Error('The trusted shell has no build identity.');
+  }
+  return identity;
+}
+
 async function waitForInstallingWorkerTerminalState(page: Page): Promise<string> {
   await expect
     .poll(
@@ -211,6 +219,44 @@ test('an allowlisted SPA route can refresh the cached application shell', async 
   expect(refreshedShell).toMatch(/<meta name="open-voice-shell" content="[a-f0-9]{12}">/);
 });
 
+for (const [fixture, elementName] of [
+  ['title-identity', 'title'],
+  ['textarea-identity', 'textarea'],
+  ['template-identity', 'template'],
+] as const) {
+  test(`a shell marker nested in ${elementName} cannot refresh the offline fallback`, async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForFirstController(page);
+    const identity = extractShellIdentity(await readCachedShell(page));
+    const sentinel = `trusted shell before nested ${elementName}`;
+    await replaceCachedShell(page, sentinel);
+
+    const response = await page.goto(`/voices?__pwa_fixture=${fixture}&__pwa_identity=${identity}`);
+
+    expect(response?.status()).toBe(200);
+    expect(await readCachedShell(page)).toBe(sentinel);
+  });
+}
+
+test('marker text after a quoted head boundary cannot refresh the offline fallback', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForFirstController(page);
+  const identity = extractShellIdentity(await readCachedShell(page));
+  const sentinel = 'trusted shell before quoted head boundary';
+  await replaceCachedShell(page, sentinel);
+
+  const response = await page.goto(
+    `/voices?__pwa_fixture=quoted-head-identity&__pwa_identity=${identity}`,
+  );
+
+  expect(response?.status()).toBe(200);
+  expect(await readCachedShell(page)).toBe(sentinel);
+});
+
 test('allowlisted routes require explicit shell identity before refreshing fallback', async ({
   context,
   page,
@@ -218,12 +264,7 @@ test('allowlisted routes require explicit shell identity before refreshing fallb
   await page.goto('/');
   await waitForFirstController(page);
   const trustedShell = await readCachedShell(page);
-  const identity = trustedShell.match(
-    /<meta name="open-voice-shell" content="([a-f0-9]{12})">/,
-  )?.[1];
-  if (identity === undefined) {
-    throw new Error('The trusted shell has no build identity.');
-  }
+  const identity = extractShellIdentity(trustedShell);
   const wrongIdentity = identity === '000000000000' ? '111111111111' : '000000000000';
 
   const paths = [
@@ -231,6 +272,8 @@ test('allowlisted routes require explicit shell identity before refreshing fallb
     '/play?__pwa_fixture=error-html',
     `/voices?__pwa_fixture=wrong-identity&__pwa_identity=${wrongIdentity}`,
     `/voices?__pwa_fixture=comment-identity&__pwa_identity=${identity}`,
+    `/voices?__pwa_fixture=duplicate-identity&__pwa_identity=${identity}`,
+    `/voices?__pwa_fixture=malformed-identity&__pwa_identity=${identity}`,
     `/play?__pwa_fixture=body-identity&__pwa_identity=${identity}`,
     '/voices?__pwa_fixture=redirect-login',
   ];

@@ -101,3 +101,40 @@ test('cache version changes when the service-worker template changes', async () 
 
   expect(changedVersion).not.toBe(initialVersion);
 });
+
+test('injects exactly one shell marker as the first non-whitespace head child', async () => {
+  const root = await createBuildFixture();
+  const identity = await buildCacheVersion(root);
+  const indexHtml = await readFile(join(root, 'dist', 'index.html'), 'utf8');
+  const marker = `<meta name="open-voice-shell" content="${identity}">`;
+  const parsed = new DOMParser().parseFromString(indexHtml, 'text/html');
+
+  expect(indexHtml).toMatch(new RegExp(`<head>\\s*${marker}`));
+  expect(indexHtml.match(/open-voice-shell/g)).toHaveLength(1);
+  expect(parsed.head.firstElementChild?.outerHTML).toBe(marker);
+  expect(parsed.head.querySelectorAll(':scope > meta[name="open-voice-shell"]')).toHaveLength(1);
+});
+
+test('rejects a noncanonical head opening before identity injection', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head data-note=">"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildCacheVersion(root)).rejects.toThrow(
+    'canonical <head> element for shell identity injection',
+  );
+});
+
+test('rejects a source index that already uses the reserved shell marker', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><meta name="open-voice-shell" content="reserved"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildCacheVersion(root)).rejects.toThrow(
+    'source index already contains the reserved open-voice-shell marker',
+  );
+});

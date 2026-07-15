@@ -72,11 +72,26 @@ function injectServiceWorkerShellAssets(): Plugin {
           SHELL_IDENTITY_MARKER,
           `const SHELL_IDENTITY = '${cacheVersion}'; // __VITE_SHELL_IDENTITY__`,
         );
-      if (!indexHtml.includes('</head>')) {
-        throw new Error('The emitted index is missing its closing head element.');
+      if (/open-voice-shell/i.test(indexHtml)) {
+        throw new Error('The source index already contains the reserved open-voice-shell marker.');
+      }
+      const headOpeningIndex = indexHtml.indexOf('<head>');
+      const headClosingIndex = indexHtml.indexOf('</head>', headOpeningIndex + '<head>'.length);
+      if (
+        headOpeningIndex < 0 ||
+        indexHtml.search(/<head\b/i) !== headOpeningIndex ||
+        (indexHtml.match(/<head\b/gi) ?? []).length !== 1 ||
+        headClosingIndex < headOpeningIndex + '<head>'.length ||
+        indexHtml.search(/<\/head\b/i) !== headClosingIndex ||
+        (indexHtml.match(/<\/head\b/gi) ?? []).length !== 1
+      ) {
+        throw new Error(
+          'The emitted index requires one canonical <head> element for shell identity injection.',
+        );
       }
       const shellIdentityMeta = `<meta name="open-voice-shell" content="${cacheVersion}">`;
-      const injectedIndexHtml = indexHtml.replace('</head>', `  ${shellIdentityMeta}\n  </head>`);
+      const identityInsertionIndex = headOpeningIndex + '<head>'.length;
+      const injectedIndexHtml = `${indexHtml.slice(0, identityInsertionIndex)}\n  ${shellIdentityMeta}${indexHtml.slice(identityInsertionIndex)}`;
 
       await Promise.all([
         writeFile(serviceWorkerPath, injectedServiceWorker, 'utf8'),
@@ -147,9 +162,21 @@ function pwaE2eResponseFixtures(): Plugin {
                 ? `<!doctype html><html><head><meta name="open-voice-shell" content="${fixtureIdentity}"></head><body>Wrong build</body></html>`
                 : fixture === 'comment-identity'
                   ? `<!doctype html><html><head><!-- <meta name="open-voice-shell" content="${fixtureIdentity}"> --></head><body>Comment marker</body></html>`
-                  : fixture === 'body-identity'
-                    ? `<!doctype html><html><head></head><body><meta name="open-voice-shell" content="${fixtureIdentity}">Spoofed body marker</body></html>`
-                    : undefined;
+                  : fixture === 'title-identity'
+                    ? `<!doctype html><html><head><title><meta name="open-voice-shell" content="${fixtureIdentity}"></title></head><body>Title marker</body></html>`
+                    : fixture === 'textarea-identity'
+                      ? `<!doctype html><html><head><textarea><meta name="open-voice-shell" content="${fixtureIdentity}"></textarea></head><body>Textarea marker</body></html>`
+                      : fixture === 'template-identity'
+                        ? `<!doctype html><html><head><template><meta name="open-voice-shell" content="${fixtureIdentity}"></template></head><body>Template marker</body></html>`
+                        : fixture === 'duplicate-identity'
+                          ? `<!doctype html><html><head><meta name="open-voice-shell" content="${fixtureIdentity}"><meta name="open-voice-shell" content="${fixtureIdentity}"></head><body>Duplicate marker</body></html>`
+                          : fixture === 'malformed-identity'
+                            ? `<!doctype html><html><head><meta name="open-voice-shell" content="${fixtureIdentity}"</head><body>Malformed marker</body></html>`
+                            : fixture === 'quoted-head-identity'
+                              ? `<!doctype html><html><head data-note="><meta name="open-voice-shell" content="${fixtureIdentity}">"><title>Quoted head marker</title></head><body></body></html>`
+                              : fixture === 'body-identity'
+                                ? `<!doctype html><html><head></head><body><meta name="open-voice-shell" content="${fixtureIdentity}">Spoofed body marker</body></html>`
+                                : undefined;
         if (fixtureBody === undefined) {
           next();
           return;
