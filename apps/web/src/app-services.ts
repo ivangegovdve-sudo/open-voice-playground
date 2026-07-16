@@ -76,12 +76,8 @@ export function createDefaultServices(): AppServices {
  */
 export async function createLaunchServices(
   fetcher: typeof fetch = globalThis.fetch,
-  catalogUrl?: string,
 ): Promise<AppServices> {
-  const catalog =
-    catalogUrl === undefined
-      ? await loadLaunchCatalog(fetcher)
-      : await loadLaunchCatalog(fetcher, catalogUrl, { testOnlyAllowMutableUrl: true });
+  const catalog = await loadLaunchCatalog(fetcher);
   const assets = new AssetPreparationManager({ store: new OpfsAssetStore(), fetcher });
   const runtime = createLaunchRuntimeRegistry({
     voices: catalog.voices,

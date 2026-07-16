@@ -15,7 +15,8 @@ const integrityPath = resolve(packageRoot, 'data', 'launch-catalog.integrity.jso
 
 function integrityRecord(catalogBytes: string): string {
   const sha256 = `sha256:${createHash('sha256').update(catalogBytes, 'utf8').digest('hex')}`;
-  return `${JSON.stringify({ sha256 }, null, 2)}\n`;
+  const bytes = Buffer.byteLength(catalogBytes, 'utf8');
+  return `${JSON.stringify({ sha256, bytes }, null, 2)}\n`;
 }
 
 export async function generateLaunchCatalog(mode: 'write' | 'check'): Promise<void> {

@@ -1,4 +1,10 @@
-import type { AssetSetManifest } from '@open-voice/contracts';
+import {
+  WorkerCommandSchema,
+  WorkerResponseSchema,
+  type AssetSetManifest,
+  type WorkerCommand,
+  type WorkerResponse,
+} from '@open-voice/contracts';
 
 import type { CatalogVoice, RuntimeMode } from '../catalog/filters';
 import {
@@ -14,8 +20,8 @@ import {
 
 export type WorkerPort = {
   postMessage(message: unknown, transfer?: Transferable[]): void;
-  addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
-  removeEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+  addEventListener(type: 'message' | 'error' | 'messageerror', listener: EventListener): void;
+  removeEventListener(type: 'message' | 'error' | 'messageerror', listener: EventListener): void;
   terminate(): void;
 };
 
@@ -33,16 +39,10 @@ type WorkerRuntimeAdapterOptions = {
   cancelTimeoutMs?: number;
 };
 
-type WorkerResponse =
-  | { type: 'ready'; operationId: number }
-  | { type: 'progress'; operationId: number; phase: string; percent: number }
-  | { type: 'result'; operationId: number; audio: ArrayBuffer; mimeType?: string }
-  | { type: 'error'; operationId: number; message: string }
-  | { type: 'cancelled'; operationId: number };
-
 type PendingWorkerOperationBase = {
   reject: (reason: unknown) => void;
   context: RuntimeOperationContext;
+  generationId: number;
   voiceId: string;
 };
 
@@ -56,40 +56,37 @@ type PendingWorkerOperation =
       resolve: (value: SynthesisOutput) => void;
     });
 
+type WorkerGeneration = {
+  id: number;
+  port: WorkerPort;
+  pendingIds: Set<number>;
+  preparedVoiceId: string | null;
+  detached: boolean;
+  terminated: boolean;
+  onMessage: EventListener;
+  onError: EventListener;
+  onMessageError: EventListener;
+};
+
+type ActivePreparation = {
+  controller: AbortController;
+  generation: WorkerGeneration | null;
+  cancellation: Promise<void> | null;
+};
+
 function abortError(message = 'The synthesis operation was cancelled.'): DOMException {
   return new DOMException(message, 'AbortError');
 }
 
-function isWorkerResponse(value: unknown): value is WorkerResponse {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  if (!Number.isSafeInteger(candidate.operationId) || typeof candidate.type !== 'string') {
-    return false;
-  }
-  return ['ready', 'progress', 'result', 'error', 'cancelled'].includes(candidate.type);
-}
-
-function assertRequest(adapterEngineId: string, request: SynthesisRequest): void {
-  if (request.voice.engineId !== adapterEngineId) {
-    throw new Error(`Voice ${request.voice.id} does not belong to ${adapterEngineId}.`);
-  }
-  if (!request.voice.runtimeModes.includes(request.mode)) {
-    throw new Error(`Voice ${request.voice.id} does not support ${request.mode}.`);
+function assertRequest(canonicalVoice: CatalogVoice, request: SynthesisRequest): void {
+  if (!canonicalVoice.runtimeModes.includes(request.mode)) {
+    throw new Error(`Voice ${canonicalVoice.id} does not support ${request.mode}.`);
   }
   const validation = validateSynthesisText(request.text);
   if (!validation.valid) throw new Error(validation.message ?? 'Invalid synthesis text.');
   if (request.text.trim().length === 0) throw new Error('Text is required.');
   if (request.text.length > MAX_SYNTHESIS_CHARACTERS) {
     throw new Error('Text must be 2,000 characters or fewer.');
-  }
-  for (const [id, value] of Object.entries(request.controls)) {
-    if (
-      id.length === 0 ||
-      !['string', 'number', 'boolean'].includes(typeof value) ||
-      (typeof value === 'number' && !Number.isFinite(value))
-    ) {
-      throw new Error(`Control ${id || '(empty)'} must be a finite scalar value.`);
-    }
   }
 }
 
@@ -107,9 +104,15 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   private readonly workerFactory: WorkerRuntimeAdapterOptions['workerFactory'];
   private readonly browserRuntimeEnabled: boolean;
   private readonly cancelTimeoutMs: number;
-  private worker: WorkerPort | null = null;
+  private generation: WorkerGeneration | null = null;
+  private nextGenerationId = 0;
   private nextOperationId = 0;
   private readonly pending = new Map<number, PendingWorkerOperation>();
+  private activePreparation: ActivePreparation | null = null;
+  private readonly retiringGenerations = new Map<
+    number,
+    { generation: WorkerGeneration; completion: Promise<void> }
+  >();
 
   constructor(options: WorkerRuntimeAdapterOptions) {
     this.engineId = options.engineId;
@@ -127,14 +130,15 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   }
 
   async checkCapability(voice: CatalogVoice, mode: RuntimeMode): Promise<RuntimeCapability> {
-    if (voice.engineId !== this.engineId || !this.voicesById.has(voice.id)) {
+    const canonicalVoice = this.voicesById.get(voice.id);
+    if (canonicalVoice === undefined) {
       return { available: false, mode, reason: 'unknown-preset', controls: [] };
     }
-    if (mode !== 'browser' || !voice.runtimeModes.includes(mode)) {
+    if (mode !== 'browser' || !canonicalVoice.runtimeModes.includes(mode)) {
       return { available: false, mode, reason: 'runtime-mode-unavailable', controls: [] };
     }
-    if (voice.releaseGate?.status === 'unavailable') {
-      return { available: false, mode, reason: voice.releaseGate.reason, controls: [] };
+    if (canonicalVoice.releaseGate?.status === 'unavailable') {
+      return { available: false, mode, reason: canonicalVoice.releaseGate.reason, controls: [] };
     }
     if (!this.browserRuntimeEnabled) {
       return {
@@ -163,57 +167,116 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   }
 
   async prepare(request: SynthesisRequest, context: RuntimeOperationContext = {}): Promise<void> {
-    assertRequest(this.engineId, request);
-    const capability = await this.checkCapability(request.voice, request.mode);
-    if (!capability.available) throw new Error(capability.reason ?? 'Runtime unavailable.');
-
-    const assetSetId = request.voice.assetSetId;
-    const assetSet =
-      assetSetId === null || assetSetId === undefined
-        ? undefined
-        : this.assetSetsById.get(assetSetId);
-    if (assetSet === undefined) {
-      throw new Error(`No immutable asset set is registered for ${request.voice.id}.`);
+    const canonicalVoice = this.resolveCanonicalVoice(request.voice.id);
+    assertRequest(canonicalVoice, request);
+    if (this.activePreparation !== null && !this.activePreparation.controller.signal.aborted) {
+      throw new Error('A preset preparation is already in progress.');
     }
+    const preparation: ActivePreparation = {
+      controller: new AbortController(),
+      generation: null,
+      cancellation: null,
+    };
+    this.activePreparation = preparation;
+    const abortPreparation = () => {
+      void this.cancelPreparation(preparation, abortError());
+    };
+    context.signal?.addEventListener('abort', abortPreparation, { once: true });
+    if (context.signal?.aborted) abortPreparation();
+    let rejectAborted: (() => void) | null = null;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      rejectAborted = () => reject(abortError());
+      if (preparation.controller.signal.aborted) rejectAborted();
+      else preparation.controller.signal.addEventListener('abort', rejectAborted, { once: true });
+    });
 
-    await this.prepareAssets(assetSet, request.voice, context);
-    if (context.signal?.aborted) throw abortError();
+    try {
+      const capability = await Promise.race([
+        this.checkCapability(canonicalVoice, request.mode),
+        aborted,
+      ]);
+      if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
+        throw abortError();
+      }
+      if (!capability.available) throw new Error(capability.reason ?? 'Runtime unavailable.');
 
-    const worker = this.ensureWorker();
-    const operationId = ++this.nextOperationId;
-    await new Promise<void>((resolve, reject) => {
-      this.pending.set(operationId, {
-        kind: 'prepare',
-        resolve,
-        reject,
-        context,
-        voiceId: request.voice.id,
-      });
-      worker.postMessage({
+      const assetSetId = canonicalVoice.assetSetId;
+      const assetSet =
+        assetSetId === null || assetSetId === undefined
+          ? undefined
+          : this.assetSetsById.get(assetSetId);
+      if (assetSet === undefined || assetSet.engineId !== this.engineId) {
+        throw new Error(`No immutable asset set is registered for ${canonicalVoice.id}.`);
+      }
+
+      await Promise.race([
+        this.prepareAssets(assetSet, canonicalVoice, {
+          ...context,
+          signal: preparation.controller.signal,
+        }),
+        aborted,
+      ]);
+      if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
+        throw abortError();
+      }
+
+      const generation = this.ensureGeneration();
+      preparation.generation = generation;
+      const operationId = ++this.nextOperationId;
+      const command = WorkerCommandSchema.parse({
         command: 'prepare',
         operationId,
         engineId: this.engineId,
-        voiceId: request.voice.id,
+        voiceId: canonicalVoice.id,
       });
-    });
+      await new Promise<void>((resolve, reject) => {
+        this.pending.set(operationId, {
+          kind: 'prepare',
+          resolve,
+          reject,
+          context,
+          generationId: generation.id,
+          voiceId: canonicalVoice.id,
+        });
+        generation.pendingIds.add(operationId);
+        this.postCommand(generation, command);
+      });
+    } catch (error) {
+      if (preparation.controller.signal.aborted) throw abortError();
+      throw error;
+    } finally {
+      if (rejectAborted !== null) {
+        preparation.controller.signal.removeEventListener('abort', rejectAborted);
+      }
+      context.signal?.removeEventListener('abort', abortPreparation);
+      if (this.activePreparation === preparation) this.activePreparation = null;
+    }
   }
 
   async synthesize(
     request: SynthesisRequest,
     context: RuntimeOperationContext,
   ): Promise<SynthesisOutput> {
-    assertRequest(this.engineId, request);
+    const canonicalVoice = this.resolveCanonicalVoice(request.voice.id);
+    assertRequest(canonicalVoice, request);
     if (context.signal?.aborted) throw abortError();
-    const worker = this.worker;
-    if (worker === null) {
+    const generation = this.generation;
+    if (generation === null || generation.preparedVoiceId !== canonicalVoice.id) {
       throw new Error('Prepare the selected preset before synthesis.');
     }
 
     const operationId = ++this.nextOperationId;
+    const command = WorkerCommandSchema.parse({
+      command: 'synthesize',
+      operationId,
+      engineId: this.engineId,
+      voiceId: canonicalVoice.id,
+      text: request.text,
+      controls: { ...request.controls },
+    });
     return await new Promise<SynthesisOutput>((resolve, reject) => {
       const abort = () => {
-        this.pending.delete(operationId);
-        reject(abortError());
+        void this.startGenerationCancellation(generation, abortError());
       };
       context.signal?.addEventListener('abort', abort, { once: true });
       this.pending.set(operationId, {
@@ -227,110 +290,240 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
           reject(reason);
         },
         context,
-        voiceId: request.voice.id,
+        generationId: generation.id,
+        voiceId: canonicalVoice.id,
       });
-      worker.postMessage({
-        command: 'synthesize',
-        operationId,
-        engineId: this.engineId,
-        voiceId: request.voice.id,
-        text: request.text,
-        controls: { ...request.controls },
-      });
+      generation.pendingIds.add(operationId);
+      this.postCommand(generation, command);
     });
   }
 
   async cancel(): Promise<void> {
-    const worker = this.worker;
-    if (worker === null) return;
-
-    const activeIds = [...this.pending.keys()];
-    const cancellation = abortError();
-    for (const operationId of activeIds) {
-      const operation = this.pending.get(operationId);
-      this.pending.delete(operationId);
-      operation?.reject(cancellation);
-      worker.postMessage({ command: 'cancel', operationId });
+    const generation = this.generation;
+    const preparation = this.activePreparation;
+    const cancellations = new Set<Promise<void>>();
+    if (preparation !== null) {
+      cancellations.add(this.cancelPreparation(preparation, abortError()));
     }
-
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, this.cancelTimeoutMs);
-    });
-    if (this.worker === worker) {
-      this.detachAndTerminateWorker(worker);
+    if (generation !== null && generation !== preparation?.generation) {
+      cancellations.add(this.startGenerationCancellation(generation, abortError()));
     }
+    for (const retirement of this.retiringGenerations.values()) {
+      cancellations.add(retirement.completion);
+    }
+    await Promise.all(cancellations);
   }
 
   async dispose(): Promise<void> {
-    const worker = this.worker;
-    const disposed = abortError('The runtime was disposed.');
-    for (const operation of this.pending.values()) operation.reject(disposed);
-    this.pending.clear();
-    if (worker !== null) {
-      worker.postMessage({ command: 'dispose', operationId: ++this.nextOperationId });
-      this.detachAndTerminateWorker(worker);
+    const preparation = this.activePreparation;
+    preparation?.controller.abort();
+    const generations = new Map<number, WorkerGeneration>();
+    if (this.generation !== null) generations.set(this.generation.id, this.generation);
+    if (preparation?.generation !== null && preparation?.generation !== undefined) {
+      generations.set(preparation.generation.id, preparation.generation);
     }
-  }
-
-  private ensureWorker(): WorkerPort {
-    if (this.worker === null) {
-      this.worker = this.workerFactory();
-      this.worker.addEventListener('message', this.onWorkerMessage);
+    for (const retirement of this.retiringGenerations.values()) {
+      generations.set(retirement.generation.id, retirement.generation);
     }
-    return this.worker;
-  }
-
-  private readonly onWorkerMessage = (event: MessageEvent): void => {
-    if (!isWorkerResponse(event.data)) return;
-    const message = event.data;
-    const operation = this.pending.get(message.operationId);
-    if (operation === undefined) return;
-
-    if (message.type === 'progress') {
-      if (typeof message.phase === 'string' && typeof message.percent === 'number') {
-        operation.context.onProgress?.({
-          phase: message.phase,
-          percent: Math.max(0, Math.min(100, message.percent)),
+    const failures: unknown[] = [];
+    for (const generation of generations.values()) {
+      this.detachGeneration(generation);
+      this.rejectGeneration(generation, abortError('The runtime was disposed.'));
+      try {
+        const command = WorkerCommandSchema.parse({
+          command: 'dispose',
+          operationId: ++this.nextOperationId,
         });
+        generation.port.postMessage(command);
+      } catch (error) {
+        failures.push(error);
+      } finally {
+        this.terminateGeneration(generation);
+        this.retiringGenerations.delete(generation.id);
       }
+    }
+    if (failures.length > 0) {
+      throw new AggregateError(failures, 'One or more Worker generations could not be disposed.', {
+        cause: failures[0],
+      });
+    }
+  }
+
+  private resolveCanonicalVoice(voiceId: string): CatalogVoice {
+    const voice = this.voicesById.get(voiceId);
+    if (voice === undefined || voice.engineId !== this.engineId) {
+      throw new Error(`Unknown preset ${voiceId} for ${this.engineId}.`);
+    }
+    return voice;
+  }
+
+  private ensureGeneration(): WorkerGeneration {
+    if (this.generation !== null) return this.generation;
+    const port = this.workerFactory();
+    const generation = {
+      id: ++this.nextGenerationId,
+      port,
+      pendingIds: new Set<number>(),
+      preparedVoiceId: null,
+      detached: false,
+      terminated: false,
+      onMessage: (() => undefined) as EventListener,
+      onError: (() => undefined) as EventListener,
+      onMessageError: (() => undefined) as EventListener,
+    } satisfies WorkerGeneration;
+    generation.onMessage = ((event: MessageEvent) => {
+      this.handleWorkerMessage(generation, event.data);
+    }) as EventListener;
+    generation.onError = (() => {
+      this.failGeneration(generation, new Error('Worker execution failed.'));
+    }) as EventListener;
+    generation.onMessageError = (() => {
+      this.failGeneration(generation, new Error('Worker message decoding failed.'));
+    }) as EventListener;
+    port.addEventListener('message', generation.onMessage);
+    port.addEventListener('error', generation.onError);
+    port.addEventListener('messageerror', generation.onMessageError);
+    this.generation = generation;
+    return generation;
+  }
+
+  private postCommand(generation: WorkerGeneration, command: WorkerCommand): void {
+    try {
+      generation.port.postMessage(WorkerCommandSchema.parse(command));
+    } catch (error) {
+      this.failGeneration(generation, error);
+    }
+  }
+
+  private handleWorkerMessage(generation: WorkerGeneration, value: unknown): void {
+    if (generation.detached) return;
+    const parsed = WorkerResponseSchema.safeParse(value);
+    if (!parsed.success) {
+      this.failGeneration(generation, new Error('Malformed worker response.'));
       return;
     }
-    this.pending.delete(message.operationId);
+    const message: WorkerResponse = parsed.data;
+    const operation = this.pending.get(message.operationId);
+    if (operation === undefined || operation.generationId !== generation.id) return;
+
+    if (message.type === 'progress') {
+      operation.context.onProgress?.({ phase: message.phase, percent: message.percent });
+      return;
+    }
 
     if (message.type === 'error') {
-      operation.reject(
-        new Error(typeof message.message === 'string' ? message.message : 'Worker error.'),
-      );
+      this.removePending(generation, message.operationId);
+      if (operation.kind === 'prepare') generation.preparedVoiceId = null;
+      operation.reject(new Error(message.message));
       return;
     }
     if (message.type === 'cancelled') {
+      this.removePending(generation, message.operationId);
+      generation.preparedVoiceId = null;
       operation.reject(abortError());
       return;
     }
     if (message.type === 'ready' && operation.kind === 'prepare') {
+      this.removePending(generation, message.operationId);
+      generation.preparedVoiceId = operation.voiceId;
       operation.resolve();
       return;
     }
     if (message.type === 'result' && operation.kind === 'synthesize') {
-      if (!(message.audio instanceof ArrayBuffer)) {
-        operation.reject(new Error('Worker returned invalid audio bytes.'));
-        return;
-      }
-      const blob = new Blob([message.audio], { type: 'audio/wav' });
+      this.removePending(generation, message.operationId);
+      const blob = new Blob([message.audio], { type: message.mimeType });
       operation.resolve({
         blob,
-        mimeType: 'audio/wav',
+        mimeType: message.mimeType,
         filename: `${safeFilenamePart(operation.voiceId)}.wav`,
       });
       return;
     }
-    operation.reject(new Error('Worker returned an unexpected lifecycle response.'));
-  };
+    this.failGeneration(generation, new Error('Worker returned an unexpected lifecycle response.'));
+  }
 
-  private detachAndTerminateWorker(worker: WorkerPort): void {
-    worker.removeEventListener('message', this.onWorkerMessage);
-    worker.terminate();
-    if (this.worker === worker) this.worker = null;
+  private removePending(generation: WorkerGeneration, operationId: number): void {
+    this.pending.delete(operationId);
+    generation.pendingIds.delete(operationId);
+  }
+
+  private rejectGeneration(generation: WorkerGeneration, reason: unknown): void {
+    for (const operationId of [...generation.pendingIds]) {
+      const operation = this.pending.get(operationId);
+      this.removePending(generation, operationId);
+      operation?.reject(reason);
+    }
+  }
+
+  private detachGeneration(generation: WorkerGeneration): void {
+    if (generation.detached) return;
+    generation.detached = true;
+    generation.preparedVoiceId = null;
+    generation.port.removeEventListener('message', generation.onMessage);
+    generation.port.removeEventListener('error', generation.onError);
+    generation.port.removeEventListener('messageerror', generation.onMessageError);
+    if (this.generation === generation) this.generation = null;
+  }
+
+  private terminateGeneration(generation: WorkerGeneration): void {
+    if (generation.terminated) return;
+    generation.terminated = true;
+    generation.port.terminate();
+  }
+
+  private failGeneration(generation: WorkerGeneration, reason: unknown): void {
+    this.detachGeneration(generation);
+    this.rejectGeneration(generation, reason);
+    this.terminateGeneration(generation);
+  }
+
+  private cancelPreparation(preparation: ActivePreparation, reason: unknown): Promise<void> {
+    preparation.controller.abort();
+    if (preparation.cancellation !== null) return preparation.cancellation;
+    if (preparation.generation === null) return Promise.resolve();
+    const cancellation = this.startGenerationCancellation(preparation.generation, reason);
+    preparation.cancellation = cancellation;
+    return cancellation;
+  }
+
+  private startGenerationCancellation(
+    generation: WorkerGeneration,
+    reason: unknown,
+  ): Promise<void> {
+    const active = this.retiringGenerations.get(generation.id);
+    if (active !== undefined) return active.completion;
+    const completion = this.cancelGeneration(generation, reason);
+    const retirement = { generation, completion };
+    this.retiringGenerations.set(generation.id, retirement);
+    void completion.then(
+      () => {
+        if (this.retiringGenerations.get(generation.id) === retirement) {
+          this.retiringGenerations.delete(generation.id);
+        }
+      },
+      () => {
+        if (this.retiringGenerations.get(generation.id) === retirement) {
+          this.retiringGenerations.delete(generation.id);
+        }
+      },
+    );
+    return completion;
+  }
+
+  private async cancelGeneration(generation: WorkerGeneration, reason: unknown): Promise<void> {
+    if (generation.detached) return;
+    const operationIds = [...generation.pendingIds];
+    this.detachGeneration(generation);
+    this.rejectGeneration(generation, reason);
+    for (const operationId of operationIds) {
+      try {
+        generation.port.postMessage(WorkerCommandSchema.parse({ command: 'cancel', operationId }));
+      } catch {
+        // The detached generation is terminated below regardless of acknowledgement.
+      }
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, this.cancelTimeoutMs));
+    this.terminateGeneration(generation);
   }
 }
 

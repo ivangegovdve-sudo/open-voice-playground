@@ -1,16 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import launchJson from '../../../../packages/catalog/data/launch-catalog.public.json';
+import launchIntegrity from '../../../../packages/catalog/data/launch-catalog.integrity.json';
 import launchRaw from '../../../../packages/catalog/data/launch-catalog.public.json?raw';
 import { EMPTY_FILTERS, filterVoices } from './filters';
-import { loadLaunchCatalog, mapLaunchCatalog } from './launch-catalog';
+import {
+  createTestOnlyLaunchCatalogLoader,
+  loadLaunchCatalog,
+  mapLaunchCatalog,
+} from './launch-catalog';
 
 const CONTENT_ADDRESSED_URL = new URL(
   '/assets/launch-catalog.public-deadbeef.json',
   window.location.href,
 ).href;
+const CATALOG_CACHE = 'open-voice-launch-catalog-deadbeef';
 
-function launchResponse(body = launchRaw, init: ResponseInit = {}): Response {
+function testLoader(url = '/launch-catalog.json') {
+  return createTestOnlyLaunchCatalogLoader(url);
+}
+
+function launchResponse(body: BodyInit = launchRaw, init: ResponseInit = {}): Response {
   const headers = new Headers(init.headers);
   if (!headers.has('content-type')) headers.set('content-type', 'application/json');
   return new Response(body, { ...init, headers });
@@ -36,7 +46,10 @@ function installCatalogCache(initial?: Response) {
     delete: vi.fn(async (request: RequestInfo | URL) => entries.delete(normalize(request))),
     keys: vi.fn(async () => [...entries.keys()].map((url) => new Request(url))),
   } as unknown as Cache;
-  const storage = { open: vi.fn(async () => cache) } as unknown as CacheStorage;
+  const storage = {
+    keys: vi.fn(async () => [CATALOG_CACHE]),
+    open: vi.fn(async () => cache),
+  } as unknown as CacheStorage;
   vi.stubGlobal('caches', storage);
   return { cache, entries, storage };
 }
@@ -79,9 +92,7 @@ describe('launch catalog web adapter', () => {
     const fetcher = vi.fn(async () => launchResponse());
 
     expect(fetcher).not.toHaveBeenCalled();
-    const catalog = await loadLaunchCatalog(fetcher, '/launch-catalog.json', {
-      testOnlyAllowMutableUrl: true,
-    });
+    const catalog = await testLoader()(fetcher);
 
     expect(catalog.voices).toHaveLength(426);
     expect(fetcher).toHaveBeenCalledWith('/launch-catalog.json', {
@@ -90,24 +101,19 @@ describe('launch catalog web adapter', () => {
     });
   });
 
-  it('validates before caching and revalidates a content-addressed offline fallback', async () => {
-    const { cache, entries } = installCatalogCache();
+  it('revalidates a versioned content-addressed offline fallback', async () => {
+    const { entries } = installCatalogCache(launchResponse());
     const online = vi.fn(async () => launchResponse());
 
-    await expect(
-      loadLaunchCatalog(online, CONTENT_ADDRESSED_URL, { testOnlyAllowMutableUrl: true }),
-    ).resolves.toMatchObject({
+    await expect(testLoader(CONTENT_ADDRESSED_URL)(online)).resolves.toMatchObject({
       kind: 'launch',
     });
-    expect(cache.put).toHaveBeenCalledOnce();
     expect(entries.has(CONTENT_ADDRESSED_URL)).toBe(true);
 
     const offline = vi.fn(async () => {
       throw new TypeError('Failed to fetch');
     });
-    await expect(
-      loadLaunchCatalog(offline, CONTENT_ADDRESSED_URL, { testOnlyAllowMutableUrl: true }),
-    ).resolves.toMatchObject({
+    await expect(testLoader(CONTENT_ADDRESSED_URL)(offline)).resolves.toMatchObject({
       kind: 'launch',
       catalogId: 'open-voice-launch',
     });
@@ -124,9 +130,7 @@ describe('launch catalog web adapter', () => {
       throw new TypeError('Failed to fetch');
     });
 
-    await expect(
-      loadLaunchCatalog(offline, CONTENT_ADDRESSED_URL, { testOnlyAllowMutableUrl: true }),
-    ).rejects.toThrow(/failed to fetch/i);
+    await expect(testLoader(CONTENT_ADDRESSED_URL)(offline)).rejects.toThrow(/failed to fetch/i);
     expect(cache.delete).toHaveBeenCalledWith(CONTENT_ADDRESSED_URL);
   });
 
@@ -138,17 +142,13 @@ describe('launch catalog web adapter', () => {
     );
 
     await expect(
-      loadLaunchCatalog(
+      testLoader('/launch-catalog-one-byte.json')(
         vi.fn(async () => launchResponse(oneByteChanged)),
-        '/launch-catalog-one-byte.json',
-        { testOnlyAllowMutableUrl: true },
       ),
     ).rejects.toThrow(/exact-byte integrity/i);
     await expect(
-      loadLaunchCatalog(
+      testLoader('/launch-catalog-same-count.json')(
         vi.fn(async () => launchResponse(sameCountTamper)),
-        '/launch-catalog-same-count.json',
-        { testOnlyAllowMutableUrl: true },
       ),
     ).rejects.toThrow(/exact-byte integrity/i);
   });
@@ -160,15 +160,9 @@ describe('launch catalog web adapter', () => {
       url: { value: 'https://example.test/assets/launch-catalog.public-deadbeef.json' },
     });
 
-    await expect(
-      loadLaunchCatalog(
-        vi.fn(async () => response),
-        '/launch-catalog.json',
-        {
-          testOnlyAllowMutableUrl: true,
-        },
-      ),
-    ).rejects.toThrow(/response URL.*exact requested asset URL/i);
+    await expect(testLoader()(vi.fn(async () => response))).rejects.toThrow(
+      /response URL.*exact requested asset URL/i,
+    );
   });
 
   it('preserves and serves the prior verified cache when a same-URL network body changes', async () => {
@@ -179,27 +173,25 @@ describe('launch catalog web adapter', () => {
     const { cache } = installCatalogCache(launchResponse());
     const changedNetwork = vi.fn(async () => launchResponse(sameCountTamper));
 
-    await expect(
-      loadLaunchCatalog(changedNetwork, CONTENT_ADDRESSED_URL, {
-        testOnlyAllowMutableUrl: true,
-      }),
-    ).resolves.toMatchObject({ catalogId: 'open-voice-launch', kind: 'launch' });
+    await expect(testLoader(CONTENT_ADDRESSED_URL)(changedNetwork)).resolves.toMatchObject({
+      catalogId: 'open-voice-launch',
+      kind: 'launch',
+    });
     expect(cache.put).not.toHaveBeenCalled();
     expect(cache.delete).not.toHaveBeenCalled();
   });
 
-  it('rejects cross-origin and mutable production URLs before any request', async () => {
+  it('rejects any production custom URL argument before a request', async () => {
     const fetcher = vi.fn(async () => launchResponse());
+    const productionLoader = loadLaunchCatalog as unknown as (
+      fetcher: typeof fetch,
+      forbiddenUrl: string,
+    ) => Promise<unknown>;
 
-    await expect(loadLaunchCatalog(fetcher, '/launch-catalog.json')).rejects.toThrow(
-      /same-origin content-addressed/i,
-    );
+    await expect(productionLoader(fetcher, '/launch-catalog.json')).rejects.toThrow(/fixed.*url/i);
     await expect(
-      loadLaunchCatalog(
-        fetcher,
-        'https://attacker.example/assets/launch-catalog.public-deadbeef.json',
-      ),
-    ).rejects.toThrow(/same-origin content-addressed/i);
+      productionLoader(fetcher, 'https://attacker.example/catalog.json'),
+    ).rejects.toThrow(/fixed.*url/i);
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -208,9 +200,107 @@ describe('launch catalog web adapter', () => {
       async () => new Response(launchRaw, { headers: { 'content-type': 'text/html' } }),
     );
 
+    await expect(testLoader()(html)).rejects.toThrow(/application\/json content type/i);
+  });
+
+  it.each([
+    'application/javascript',
+    'application/jsonp',
+    'application/json; charset=utf-8; profile=evil',
+    'text/html; application/json',
+  ])('rejects non-exact JSON MIME type %s', async (contentType) => {
     await expect(
-      loadLaunchCatalog(html, '/launch-catalog.json', { testOnlyAllowMutableUrl: true }),
+      testLoader()(
+        vi.fn(async () => launchResponse(launchRaw, { headers: { 'content-type': contentType } })),
+      ),
     ).rejects.toThrow(/application\/json content type/i);
+  });
+
+  it.each([
+    'application/json',
+    'application/json; charset=utf-8',
+    'APPLICATION/JSON;CHARSET="UTF-8"',
+  ])('accepts strict JSON MIME type %s', async (contentType) => {
+    await expect(
+      testLoader()(
+        vi.fn(async () => launchResponse(launchRaw, { headers: { 'content-type': contentType } })),
+      ),
+    ).resolves.toMatchObject({ catalogId: 'open-voice-launch' });
+  });
+
+  it.each([
+    ['missing bytes', launchIntegrity.bytes - 1],
+    ['extra bytes', launchIntegrity.bytes + 1],
+  ])('rejects a declared Content-Length with %s before parsing', async (_label, bytes) => {
+    const reader = { cancel: vi.fn(async () => undefined) };
+    const response = launchResponse(launchRaw, {
+      headers: {
+        'content-length': String(bytes),
+        'content-type': 'application/json',
+      },
+    });
+    Object.defineProperty(response, 'body', { value: reader });
+
+    await expect(testLoader()(vi.fn(async () => response))).rejects.toThrow(/exact.*byte|length/i);
+    expect(reader.cancel).toHaveBeenCalledOnce();
+  });
+
+  it('rejects truncated and overflowing streams when Content-Length is absent', async () => {
+    const valid = new TextEncoder().encode(launchRaw);
+    for (const bytes of [valid.subarray(0, -1), new Uint8Array([...valid, 0x20])]) {
+      const response = launchResponse(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes);
+            controller.close();
+          },
+        }) as unknown as BodyInit,
+      );
+
+      await expect(testLoader()(vi.fn(async () => response))).rejects.toThrow(
+        /exact.*byte|length/i,
+      );
+    }
+  });
+
+  it('cancels the reader as soon as a catalog stream exceeds the exact byte cap', async () => {
+    const overflow = new Uint8Array(launchIntegrity.bytes + 1);
+    const cancel = vi.fn(async () => undefined);
+    const reader = {
+      read: vi
+        .fn()
+        .mockResolvedValueOnce({ done: false, value: overflow })
+        .mockResolvedValueOnce({ done: true, value: undefined }),
+      cancel,
+      releaseLock: vi.fn(),
+    };
+    const response = launchResponse();
+    Object.defineProperty(response, 'body', {
+      value: { getReader: () => reader, cancel },
+    });
+
+    await expect(testLoader()(vi.fn(async () => response))).rejects.toThrow(
+      /overflow|exact.*byte/i,
+    );
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it('cancels and rejects a failing catalog reader', async () => {
+    const cancel = vi.fn(async () => undefined);
+    const reader = {
+      read: vi.fn(async () => {
+        throw new Error('reader failed');
+      }),
+      cancel,
+      releaseLock: vi.fn(),
+    };
+    const response = launchResponse();
+    Object.defineProperty(response, 'body', {
+      value: { getReader: () => reader, cancel },
+    });
+
+    await expect(testLoader()(vi.fn(async () => response))).rejects.toThrow(/integrity|schema/i);
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it('rejects an incomplete or unexpected public payload', () => {

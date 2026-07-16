@@ -15,7 +15,7 @@ describe('production launch services', () => {
     const workerConstructor = vi.fn();
     vi.stubGlobal('Worker', workerConstructor);
 
-    const services = await createLaunchServices(fetcher, '/launch-catalog.json');
+    const services = await createLaunchServices(fetcher);
 
     expect(services.catalog.kind).toBe('launch');
     expect(services.catalog.voices).toHaveLength(426);

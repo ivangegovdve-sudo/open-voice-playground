@@ -7,7 +7,11 @@ import { defineConfig, type Plugin } from 'vite';
 const BUILD_ASSETS_MARKER = 'const BUILD_ASSETS = []; // __VITE_BUILD_ASSETS__';
 const CACHE_VERSION_MARKER = "const CACHE_VERSION = 'development'; // __VITE_CACHE_VERSION__";
 const SHELL_DIGEST_MARKER = "const SHELL_DIGEST = 'development'; // __VITE_SHELL_DIGEST__";
+const CATALOG_URL_MARKER = "const CATALOG_URL = 'development'; // __VITE_CATALOG_URL__";
+const CATALOG_DIGEST_MARKER = "const CATALOG_DIGEST = 'development'; // __VITE_CATALOG_DIGEST__";
+const CATALOG_BYTES_MARKER = 'const CATALOG_BYTES = 0; // __VITE_CATALOG_BYTES__';
 const SHELL_ASSET_PATTERN = /\.(?:css|js|mjs|woff2?|png|svg|webp|avif|ico)$/i;
+const LAUNCH_CATALOG_ASSET_PATTERN = /^assets\/launch-catalog\.public-[A-Za-z0-9_-]{6,}\.json$/;
 
 function assertUniqueInjectionMarker(
   serviceWorker: string,
@@ -29,14 +33,25 @@ function injectServiceWorkerShellAssets(): Plugin {
         throw new Error('The web build must write to a directory for PWA asset injection.');
       }
 
-      const shellOutputs = Object.values(bundle)
-        .filter((output) => SHELL_ASSET_PATTERN.test(output.fileName))
-        .sort((left, right) => left.fileName.localeCompare(right.fileName));
-      const buildAssets = shellOutputs.map((output) => `/${output.fileName}`);
+      const catalogOutputs = Object.values(bundle).filter(
+        (output) => output.type === 'asset' && LAUNCH_CATALOG_ASSET_PATTERN.test(output.fileName),
+      );
 
-      if (!buildAssets.some((path) => path.endsWith('.js'))) {
-        throw new Error('The PWA shell build did not emit a JavaScript entry.');
+      if (catalogOutputs.length !== 1) {
+        throw new Error(
+          `The web build must emit exactly one content-addressed launch catalog; found ${catalogOutputs.length}.`,
+        );
       }
+      const catalogOutput = catalogOutputs[0]!;
+      if (catalogOutput.type !== 'asset') {
+        throw new Error('The emitted launch catalog must be a static asset.');
+      }
+      const catalogBytes =
+        typeof catalogOutput.source === 'string'
+          ? Buffer.from(catalogOutput.source, 'utf8')
+          : Buffer.from(catalogOutput.source);
+      const catalogUrl = `/${catalogOutput.fileName}`;
+      const catalogDigest = `sha256:${createHash('sha256').update(catalogBytes).digest('hex')}`;
 
       const serviceWorkerPath = resolve(outputOptions.dir, 'sw.js');
       const [serviceWorkerBytes, indexBytes, manifestBytes, iconBytes] = await Promise.all([
@@ -45,10 +60,58 @@ function injectServiceWorkerShellAssets(): Plugin {
         readFile(resolve(outputOptions.dir, 'manifest.webmanifest')),
         readFile(resolve(outputOptions.dir, 'icon.svg')),
       ]);
+      const pendingShellFiles: string[] = [];
+      const shellFileNames = new Set<string>();
+      const enqueueShellFile = (reference: string): void => {
+        const fileName = new URL(reference, 'https://open-voice.invalid/').pathname.replace(
+          /^\//,
+          '',
+        );
+        if (
+          !shellFileNames.has(fileName) &&
+          bundle[fileName] !== undefined &&
+          SHELL_ASSET_PATTERN.test(fileName)
+        ) {
+          shellFileNames.add(fileName);
+          pendingShellFiles.push(fileName);
+        }
+      };
+      for (const match of indexBytes.toString('utf8').matchAll(/(?:src|href)=["']([^"']+)["']/gi)) {
+        enqueueShellFile(match[1]!);
+      }
+      while (pendingShellFiles.length > 0) {
+        const fileName = pendingShellFiles.shift()!;
+        const output = bundle[fileName]!;
+        if (output.type === 'chunk') {
+          for (const imported of output.imports) enqueueShellFile(imported);
+          const metadata = (
+            output as typeof output & { viteMetadata?: { importedCss?: ReadonlySet<string> } }
+          ).viteMetadata;
+          for (const importedCss of metadata?.importedCss ?? []) enqueueShellFile(importedCss);
+        } else if (fileName.endsWith('.css')) {
+          const css =
+            typeof output.source === 'string'
+              ? output.source
+              : Buffer.from(output.source).toString('utf8');
+          for (const match of css.matchAll(/(?:\.?\.?\/)?assets\/[^"'()\s]+/g)) {
+            enqueueShellFile(match[0]);
+          }
+        }
+      }
+      const shellOutputs = [...shellFileNames]
+        .map((fileName) => bundle[fileName]!)
+        .sort((left, right) => left.fileName.localeCompare(right.fileName));
+      const buildAssets = shellOutputs.map((output) => `/${output.fileName}`);
+      if (!buildAssets.some((path) => /\.(?:js|mjs)$/.test(path))) {
+        throw new Error('The PWA shell build did not emit a JavaScript entry.');
+      }
       const serviceWorker = serviceWorkerBytes.toString('utf8');
       assertUniqueInjectionMarker(serviceWorker, BUILD_ASSETS_MARKER, '__VITE_BUILD_ASSETS__');
       assertUniqueInjectionMarker(serviceWorker, CACHE_VERSION_MARKER, '__VITE_CACHE_VERSION__');
       assertUniqueInjectionMarker(serviceWorker, SHELL_DIGEST_MARKER, '__VITE_SHELL_DIGEST__');
+      assertUniqueInjectionMarker(serviceWorker, CATALOG_URL_MARKER, '__VITE_CATALOG_URL__');
+      assertUniqueInjectionMarker(serviceWorker, CATALOG_DIGEST_MARKER, '__VITE_CATALOG_DIGEST__');
+      assertUniqueInjectionMarker(serviceWorker, CATALOG_BYTES_MARKER, '__VITE_CATALOG_BYTES__');
 
       const cacheVersionHash = createHash('sha256')
         .update(serviceWorkerBytes)
@@ -58,6 +121,10 @@ function injectServiceWorkerShellAssets(): Plugin {
         .update(manifestBytes)
         .update('\0')
         .update(iconBytes)
+        .update('\0')
+        .update(catalogOutput.fileName)
+        .update('\0')
+        .update(catalogBytes)
         .update('\0');
       for (const output of shellOutputs) {
         cacheVersionHash
@@ -71,7 +138,10 @@ function injectServiceWorkerShellAssets(): Plugin {
       const injectedServiceWorker = serviceWorker
         .replace(BUILD_ASSETS_MARKER, `const BUILD_ASSETS = ${JSON.stringify(buildAssets)};`)
         .replace(CACHE_VERSION_MARKER, `const CACHE_VERSION = '${cacheVersion}';`)
-        .replace(SHELL_DIGEST_MARKER, `const SHELL_DIGEST = '${shellDigest}';`);
+        .replace(SHELL_DIGEST_MARKER, `const SHELL_DIGEST = '${shellDigest}';`)
+        .replace(CATALOG_URL_MARKER, `const CATALOG_URL = '${catalogUrl}';`)
+        .replace(CATALOG_DIGEST_MARKER, `const CATALOG_DIGEST = '${catalogDigest}';`)
+        .replace(CATALOG_BYTES_MARKER, `const CATALOG_BYTES = ${catalogBytes.byteLength};`);
       if (injectedServiceWorker.includes('__VITE_')) {
         throw new Error('The built service worker contains an unresolved injection placeholder.');
       }
@@ -101,17 +171,50 @@ function pwaE2eResponseFixtures(): Plugin {
           response.statusCode = 200;
           response.setHeader('content-type', 'text/javascript; charset=utf-8');
           response.setHeader('service-worker-allowed', '/');
-          response.end(
-            serviceWorker
-              .replace(
-                /const CACHE_VERSION = '[^']+';/,
-                `const CACHE_VERSION = '${alternateVersion}';`,
-              )
-              .replace(
-                /const SHELL_DIGEST = '[^']+';/,
-                `const SHELL_DIGEST = '${alternateDigest}';`,
-              ),
+          const catalogFixture = url.searchParams.get('__pwa_catalog_fixture');
+          let upgradedWorker = serviceWorker.replace(
+            /const CACHE_VERSION = '[^']+';/,
+            `const CACHE_VERSION = '${alternateVersion}';`,
           );
+          if (catalogFixture === null) {
+            upgradedWorker = upgradedWorker.replace(
+              /const SHELL_DIGEST = '[^']+';/,
+              `const SHELL_DIGEST = '${alternateDigest}';`,
+            );
+          } else if (catalogFixture === 'missing') {
+            upgradedWorker = upgradedWorker.replace(
+              /const CATALOG_URL = '[^']+';/,
+              "const CATALOG_URL = '/__pwa_catalog_missing__.json';",
+            );
+          } else if (catalogFixture === 'unavailable') {
+            upgradedWorker = upgradedWorker.replace(
+              /const CATALOG_URL = '[^']+';/,
+              "const CATALOG_URL = '/__pwa_catalog_unavailable__.json';",
+            );
+          } else if (catalogFixture === 'oversized') {
+            upgradedWorker = upgradedWorker.replace(
+              /const CATALOG_BYTES = (\d+);/,
+              (_match, bytes: string) => `const CATALOG_BYTES = ${Number(bytes) - 1};`,
+            );
+          } else if (catalogFixture === 'wrong-digest') {
+            upgradedWorker = upgradedWorker.replace(
+              /const CATALOG_DIGEST = '[^']+';/,
+              `const CATALOG_DIGEST = 'sha256:${alternateDigest}';`,
+            );
+          }
+          response.end(upgradedWorker);
+          return;
+        }
+        if (url.pathname === '/__pwa_catalog_missing__.json') {
+          response.statusCode = 404;
+          response.setHeader('content-type', 'application/json');
+          response.end('{"error":"missing"}');
+          return;
+        }
+        if (url.pathname === '/__pwa_catalog_unavailable__.json') {
+          response.statusCode = 503;
+          response.setHeader('content-type', 'application/json');
+          response.end('{"error":"unavailable"}');
           return;
         }
         if (

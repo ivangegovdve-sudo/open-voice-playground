@@ -60,12 +60,9 @@ const EXPECTED_ENGINE_COUNTS: Readonly<Record<string, number>> = {
   pocket: 20,
   supertonic: 10,
 };
-const LAUNCH_CATALOG_CACHE = 'open-voice-launch-catalog-v2';
-
-type LaunchCatalogLoadOptions = {
-  /** Unit/integration fixture seam only; production must use the built immutable URL. */
-  testOnlyAllowMutableUrl?: boolean;
-};
+const LAUNCH_CATALOG_CACHE_PREFIX = 'open-voice-launch-catalog-';
+const STRICT_JSON_CONTENT_TYPE =
+  /^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -257,23 +254,78 @@ function isContentAddressedLaunchCatalog(url: string): boolean {
   }
 }
 
-function absoluteCatalogUrl(url: string): URL {
-  return new URL(url, globalThis.location?.href ?? 'https://open-voice.invalid/');
+async function cancelResponseBody(response: Response, reason?: unknown): Promise<void> {
+  try {
+    await response.body?.cancel(reason);
+  } catch {
+    // Cancellation is best effort; the original validation failure is authoritative.
+  }
 }
 
-function validateRequestedCatalogUrl(url: string, testOnlyAllowMutableUrl: boolean): void {
-  if (testOnlyAllowMutableUrl) return;
-  const requested = absoluteCatalogUrl(url);
-  const currentOrigin = globalThis.location?.origin;
-  if (
-    currentOrigin === undefined ||
-    requested.origin !== currentOrigin ||
-    !isContentAddressedLaunchCatalog(requested.href)
-  ) {
+async function readExactCatalogBytes(response: Response): Promise<Uint8Array> {
+  const expectedBytes = catalogIntegrity.bytes;
+  const declaredLength = response.headers.get('content-length');
+  if (declaredLength !== null) {
+    if (!/^\d+$/.test(declaredLength) || Number(declaredLength) !== expectedBytes) {
+      await cancelResponseBody(response, 'Unexpected launch catalog Content-Length.');
+      throw new Error(
+        `Launch catalog requires exactly ${expectedBytes} bytes; Content-Length was ${declaredLength}.`,
+      );
+    }
+  }
+
+  if (response.body === null) {
+    throw new Error('Launch catalog response has no readable body.');
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const bytes =
+        value instanceof ArrayBuffer
+          ? new Uint8Array(value)
+          : ArrayBuffer.isView(value)
+            ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+            : null;
+      if (bytes === null) {
+        throw new Error('Launch catalog stream produced a non-byte chunk.');
+      }
+      totalBytes += bytes.byteLength;
+      if (totalBytes > expectedBytes) {
+        await reader.cancel('Launch catalog exceeded its exact byte limit.');
+        throw new Error(
+          `Launch catalog requires exactly ${expectedBytes} bytes; the stream overflowed.`,
+        );
+      }
+      chunks.push(bytes);
+    }
+  } catch (error) {
+    try {
+      await reader.cancel(error);
+    } catch {
+      // Preserve the read or validation error.
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (totalBytes !== expectedBytes) {
     throw new Error(
-      'Production launch catalog URL must be a same-origin content-addressed JSON asset.',
+      `Launch catalog requires exactly ${expectedBytes} bytes; received ${totalBytes}.`,
     );
   }
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 async function parseCatalogResponse(response: Response, url: string): Promise<SeedCatalog> {
@@ -287,12 +339,15 @@ async function parseCatalogResponse(response: Response, url: string): Promise<Se
   ) {
     throw new Error('Launch catalog response URL did not match the exact requested asset URL.');
   }
-  if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
+  if (!STRICT_JSON_CONTENT_TYPE.test(response.headers.get('content-type') ?? '')) {
     throw new Error('Launch catalog response must use an application/json content type.');
   }
   try {
-    const bytes = await response.arrayBuffer();
-    const actualDigest = `sha256:${[...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]
+    const bytes = await readExactCatalogBytes(response);
+    const digestInput = Uint8Array.from(bytes).buffer;
+    const actualDigest = `sha256:${[
+      ...new Uint8Array(await crypto.subtle.digest('SHA-256', digestInput)),
+    ]
       .map((byte) => byte.toString(16).padStart(2, '0'))
       .join('')}`;
     if (actualDigest !== catalogIntegrity.sha256) {
@@ -311,48 +366,34 @@ async function parseCatalogResponse(response: Response, url: string): Promise<Se
   }
 }
 
-async function validatedCatalogCache(url: string): Promise<Cache | null> {
+async function versionedCatalogCaches(url: string): Promise<Cache[]> {
   if (!isContentAddressedLaunchCatalog(url) || typeof globalThis.caches === 'undefined') {
-    return null;
+    return [];
   }
   try {
-    return await globalThis.caches.open(LAUNCH_CATALOG_CACHE);
+    const names = (await globalThis.caches.keys())
+      .filter((name) => name.startsWith(LAUNCH_CATALOG_CACHE_PREFIX))
+      .sort((left, right) => right.localeCompare(left, 'en'));
+    return await Promise.all(names.map((name) => globalThis.caches.open(name)));
   } catch {
-    return null;
+    return [];
   }
 }
 
-export async function loadLaunchCatalog(
+async function loadLaunchCatalogFromUrl(
+  url: string,
   fetcher: typeof fetch = globalThis.fetch,
-  url = launchCatalogUrl,
-  { testOnlyAllowMutableUrl = false }: LaunchCatalogLoadOptions = {},
 ): Promise<SeedCatalog> {
-  validateRequestedCatalogUrl(url, testOnlyAllowMutableUrl);
-  const cache = await validatedCatalogCache(url);
+  const caches = await versionedCatalogCaches(url);
   let networkError: unknown;
   try {
     const response = await fetcher(url, { cache: 'no-store', credentials: 'omit' });
-    const cacheCopy = response.clone();
-    const catalog = await parseCatalogResponse(response, url);
-    if (cache !== null) {
-      try {
-        const staleRequests = await cache.keys();
-        await cache.put(url, cacheCopy);
-        await Promise.all(
-          staleRequests
-            .filter((request) => request.url !== new URL(url, globalThis.location?.href).href)
-            .map((request) => cache.delete(request)),
-        );
-      } catch {
-        // A storage failure must not invalidate a fully validated online catalog.
-      }
-    }
-    return catalog;
+    return await parseCatalogResponse(response, url);
   } catch (error) {
     networkError = error;
   }
 
-  if (cache !== null) {
+  for (const cache of caches) {
     try {
       const cached = await cache.match(url);
       if (cached !== undefined) {
@@ -363,4 +404,22 @@ export async function loadLaunchCatalog(
     }
   }
   throw networkError;
+}
+
+/** Production entry point: the bundler owns the one immutable catalog URL. */
+export async function loadLaunchCatalog(
+  fetcher: typeof fetch = globalThis.fetch,
+  ...forbiddenCustomUrl: never[]
+): Promise<SeedCatalog> {
+  if (forbiddenCustomUrl.length !== 0) {
+    throw new Error('Production launch catalog loading is fixed to the built immutable URL.');
+  }
+  return loadLaunchCatalogFromUrl(launchCatalogUrl, fetcher);
+}
+
+/** Explicit fixture seam that cannot be reached through the production boot API. */
+export function createTestOnlyLaunchCatalogLoader(
+  url: string,
+): (fetcher?: typeof fetch) => Promise<SeedCatalog> {
+  return (fetcher = globalThis.fetch) => loadLaunchCatalogFromUrl(url, fetcher);
 }

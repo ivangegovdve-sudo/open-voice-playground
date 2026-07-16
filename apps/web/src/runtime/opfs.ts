@@ -1,4 +1,4 @@
-import type { AssetStorePort, AssetTemporarySink } from './assets';
+import { createSha256Digest, type AssetStorePort, type AssetTemporarySink } from './assets';
 
 export type OpfsWritablePort = {
   write(chunk: Uint8Array): Promise<void>;
@@ -24,14 +24,26 @@ export type OpfsDirectoryPort = {
   removeEntry(name: string): Promise<void>;
 };
 
+export type OpfsLockManagerPort = {
+  request<T>(name: string, options: { mode: 'exclusive' }, callback: () => Promise<T>): Promise<T>;
+};
+
 type OpfsAssetStoreOptions = {
   getRoot?: () => Promise<OpfsDirectoryPort>;
   namespace?: readonly string[];
+  locks?: OpfsLockManagerPort | null;
 };
 
 type CacheIdentity = { sha256: string; bytes: number };
+type CommitRecord = CacheIdentity & {
+  version: 1;
+  cacheKey: string;
+  dataFile: string;
+};
 
 const SAFE_PATH_SEGMENT = /^[a-z0-9][a-z0-9._-]*$/;
+const SHA256 = /^sha256:[a-f0-9]{64}$/;
+const FALLBACK_LOCKS = new Map<string, Promise<void>>();
 
 function splitSafeKey(key: string): string[] {
   const segments = key.split('/');
@@ -39,6 +51,49 @@ function splitSafeKey(key: string): string[] {
     throw new Error(`Expected a safe namespaced OPFS cache key, received ${JSON.stringify(key)}.`);
   }
   return segments;
+}
+
+function assertIdentity(identity: CacheIdentity): void {
+  if (
+    !SHA256.test(identity.sha256) ||
+    !Number.isSafeInteger(identity.bytes) ||
+    identity.bytes <= 0
+  ) {
+    throw new Error('Expected a complete SHA-256 and positive exact byte length.');
+  }
+}
+
+function generationName(name: string, identity: CacheIdentity): string {
+  return `${name}.data-${identity.sha256.slice('sha256:'.length)}-${identity.bytes}`;
+}
+
+function commitName(name: string): string {
+  return `${name}.commit.json`;
+}
+
+function parseCommitRecord(value: string, cacheKey: string, name: string): CommitRecord | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const record = parsed as Partial<CommitRecord>;
+  if (
+    JSON.stringify(Object.keys(record).sort()) !==
+      JSON.stringify(['bytes', 'cacheKey', 'dataFile', 'sha256', 'version']) ||
+    record.version !== 1 ||
+    record.cacheKey !== cacheKey ||
+    typeof record.sha256 !== 'string' ||
+    !SHA256.test(record.sha256) ||
+    !Number.isSafeInteger(record.bytes) ||
+    (record.bytes ?? 0) <= 0 ||
+    record.dataFile !== generationName(name, record as CacheIdentity)
+  ) {
+    return null;
+  }
+  return record as CommitRecord;
 }
 
 async function browserOpfsRoot(): Promise<OpfsDirectoryPort> {
@@ -51,6 +106,12 @@ async function browserOpfsRoot(): Promise<OpfsDirectoryPort> {
   return (await storage.getDirectory()) as unknown as OpfsDirectoryPort;
 }
 
+function browserLocks(): OpfsLockManagerPort | null {
+  if (typeof navigator === 'undefined') return null;
+  const locks = (navigator as Navigator & { locks?: OpfsLockManagerPort }).locks;
+  return locks ?? null;
+}
+
 async function ignoreMissing(operation: () => Promise<void>): Promise<void> {
   try {
     await operation();
@@ -59,53 +120,153 @@ async function ignoreMissing(operation: () => Promise<void>): Promise<void> {
   }
 }
 
+async function withFallbackLock<T>(name: string, callback: () => Promise<T>): Promise<T> {
+  const previous = FALLBACK_LOCKS.get(name) ?? Promise.resolve();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const current = previous.catch(() => undefined).then(() => held);
+  FALLBACK_LOCKS.set(name, current);
+  await previous.catch(() => undefined);
+  try {
+    return await callback();
+  } finally {
+    release();
+    if (FALLBACK_LOCKS.get(name) === current) FALLBACK_LOCKS.delete(name);
+  }
+}
+
+async function verifyFile(file: OpfsFileSnapshotPort, identity: CacheIdentity): Promise<boolean> {
+  if (file.size !== identity.bytes) return false;
+  const digest = createSha256Digest();
+  const reader = file.stream().getReader();
+  let received = 0;
+  let completed = false;
+  try {
+    while (true) {
+      const result = await reader.read();
+      if (result.done) {
+        completed = true;
+        break;
+      }
+      received += result.value.byteLength;
+      if (received > identity.bytes) {
+        await reader.cancel().catch(() => undefined);
+        return false;
+      }
+      digest.update(result.value);
+    }
+    return received === identity.bytes && (await digest.digest()) === identity.sha256;
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return false;
+  } finally {
+    if (!completed) await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
+
 /**
- * A lazy Origin Private File System adapter. Merely constructing the store does
- * not touch navigator.storage; the root is requested only by an explicit store
- * operation after consent has already been validated by AssetPreparationManager.
+ * Lazy OPFS storage with immutable content generations and an atomic commit
+ * pointer. Construction is side-effect free; storage and Web Locks are touched
+ * only by explicit asset operations after consent.
  */
 export class OpfsAssetStore implements AssetStorePort {
   private readonly getRoot: () => Promise<OpfsDirectoryPort>;
   private readonly namespace: readonly string[];
+  private readonly locks: OpfsLockManagerPort | null | undefined;
 
   constructor({
     getRoot = browserOpfsRoot,
     namespace = ['open-voice-playground', 'assets'],
+    locks,
   }: OpfsAssetStoreOptions = {}) {
     if (namespace.length === 0 || namespace.some((segment) => !SAFE_PATH_SEGMENT.test(segment))) {
       throw new Error('OPFS namespace segments must be safe lowercase path components.');
     }
     this.getRoot = getRoot;
     this.namespace = [...namespace];
+    this.locks = locks;
   }
 
   async has(cacheKey: string, sha256: string, bytes: number): Promise<boolean> {
     const segments = splitSafeKey(cacheKey);
-    try {
-      const { directory, name } = await this.resolveParent(segments, false);
-      const [assetFile, metadataFile] = await Promise.all([
-        directory.getFileHandle(name).then((handle) => handle.getFile()),
-        directory.getFileHandle(`${name}.meta.json`).then((handle) => handle.getFile()),
-      ]);
-      if (assetFile.size !== bytes) return false;
-      const parsed = JSON.parse(await metadataFile.text()) as Partial<CacheIdentity>;
-      return parsed.sha256 === sha256 && parsed.bytes === bytes;
-    } catch (error) {
-      if (
-        (error instanceof DOMException && error.name === 'NotFoundError') ||
-        error instanceof SyntaxError
-      ) {
+    const identity = { sha256, bytes };
+    assertIdentity(identity);
+    return await this.withCacheLock(cacheKey, async () => {
+      let directory: OpfsDirectoryPort;
+      let name: string;
+      try {
+        ({ directory, name } = await this.resolveParent(segments, false));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'NotFoundError') return false;
+        throw error;
+      }
+
+      let commit: CommitRecord | null = null;
+      try {
+        const commitFile = await directory.getFileHandle(commitName(name));
+        commit = parseCommitRecord(await (await commitFile.getFile()).text(), cacheKey, name);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      }
+      if (commit === null) {
+        await ignoreMissing(() => directory.removeEntry(commitName(name))).catch(() => undefined);
+        await ignoreMissing(() => directory.removeEntry(generationName(name, identity))).catch(
+          () => undefined,
+        );
         return false;
       }
-      throw error;
-    }
+      if (commit.sha256 !== sha256 || commit.bytes !== bytes) {
+        return false;
+      }
+
+      let valid = false;
+      try {
+        const data = await directory.getFileHandle(commit.dataFile);
+        valid = await verifyFile(await data.getFile(), commit);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      }
+      if (valid) return true;
+
+      await ignoreMissing(() => directory.removeEntry(commitName(name))).catch(() => undefined);
+      await ignoreMissing(() => directory.removeEntry(commit.dataFile)).catch(() => undefined);
+      return false;
+    });
   }
 
   async createTemporary(key: string): Promise<AssetTemporarySink> {
     const segments = splitSafeKey(key);
     const { directory, name } = await this.resolveParent(segments, true);
-    const handle = await directory.getFileHandle(name, { create: true });
-    const writable = await handle.createWritable({ keepExistingData: false });
+    let existed = true;
+    let handle: OpfsFilePort;
+    try {
+      handle = await directory.getFileHandle(name);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      existed = false;
+      handle = await directory.getFileHandle(name, { create: true });
+    }
+
+    let writable: OpfsWritablePort;
+    try {
+      writable = await handle.createWritable({ keepExistingData: false });
+    } catch (error) {
+      if (!existed) {
+        try {
+          await ignoreMissing(() => directory.removeEntry(name));
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            'Could not open or clean the newly-created OPFS temporary file.',
+            { cause: cleanupError },
+          );
+        }
+      }
+      throw error;
+    }
     let settled = false;
 
     return {
@@ -115,13 +276,13 @@ export class OpfsAssetStore implements AssetStorePort {
       },
       async close() {
         if (settled) return;
-        settled = true;
         await writable.close();
+        settled = true;
       },
       async abort() {
         if (settled) return;
-        settled = true;
         await writable.abort();
+        settled = true;
       },
     };
   }
@@ -129,28 +290,67 @@ export class OpfsAssetStore implements AssetStorePort {
   async promote(temporaryKey: string, cacheKey: string, identity: CacheIdentity): Promise<void> {
     const temporarySegments = splitSafeKey(temporaryKey);
     const finalSegments = splitSafeKey(cacheKey);
-    const temporary = await this.resolveParent(temporarySegments, false);
-    const destination = await this.resolveParent(finalSegments, true);
-    const temporaryHandle = await temporary.directory.getFileHandle(temporary.name);
-    const sameDirectory = temporary.directory === destination.directory;
-    let moved = false;
+    assertIdentity(identity);
+    await this.withCacheLock(cacheKey, async () => {
+      const temporary = await this.resolveParent(temporarySegments, false);
+      const destination = await this.resolveParent(finalSegments, true);
+      const temporaryHandle = await temporary.directory.getFileHandle(temporary.name);
+      const dataFile = generationName(destination.name, identity);
+      let generationCreated = false;
+      let moved = false;
 
-    try {
-      if (sameDirectory && typeof temporaryHandle.move === 'function') {
-        await temporaryHandle.move(destination.name);
-        moved = true;
-      } else {
-        await this.copyFile(temporaryHandle, destination.directory, destination.name);
+      try {
+        let reusable = false;
+        try {
+          const existing = await destination.directory.getFileHandle(dataFile);
+          reusable = await verifyFile(await existing.getFile(), identity);
+          if (!reusable) await destination.directory.removeEntry(dataFile);
+        } catch (error) {
+          if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+        }
+
+        if (!reusable) {
+          generationCreated = true;
+          if (
+            temporary.directory === destination.directory &&
+            typeof temporaryHandle.move === 'function'
+          ) {
+            await temporaryHandle.move(dataFile);
+            moved = true;
+          } else {
+            await this.copyFile(temporaryHandle, destination.directory, dataFile);
+          }
+        }
+
+        const staged = await destination.directory.getFileHandle(dataFile);
+        if (!(await verifyFile(await staged.getFile(), identity))) {
+          throw new Error('The staged OPFS generation failed exact content verification.');
+        }
+
+        const commit: CommitRecord = {
+          version: 1,
+          cacheKey,
+          dataFile,
+          sha256: identity.sha256,
+          bytes: identity.bytes,
+        };
+        if (!moved) await ignoreMissing(() => temporary.directory.removeEntry(temporary.name));
+        await this.writeCommit(destination.directory, destination.name, commit);
+      } catch (error) {
+        if (generationCreated) {
+          try {
+            await ignoreMissing(() => destination.directory.removeEntry(dataFile));
+          } catch (cleanupError) {
+            throw new AggregateError(
+              [error, cleanupError],
+              'OPFS promotion failed and its staging generation could not be cleaned.',
+              { cause: cleanupError },
+            );
+          }
+        }
+        throw error;
       }
-      await this.writeMetadata(destination.directory, destination.name, identity);
-      if (!moved) {
-        await ignoreMissing(() => temporary.directory.removeEntry(temporary.name));
-      }
-    } catch (error) {
-      await ignoreMissing(() => destination.directory.removeEntry(destination.name));
-      await ignoreMissing(() => destination.directory.removeEntry(`${destination.name}.meta.json`));
-      throw error;
-    }
+    });
   }
 
   async deleteTemporary(key: string): Promise<void> {
@@ -161,6 +361,13 @@ export class OpfsAssetStore implements AssetStorePort {
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
     }
+  }
+
+  private async withCacheLock<T>(cacheKey: string, callback: () => Promise<T>): Promise<T> {
+    const name = `open-voice-opfs:${cacheKey}`;
+    const locks = this.locks === undefined ? browserLocks() : this.locks;
+    if (locks !== null) return await locks.request(name, { mode: 'exclusive' }, callback);
+    return await withFallbackLock(name, callback);
   }
 
   private async resolveParent(
@@ -186,7 +393,15 @@ export class OpfsAssetStore implements AssetStorePort {
     const destinationHandle = await destinationDirectory.getFileHandle(destinationName, {
       create: true,
     });
-    const writable = await destinationHandle.createWritable({ keepExistingData: false });
+    let writable: OpfsWritablePort;
+    try {
+      writable = await destinationHandle.createWritable({ keepExistingData: false });
+    } catch (error) {
+      await ignoreMissing(() => destinationDirectory.removeEntry(destinationName)).catch(
+        () => undefined,
+      );
+      throw error;
+    }
     const reader = source.stream().getReader();
     try {
       while (true) {
@@ -197,25 +412,57 @@ export class OpfsAssetStore implements AssetStorePort {
       await writable.close();
     } catch (error) {
       await reader.cancel().catch(() => undefined);
-      await writable.abort().catch(() => undefined);
+      try {
+        await writable.abort();
+      } catch (abortFailure) {
+        throw new AggregateError(
+          [error, abortFailure],
+          'The OPFS generation write and its abort both failed.',
+          { cause: abortFailure },
+        );
+      }
       throw error;
     } finally {
       reader.releaseLock();
     }
   }
 
-  private async writeMetadata(
+  private async writeCommit(
     directory: OpfsDirectoryPort,
     name: string,
-    identity: CacheIdentity,
+    commit: CommitRecord,
   ): Promise<void> {
-    const handle = await directory.getFileHandle(`${name}.meta.json`, { create: true });
-    const writable = await handle.createWritable({ keepExistingData: false });
+    const filename = commitName(name);
+    let existed = true;
+    let handle: OpfsFilePort;
     try {
-      await writable.write(new TextEncoder().encode(JSON.stringify(identity)));
+      handle = await directory.getFileHandle(filename);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      existed = false;
+      handle = await directory.getFileHandle(filename, { create: true });
+    }
+    let writable: OpfsWritablePort;
+    try {
+      writable = await handle.createWritable({ keepExistingData: false });
+    } catch (error) {
+      if (!existed)
+        await ignoreMissing(() => directory.removeEntry(filename)).catch(() => undefined);
+      throw error;
+    }
+    try {
+      await writable.write(new TextEncoder().encode(JSON.stringify(commit)));
       await writable.close();
     } catch (error) {
-      await writable.abort().catch(() => undefined);
+      try {
+        await writable.abort();
+      } catch (abortFailure) {
+        throw new AggregateError(
+          [error, abortFailure],
+          'The OPFS commit write and its abort both failed.',
+          { cause: abortFailure },
+        );
+      }
       throw error;
     }
   }

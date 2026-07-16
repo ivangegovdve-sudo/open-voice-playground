@@ -97,6 +97,7 @@ describe('launch release and asset contracts', () => {
     const evidenceSchema = schema('PinnedReleaseAssetEvidenceSchema');
     const evidence = {
       id: 'piper-thorsten-int8-release-asset',
+      voiceId: 'piper:de_DE-thorsten-medium',
       provider: 'github-release-asset',
       repository: 'k2-fsa/sherpa-onnx',
       releaseId: 130612623,
@@ -221,7 +222,7 @@ describe('launch release and asset contracts', () => {
 });
 
 describe('preset-only worker protocol', () => {
-  it('accepts catalog IDs and scalar controls only', () => {
+  it('accepts only same-engine catalog IDs and the exact advertised speed control', () => {
     const commandSchema = schema('WorkerCommandSchema');
     const synthesize = {
       command: 'synthesize',
@@ -229,26 +230,77 @@ describe('preset-only worker protocol', () => {
       engineId: 'kokoro',
       voiceId: 'kokoro:af_heart',
       text: 'A quiet signal crosses the morning air.',
-      controls: { speed: 1, backend: 'wasm', normalize: true },
+      controls: { speed: 1 },
     };
 
     expect(commandSchema.safeParse(synthesize).success).toBe(true);
+    expect(commandSchema.safeParse({ ...synthesize, voiceId: 'kitten:Bella' }).success).toBe(false);
+    expect(
+      commandSchema.safeParse({
+        command: 'prepare',
+        operationId: 6,
+        engineId: 'kokoro',
+        voiceId: 'kitten:Bella',
+      }).success,
+    ).toBe(false);
     for (const field of [
-      { modelUrl: 'https://untrusted.invalid/model.onnx' },
-      { modelId: 'other/model' },
-      { path: 'C:\\models\\voice.onnx' },
-      { commandLine: 'run model' },
-      { referenceAudio: 'data:audio/wav;base64,AA==' },
-      { cloneFrom: 'speaker' },
-      { upload: new Uint8Array([1]) },
-      { prompt: 'sound like someone else' },
+      { controls: { speed: 1, backend: 'wasm' } },
+      { controls: { speed: 1, path: 'C:\\models\\voice.onnx' } },
+      { controls: { speed: 1, modelUrl: 'https://untrusted.invalid/model.onnx' } },
+      { controls: { speed: 1, commandLine: 'run model' } },
+      { controls: { speed: 1, referenceAudio: 'data:audio/wav;base64,AA==' } },
+      { controls: { speed: 1, upload: 'voice.wav' } },
+      { controls: { speed: 1, cloneFrom: 'speaker' } },
+      { controls: { speed: Number.NaN } },
+      { controls: { speed: Number.POSITIVE_INFINITY } },
+      { controls: { speed: 0.74 } },
+      { controls: { speed: 1.26 } },
+      { controls: {} },
     ]) {
       expect(commandSchema.safeParse({ ...synthesize, ...field }).success).toBe(false);
     }
     expect(commandSchema.safeParse({ ...synthesize, text: 'x'.repeat(2001) }).success).toBe(false);
+    expect(commandSchema.safeParse({ ...synthesize, unexpected: true }).success).toBe(false);
+  });
+
+  it('strictly validates every worker response lifecycle message', () => {
+    const responseSchema = schema('WorkerResponseSchema');
+    const audio = new ArrayBuffer(4);
+
+    expect(responseSchema.safeParse({ type: 'ready', operationId: 1 }).success).toBe(true);
     expect(
-      commandSchema.safeParse({ ...synthesize, controls: { nested: { value: 1 } } }).success,
-    ).toBe(false);
+      responseSchema.safeParse({
+        type: 'progress',
+        operationId: 1,
+        phase: 'synthesis',
+        percent: 50,
+      }).success,
+    ).toBe(true);
+    expect(
+      responseSchema.safeParse({
+        type: 'result',
+        operationId: 1,
+        audio,
+        mimeType: 'audio/wav',
+      }).success,
+    ).toBe(true);
+    expect(
+      responseSchema.safeParse({ type: 'error', operationId: 1, message: 'failed' }).success,
+    ).toBe(true);
+    expect(responseSchema.safeParse({ type: 'cancelled', operationId: 1 }).success).toBe(true);
+
+    for (const invalid of [
+      { type: 'ready', operationId: 1, extra: true },
+      { type: 'progress', operationId: 1, phase: 'x', percent: Number.NaN },
+      { type: 'progress', operationId: 1, phase: 'x', percent: -1 },
+      { type: 'progress', operationId: 1, phase: 'x', percent: 101 },
+      { type: 'result', operationId: 1, audio: new Uint8Array(4), mimeType: 'audio/wav' },
+      { type: 'result', operationId: 1, audio, mimeType: 'audio/mpeg' },
+      { type: 'error', operationId: 1, message: '' },
+      { type: 'unknown', operationId: 1 },
+    ]) {
+      expect(responseSchema.safeParse(invalid).success).toBe(false);
+    }
   });
 
   it('uses narrow cancel and dispose messages without model inputs', () => {
@@ -381,6 +433,14 @@ describe('gallery and generated-media provenance contracts', () => {
       false,
     );
     expect(candidateSchema.safeParse({ ...candidate, modelRevision: 'main' }).success).toBe(false);
+  });
+
+  it('preserves canonical transcript and reference prompt bytes without implicit trimming', () => {
+    const candidateSchema = schema('GenerationCandidateSchema');
+    const transcript = '  Exact leading and trailing whitespace.\n';
+    const parsed = candidateSchema.parse({ ...candidate, transcript }) as typeof candidate;
+
+    expect(parsed.transcript).toBe(transcript);
   });
 
   it('blocks a reference-dependent candidate until hashed, rights-reviewed lineage exists', () => {

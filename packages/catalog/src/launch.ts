@@ -120,6 +120,12 @@ const PIPER_GATE = {
   detail:
     'Official release-asset evidence is recorded, but GitHub serves the archives without cross-origin browser access. No rights-reviewed, commit-pinned CORS mirror exists.',
 } as const;
+const PIPER_DIMITAR_GATE = {
+  status: 'unavailable',
+  reason: 'asset-unavailable',
+  detail:
+    'No reviewed immutable browser asset has been located for this preset. No request is made.',
+} as const;
 
 // This is an explicit transcription of the language and Female/Male groupings
 // in the pinned upstream VOICES.md. Runtime metadata never parses the ID.
@@ -283,7 +289,7 @@ function toAsset(engineId: string, asset: PinnedAssetSource): ImmutableAsset {
     revision: asset.revision,
     sha256: asset.sha256,
     bytes: asset.bytes,
-    cacheKey: `${engineId}/${asset.id}/${asset.revision.slice(0, 12)}`,
+    cacheKey: `${engineId}/${asset.id}/${asset.revision}/${asset.sha256.slice('sha256:'.length)}`,
     mediaType: asset.mediaType,
     sourceIds: [asset.sourceId],
     licenseIds: [asset.licenseId],
@@ -626,7 +632,7 @@ function buildVoices(assetSets: readonly AssetSetManifest[]): LaunchVoicePreset[
       licenseIds: ['piper-voice-license'],
       sourceIds: ['piper-voices-source', 'piper-sherpa-source'],
       backend: 'wasm',
-      releaseGate: PIPER_GATE,
+      releaseGate: upstreamId === 'bg_BG-dimitar-medium' ? PIPER_DIMITAR_GATE : PIPER_GATE,
       assetSetId: null,
       declaredDownloadBytes: 0,
       consentRequired: false,
@@ -841,6 +847,34 @@ function issues(error: z.ZodError): string {
   return error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
 }
 
+function requireExactRecordSet<T extends { id: string }>(
+  actual: readonly T[],
+  expected: readonly T[],
+  label: string,
+  project: (record: T) => unknown = (record) => record,
+): void {
+  const actualById = new Map(actual.map((record) => [record.id, record]));
+  const expectedById = new Map(expected.map((record) => [record.id, record]));
+  if (
+    actualById.size !== expectedById.size ||
+    [...expectedById.keys()].some((id) => !actualById.has(id))
+  ) {
+    throw new LaunchCatalogValidationError(`Exact ${label} ID set drifted`);
+  }
+  for (const [id, expectedRecord] of expectedById) {
+    const actualRecord = actualById.get(id)!;
+    if (JSON.stringify(project(actualRecord)) !== JSON.stringify(project(expectedRecord))) {
+      throw new LaunchCatalogValidationError(`Canonical ${label} record drifted: ${id}`);
+    }
+  }
+}
+
+function canonicalTranscriptSha256(transcript: string): `sha256:${string}` {
+  // Canonical transcript bytes are the exact UTF-8 bytes of the stored candidate
+  // prompt. Schema parsing does not trim or normalize whitespace or newlines.
+  return `sha256:${createHash('sha256').update(Buffer.from(transcript, 'utf8')).digest('hex')}`;
+}
+
 export function validateLaunchCatalogForRelease(input: unknown): {
   manifest: LaunchCatalogManifest;
   counts: LaunchCatalogCounts;
@@ -874,11 +908,33 @@ export function validateLaunchCatalogForRelease(input: unknown): {
   const sampleIds = new Set(manifest.samples.map(({ id }) => id));
   const generatedMediaIds = new Set(manifest.generatedMedia.map(({ id }) => id));
   const licensesById = new Map(manifest.licenses.map((license) => [license.id, license]));
+  const enginesById = new Map(manifest.engines.map((engine) => [engine.id, engine]));
+  const assetSetsById = new Map(manifest.assetSets.map((assetSet) => [assetSet.id, assetSet]));
+
+  const requireReviewedForEnabledUse = (owner: string, references: readonly string[]): void => {
+    for (const licenseId of references) {
+      if (licensesById.get(licenseId)?.reviewStatus === 'needs-review') {
+        throw new LaunchCatalogValidationError(
+          `${owner} cannot be enabled with needs-review license ${licenseId}`,
+        );
+      }
+    }
+  };
 
   for (const engine of manifest.engines) {
     requireReferences(`Engine ${engine.id}`, engine.licenseIds, licenseIds, 'license');
     requireReferences(`Engine ${engine.id}`, engine.sourceIds, sourceIds, 'source');
     requireReferences(`Engine ${engine.id}`, engine.assetSetIds, assetSetIds, 'asset set');
+    if (engine.releaseGate.status === 'enabled') {
+      requireReviewedForEnabledUse(`Engine ${engine.id}`, engine.licenseIds);
+    }
+    for (const assetSetId of engine.assetSetIds) {
+      if (assetSetsById.get(assetSetId)?.engineId !== engine.id) {
+        throw new LaunchCatalogValidationError(
+          `Engine ${engine.id} lists cross-engine asset set ${assetSetId}`,
+        );
+      }
+    }
   }
   for (const voice of manifest.voices) {
     if (!engineIds.has(voice.engineId)) {
@@ -889,6 +945,18 @@ export function validateLaunchCatalogForRelease(input: unknown): {
     if (voice.assetSetId !== null && !assetSetIds.has(voice.assetSetId)) {
       throw new LaunchCatalogValidationError(`Voice ${voice.id} has no asset set`);
     }
+    if (!voice.id.startsWith(`${voice.engineId}:`)) {
+      throw new LaunchCatalogValidationError(`Voice ${voice.id} has the wrong engine prefix`);
+    }
+    const engine = enginesById.get(voice.engineId)!;
+    if (
+      JSON.stringify(voice.runtimeModes) !== JSON.stringify(engine.runtimeModes) ||
+      voice.backend !== engine.backend
+    ) {
+      throw new LaunchCatalogValidationError(
+        `Voice ${voice.id} runtime mode or backend does not match its engine`,
+      );
+    }
     if (voice.releaseGate.status === 'enabled' && voice.assetSetId === null) {
       throw new LaunchCatalogValidationError(`Enabled voice ${voice.id} requires an asset set`);
     }
@@ -897,7 +965,24 @@ export function validateLaunchCatalogForRelease(input: unknown): {
         `Unavailable voice ${voice.id} cannot claim download bytes`,
       );
     }
+    if (voice.releaseGate.status === 'enabled') {
+      requireReviewedForEnabledUse(`Voice ${voice.id}`, voice.licenseIds);
+    }
+    if (voice.assetSetId !== null) {
+      const set = assetSetsById.get(voice.assetSetId)!;
+      if (set.engineId !== voice.engineId || !engine.assetSetIds.includes(set.id)) {
+        throw new LaunchCatalogValidationError(
+          `Voice ${voice.id} references cross-engine or detached asset set ${set.id}`,
+        );
+      }
+      if (voice.declaredDownloadBytes !== set.totalBytes) {
+        throw new LaunchCatalogValidationError(
+          `Voice ${voice.id} declared bytes do not match asset set ${set.id}`,
+        );
+      }
+    }
   }
+  const cacheIdentities = new Map<string, string>();
   for (const set of manifest.assetSets) {
     if (!engineIds.has(set.engineId)) {
       throw new LaunchCatalogValidationError(`Asset set ${set.id} has no engine`);
@@ -908,6 +993,19 @@ export function validateLaunchCatalogForRelease(input: unknown): {
       licenseIds,
       'acceptance license',
     );
+    const owner = enginesById.get(set.engineId)!;
+    if (!owner.assetSetIds.includes(set.id)) {
+      throw new LaunchCatalogValidationError(`Asset set ${set.id} is detached from its engine`);
+    }
+    if (!manifest.voices.some((voice) => voice.assetSetId === set.id)) {
+      throw new LaunchCatalogValidationError(`Asset set ${set.id} is not used by a launch voice`);
+    }
+    if (set.releaseGate.status === 'enabled') {
+      requireReviewedForEnabledUse(
+        `Asset set ${set.id}`,
+        set.assets.flatMap((asset) => asset.licenseIds),
+      );
+    }
     const expectedDigest = `sha256:${createHash('sha256')
       .update(JSON.stringify(set.assets))
       .digest('hex')}`;
@@ -917,6 +1015,22 @@ export function validateLaunchCatalogForRelease(input: unknown): {
     for (const asset of set.assets) {
       requireReferences(`Asset ${asset.id}`, asset.licenseIds, licenseIds, 'license');
       requireReferences(`Asset ${asset.id}`, asset.sourceIds, sourceIds, 'source');
+      const fullCacheIdentity = `${asset.url}\0${asset.revision}\0${asset.sha256}\0${asset.bytes}`;
+      const priorCacheIdentity = cacheIdentities.get(asset.cacheKey);
+      if (priorCacheIdentity !== undefined && priorCacheIdentity !== fullCacheIdentity) {
+        throw new LaunchCatalogValidationError(
+          `Cache-key collision has different immutable content: ${asset.cacheKey}`,
+        );
+      }
+      cacheIdentities.set(asset.cacheKey, fullCacheIdentity);
+      if (
+        !asset.cacheKey.includes(asset.revision) ||
+        !asset.cacheKey.includes(asset.sha256.slice('sha256:'.length))
+      ) {
+        throw new LaunchCatalogValidationError(
+          `Asset ${asset.id} cache key omits its full revision or digest`,
+        );
+      }
       if (
         asset.requiredAcceptance !== null &&
         !asset.licenseIds.includes(asset.requiredAcceptance.licenseId)
@@ -932,6 +1046,17 @@ export function validateLaunchCatalogForRelease(input: unknown): {
         throw new LaunchCatalogValidationError(
           `Asset ${asset.id} acceptance license is not required by asset set ${set.id}`,
         );
+      }
+      if (asset.requiredAcceptance !== null) {
+        const acceptanceLicense = licensesById.get(asset.requiredAcceptance.licenseId);
+        if (
+          acceptanceLicense?.evidenceSha256 === undefined ||
+          acceptanceLicense.evidenceSha256 !== asset.requiredAcceptance.termsHash
+        ) {
+          throw new LaunchCatalogValidationError(
+            `Asset ${asset.id} acceptance hash is not anchored to its reviewed license evidence digest`,
+          );
+        }
       }
     }
     for (const requiredLicenseId of set.requiredAcceptanceLicenseIds) {
@@ -1057,6 +1182,40 @@ export function validateLaunchCatalogForRelease(input: unknown): {
         `Candidate ${candidate.id} references missing reference candidate: ${candidate.referenceLineage.generatorCandidateId}`,
       );
     }
+    if (
+      JSON.stringify(candidate.sourceIds) !== JSON.stringify(gallery.sourceIds) ||
+      JSON.stringify(candidate.licenseIds) !== JSON.stringify(gallery.licenseIds)
+    ) {
+      throw new LaunchCatalogValidationError(
+        `Candidate ${candidate.id} must exactly close its gallery source and license evidence`,
+      );
+    }
+    if (gallery.mode !== 'source-only') {
+      requireReviewedForEnabledUse(`Candidate ${candidate.id}`, candidate.licenseIds);
+    }
+    if (candidate.referenceLineage?.status === 'verified') {
+      const lineage = candidate.referenceLineage;
+      const generatorCandidate = manifest.generationCandidates.find(
+        ({ id }) => id === lineage.generatorCandidateId,
+      );
+      const approvedReference = manifest.generatedMedia.find(
+        (media) =>
+          media.candidateId === lineage.generatorCandidateId &&
+          media.audioSha256 === lineage.audioSha256 &&
+          media.transcriptSha256 === lineage.transcriptSha256 &&
+          media.humanReview.status === 'approved',
+      );
+      if (
+        generatorCandidate === undefined ||
+        lineage.promptText !== generatorCandidate.transcript ||
+        lineage.transcriptSha256 !== canonicalTranscriptSha256(generatorCandidate.transcript) ||
+        approvedReference === undefined
+      ) {
+        throw new LaunchCatalogValidationError(
+          `Candidate ${candidate.id} has fabricated or unapproved verified reference lineage`,
+        );
+      }
+    }
   }
   for (const media of manifest.generatedMedia) {
     const candidate = manifest.generationCandidates.find(({ id }) => id === media.candidateId);
@@ -1079,6 +1238,11 @@ export function validateLaunchCatalogForRelease(input: unknown): {
     ) {
       throw new LaunchCatalogValidationError(
         `Generated media ${media.id} has a candidate that is not publishable`,
+      );
+    }
+    if (media.transcriptSha256 !== canonicalTranscriptSha256(candidate.transcript)) {
+      throw new LaunchCatalogValidationError(
+        `Generated media ${media.id} transcript hash does not match exact candidate prompt bytes`,
       );
     }
     requireReferences(`Generated media ${media.id}`, media.licenseIds, licenseIds, 'license');
@@ -1152,6 +1316,51 @@ export function validateLaunchCatalogForRelease(input: unknown): {
   ) {
     throw new LaunchCatalogValidationError('Launch count invariant failed');
   }
+  // Compare parsed records with the equivalently parsed canonical catalog so
+  // schema-preserving normalization (for example upstream metadata whitespace)
+  // cannot look like release drift.
+  const canonical = LaunchCatalogManifestSchema.parse(
+    buildLaunchCatalog(),
+  ) as LaunchCatalogManifest;
+  requireExactRecordSet(manifest.engines, canonical.engines, 'launch engine');
+  requireExactRecordSet(manifest.voices, canonical.voices, 'launch voice');
+  requireExactRecordSet(manifest.assetSets, canonical.assetSets, 'launch asset set');
+  requireExactRecordSet(manifest.featureFlags, canonical.featureFlags, 'feature flag');
+  requireExactRecordSet(
+    manifest.releaseAssetEvidence,
+    canonical.releaseAssetEvidence,
+    'Piper release evidence',
+  );
+  requireExactRecordSet(manifest.galleries, canonical.galleries, 'launch gallery', (gallery) => {
+    const { sampleIds: _sampleIds, generatedMediaIds: _generatedMediaIds, ...fixed } = gallery;
+    return fixed;
+  });
+  requireExactRecordSet(
+    manifest.generationCandidates,
+    canonical.generationCandidates,
+    'generation candidate',
+    ({ id, galleryId, sourceIds, licenseIds }) => ({ id, galleryId, sourceIds, licenseIds }),
+  );
+
+  for (const sample of manifest.samples) {
+    const owners = manifest.galleries.filter((gallery) => gallery.sampleIds.includes(sample.id));
+    if (owners.length !== 1 || owners[0]!.id !== sample.galleryId) {
+      throw new LaunchCatalogValidationError(
+        `Official sample ${sample.id} must have exactly one matching gallery owner`,
+      );
+    }
+  }
+  for (const media of manifest.generatedMedia) {
+    const candidate = manifest.generationCandidates.find(({ id }) => id === media.candidateId);
+    const owners = manifest.galleries.filter((gallery) =>
+      gallery.generatedMediaIds.includes(media.id),
+    );
+    if (candidate === undefined || owners.length !== 1 || owners[0]!.id !== candidate.galleryId) {
+      throw new LaunchCatalogValidationError(
+        `Generated media ${media.id} must have exactly one matching gallery owner`,
+      );
+    }
+  }
   const edge = manifest.voices.filter(({ engineId }) => engineId === 'edge');
   if (
     edge.some(
@@ -1164,13 +1373,22 @@ export function validateLaunchCatalogForRelease(input: unknown): {
     throw new LaunchCatalogValidationError('Edge must remain metadata-only and terms-gated');
   }
   const piper = manifest.voices.filter(({ engineId }) => engineId === 'piper');
+  const expectedPiperEvidenceVoiceIds = PIPER_IDS.filter((id) => id !== 'bg_BG-dimitar-medium').map(
+    (id) => `piper:${id}`,
+  );
+  const actualPiperEvidenceVoiceIds = manifest.releaseAssetEvidence.map(({ voiceId }) => voiceId);
   if (
     piper.length !== 12 ||
     piper.some(
       (voice) => voice.releaseGate.reason !== 'asset-unavailable' || voice.assetSetId !== null,
     ) ||
     manifest.releaseAssetEvidence.length !== 11 ||
-    manifest.releaseAssetEvidence.some(({ corsReadable }) => corsReadable)
+    manifest.releaseAssetEvidence.some(({ corsReadable }) => corsReadable) ||
+    new Set(actualPiperEvidenceVoiceIds).size !== actualPiperEvidenceVoiceIds.length ||
+    expectedPiperEvidenceVoiceIds.some(
+      (voiceId) => !actualPiperEvidenceVoiceIds.includes(voiceId),
+    ) ||
+    actualPiperEvidenceVoiceIds.some((voiceId) => !expectedPiperEvidenceVoiceIds.includes(voiceId))
   ) {
     throw new LaunchCatalogValidationError(
       'Piper must remain asset-unavailable until a pinned CORS-readable mirror exists',

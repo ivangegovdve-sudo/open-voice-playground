@@ -154,6 +154,14 @@ function upstreamIds(catalog: ReturnType<typeof buildLaunchCatalog>, engineId: s
     .map((voice) => voice.upstreamId);
 }
 
+function recomputeManifestDigest(
+  assetSet: ReturnType<typeof buildLaunchCatalog>['assetSets'][number],
+): void {
+  assetSet.manifestDigest = `sha256:${createHash('sha256')
+    .update(JSON.stringify(assetSet.assets))
+    .digest('hex')}`;
+}
+
 describe('deterministic launch catalog', () => {
   it('contains exactly 426 source-backed presets with honest declared and enabled counts', () => {
     const catalog = buildLaunchCatalog();
@@ -219,6 +227,8 @@ describe('deterministic launch catalog', () => {
     expect(dimitar?.releaseGate).toMatchObject({
       status: 'unavailable',
       reason: 'asset-unavailable',
+      detail:
+        'No reviewed immutable browser asset has been located for this preset. No request is made.',
     });
     expect(dimitar?.assetSetId).toBeNull();
     expect(
@@ -231,6 +241,13 @@ describe('deterministic launch catalog', () => {
     ).toBe(true);
     expect(catalog.releaseAssetEvidence).toHaveLength(11);
     expect(catalog.releaseAssetEvidence.every(({ corsReadable }) => !corsReadable)).toBe(true);
+    expect(
+      piperVoices
+        .filter(({ id }) => id !== 'piper:bg_BG-dimitar-medium')
+        .every(({ releaseGate }) =>
+          /official release-asset evidence.*cross-origin/i.test(releaseGate.detail),
+        ),
+    ).toBe(true);
     expect(computeEdgeSnapshotContentHash()).toBe(
       'sha256:678ecb02c9dbc75c1fb75ebea9848d4d954b1ef938fc62bc90e5fdb259d8adbb',
     );
@@ -522,11 +539,243 @@ describe('deterministic launch catalog', () => {
     });
   });
 
+  it('rejects an extra enabled production feature flag', () => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    catalog.featureFlags.push({
+      id: 'production-debug-adapter',
+      enabled: true,
+      serverOnlyCredentials: false,
+      termsCleared: true,
+      monthlyBudgetUsd: 100,
+      hardStop: false,
+      characterLimit: 2_000,
+      spendLimitUsd: 100,
+    });
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/feature flag|canonical/i);
+  });
+
   it('passes launch schema, reference, gate, gallery, and count validation', () => {
     const result = validateLaunchCatalogForRelease(buildLaunchCatalog());
 
     expect(result.counts.totalVoices).toBe(426);
   });
+
+  it.each([
+    [
+      'cross-engine voice assets',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const voice = catalog.voices.find(({ engineId }) => engineId === 'kokoro')!;
+        const kitten = catalog.assetSets.find(({ id }) => id === 'kitten-browser-assets')!;
+        voice.assetSetId = kitten.id;
+        voice.declaredDownloadBytes = kitten.totalBytes;
+      },
+    ],
+    [
+      'an extra empty engine',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.engines.push({
+          id: 'empty-engine',
+          displayName: 'Empty engine',
+          classification: 'sample-only',
+          runtimeModes: ['sample-only'],
+          languageTags: ['en'],
+          licenseIds: ['generated-media-cc0'],
+          sourceIds: ['voxcpm2-code-source'],
+          backend: 'none',
+          releaseGate: {
+            status: 'unavailable',
+            reason: 'feature-disabled',
+            detail: 'No launch presets.',
+          },
+          assetSetIds: [],
+        });
+      },
+    ],
+    [
+      'an enabled record with needs-review rights',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.licenses.find(({ id }) => id === 'kitten-weights-license')!.reviewStatus =
+          'needs-review';
+      },
+    ],
+    [
+      'mismatched declared bytes',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.voices.find(({ engineId }) => engineId === 'kitten')!.declaredDownloadBytes += 1;
+      },
+    ],
+    [
+      'a mismatched backend',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.voices.find(({ engineId }) => engineId === 'kitten')!.backend = 'webgpu-wasm';
+      },
+    ],
+    [
+      'a mismatched engine runtime mode',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.engines.find(({ id }) => id === 'kokoro')!.runtimeModes = ['online'];
+      },
+    ],
+    [
+      'a mismatched engine gate',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.engines.find(({ id }) => id === 'kokoro')!.releaseGate = {
+          status: 'unavailable',
+          reason: 'feature-disabled',
+          detail: 'Mutated gate.',
+        };
+      },
+    ],
+    [
+      'a detached asset set',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.engines.find(({ id }) => id === 'kitten')!.assetSetIds = [];
+      },
+    ],
+    [
+      'a wrong gallery and candidate ID',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const gallery = catalog.galleries.find(({ id }) => id === 'voxcpm2')!;
+        const candidate = catalog.generationCandidates.find(
+          ({ galleryId }) => galleryId === 'voxcpm2',
+        )!;
+        gallery.id = 'wrong-gallery';
+        gallery.candidateId = 'candidate-wrong-gallery';
+        candidate.id = 'candidate-wrong-gallery';
+        candidate.galleryId = 'wrong-gallery';
+      },
+    ],
+    [
+      'a cache-key collision with different immutable bytes',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const kitten = catalog.assetSets.find(({ id }) => id === 'kitten-browser-assets')!;
+        kitten.assets[1]!.cacheKey = kitten.assets[0]!.cacheKey;
+        recomputeManifestDigest(kitten);
+      },
+    ],
+  ])('rejects %s even when structural parsing and counts still pass', (_label, mutate) => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    mutate(catalog);
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow();
+  });
+
+  it('requires every Piper release-evidence record to bind an exact non-Dimitar voice', () => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    delete (catalog.releaseAssetEvidence[0] as { voiceId?: string }).voiceId;
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/piper.*voice|voice.*binding/i);
+  });
+
+  it.each([
+    [
+      'wrong',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.releaseAssetEvidence[0]!.voiceId = 'piper:bg_BG-dimitar-medium';
+      },
+    ],
+    [
+      'duplicate',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        catalog.releaseAssetEvidence[1]!.voiceId = catalog.releaseAssetEvidence[0]!.voiceId;
+      },
+    ],
+  ])('rejects a %s Piper release-evidence voice binding', (_label, mutate) => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    mutate(catalog);
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/piper/i);
+  });
+
+  it('anchors every acceptance-bearing asset to the reviewed license evidence digest', () => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    const license = catalog.licenses.find(({ id }) => id === 'supertone-weights-license')!;
+    delete license.evidenceSha256;
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(
+      /acceptance.*evidence|evidence.*digest/i,
+    );
+  });
+
+  it.each([
+    [
+      'wrong acceptance license',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const set = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+        for (const asset of set.assets) {
+          asset.licenseIds = ['supertone-code-license'];
+          asset.requiredAcceptance = {
+            licenseId: 'supertone-code-license',
+            termsHash: 'sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f',
+          };
+        }
+        set.requiredAcceptanceLicenseIds = ['supertone-code-license'];
+        recomputeManifestDigest(set);
+      },
+    ],
+    [
+      'recomputed but unanchored terms hash',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const set = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+        for (const asset of set.assets) {
+          asset.requiredAcceptance!.termsHash =
+            'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+        }
+        recomputeManifestDigest(set);
+      },
+    ],
+    [
+      'missing set acceptance',
+      (catalog: ReturnType<typeof buildLaunchCatalog>) => {
+        const set = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+        for (const asset of set.assets) asset.requiredAcceptance = null;
+        set.requiredAcceptanceLicenseIds = [];
+        recomputeManifestDigest(set);
+      },
+    ],
+  ])('rejects %s after the manifest digest is recomputed', (_label, mutate) => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    mutate(catalog);
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/acceptance|canonical/i);
+  });
+
+  it('rejects fabricated verified reference lineage without approved generated media', () => {
+    const catalog = structuredClone(buildLaunchCatalog());
+    const candidate = catalog.generationCandidates.find(
+      ({ galleryId }) => galleryId === 'cosyvoice3',
+    )!;
+    candidate.readiness = 'recipe-ready-runtime-pending';
+    candidate.readinessDetail = 'Only the runtime environment remains pending.';
+    candidate.referenceLineage = {
+      status: 'verified',
+      generatorCandidateId: 'candidate-melotts-neutral-v1',
+      promptText: candidate.transcript,
+      audioSha256: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      transcriptSha256: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      rightsBasis: 'Fabricated lineage.',
+      humanReview: {
+        status: 'approved',
+        reviewedAt: '2026-07-16T00:00:00.000Z',
+        reviewer: 'project-maintainer',
+      },
+    };
+
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(
+      /reference lineage|generated media/i,
+    );
+  });
+
+  it.each(['sourceIds', 'licenseIds'] as const)(
+    'rejects a generation candidate with a missing canonical %s link',
+    (field) => {
+      const catalog = structuredClone(buildLaunchCatalog());
+      catalog.generationCandidates[0]![field].pop();
+
+      expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/candidate|canonical/i);
+    },
+  );
 
   it('rejects orphaned planned reference lineage', () => {
     const catalog = structuredClone(buildLaunchCatalog());
@@ -611,7 +860,7 @@ describe('deterministic launch catalog', () => {
         'https://huggingface.co/datasets/example/assets/resolve/0123456789abcdef0123456789abcdef01234567/voxcpm2.wav',
       audioSha256: 'sha256:86f9d5647fcf84378b392ee5a4e21010e39d524cc21c29ce50ba5311c0d0032a',
       audioBytes: 48_000,
-      transcriptSha256: 'sha256:d7c0ad1ba3280f932b56704ca2b57f84677adcc7e658a148fd5107e18ddb9c75',
+      transcriptSha256: 'sha256:00e6d3be43468620bd33712bc53108fe3a43e713a79165d364efc2df1a57da3a',
       generatedAt: '2026-07-16T00:00:00.000Z',
       generatorSourceId: candidate.sourceIds[0]!,
       modelRevision: candidate.modelRevision,
@@ -637,6 +886,11 @@ describe('deterministic launch catalog', () => {
     gallery.generatedMediaIds.push(media.id);
 
     expect(() => validateLaunchCatalogForRelease(catalog)).not.toThrow();
+    media.transcriptSha256 =
+      'sha256:d7c0ad1ba3280f932b56704ca2b57f84677adcc7e658a148fd5107e18ddb9c75';
+    expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/transcript/i);
+    media.transcriptSha256 =
+      'sha256:00e6d3be43468620bd33712bc53108fe3a43e713a79165d364efc2df1a57da3a';
     media.licenseIds = ['generated-media-cc0'];
     expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/candidate license/i);
     media.licenseIds = [...candidate.licenseIds, 'generated-media-cc0'];
@@ -649,12 +903,13 @@ describe('deterministic launch catalog', () => {
       readFile(launchPath, 'utf8'),
       readFile(integrityPath, 'utf8'),
     ]);
-    const integrity = JSON.parse(integrityText) as { sha256: string };
+    const integrity = JSON.parse(integrityText) as { sha256: string; bytes: number };
 
     expect(checkedIn).toBe(stableStringifyLaunchCatalog(buildLaunchCatalog()));
     expect(integrity.sha256).toBe(
       `sha256:${createHash('sha256').update(checkedIn, 'utf8').digest('hex')}`,
     );
+    expect(integrity.bytes).toBe(Buffer.byteLength(checkedIn, 'utf8'));
   });
 
   it('contains no private repository fields, secrets, or machine paths', () => {

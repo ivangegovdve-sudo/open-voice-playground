@@ -89,6 +89,35 @@ async function waitForInstallingWorkerTerminalState(page: Page): Promise<string>
   });
 }
 
+async function registerUpgrade(page: Page, catalogFixture?: string): Promise<string> {
+  return page.evaluate(async (fixture) => {
+    const suffix =
+      fixture === undefined ? '' : `?__pwa_catalog_fixture=${encodeURIComponent(fixture)}`;
+    const registration = await navigator.serviceWorker.register(`/sw-upgrade.js${suffix}`, {
+      scope: '/',
+    });
+    const worker = registration.installing ?? registration.waiting;
+    if (worker === null) throw new Error('The upgrade worker was not created.');
+    if (worker.state === 'activated' || worker.state === 'redundant') return worker.state;
+    return new Promise<string>((resolve) => {
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated' || worker.state === 'redundant') resolve(worker.state);
+      });
+    });
+  }, catalogFixture);
+}
+
+async function readVersionedAppCaches(page: Page): Promise<string[]> {
+  return page.evaluate(async () =>
+    (await window.caches.keys())
+      .filter(
+        (name) =>
+          name.startsWith('open-voice-shell-') || name.startsWith('open-voice-launch-catalog-'),
+      )
+      .sort(),
+  );
+}
+
 test('first install rejects HTML that is not the exact built shell', async ({ context, page }) => {
   await context.addCookies([
     {
@@ -109,6 +138,11 @@ test('first install rejects HTML that is not the exact built shell', async ({ co
       name.startsWith('open-voice-shell-'),
     ),
   ).toEqual([]);
+  expect(
+    (await page.evaluate(() => window.caches.keys())).filter((name) =>
+      name.startsWith('open-voice-launch-catalog-'),
+    ),
+  ).toEqual([]);
 });
 
 test('first service-worker activation preserves the application shell offline', async ({
@@ -127,7 +161,11 @@ test('first service-worker activation preserves the application shell offline', 
   await page.goto('/');
   await waitForFirstController(page);
   const catalogRequests = await page.evaluate(async () => {
-    const cache = await window.caches.open('open-voice-launch-catalog-v2');
+    const cacheName = (await window.caches.keys()).find((name) =>
+      name.startsWith('open-voice-launch-catalog-'),
+    );
+    if (cacheName === undefined) throw new Error('Versioned catalog cache is missing.');
+    const cache = await window.caches.open(cacheName);
     return (await cache.keys()).map((request) => new URL(request.url).pathname);
   });
   expect(catalogRequests).toHaveLength(1);
@@ -160,7 +198,11 @@ test('a clean offline catalog state fails honestly and never loads fixtures', as
   await page.goto('/');
   await waitForFirstController(page);
   await page.evaluate(async () => {
-    await window.caches.delete('open-voice-launch-catalog-v2');
+    await Promise.all(
+      (await window.caches.keys())
+        .filter((name) => name.startsWith('open-voice-launch-catalog-'))
+        .map((name) => window.caches.delete(name)),
+    );
   });
 
   await context.setOffline(true);
@@ -177,6 +219,7 @@ test('activation removes stale shell caches but preserves unrelated origin cache
   await page.evaluate(async () => {
     await Promise.all([
       window.caches.open('open-voice-shell-stale'),
+      window.caches.open('open-voice-launch-catalog-stale'),
       window.caches.open('unrelated-feature-cache'),
     ]);
   });
@@ -186,41 +229,20 @@ test('activation removes stale shell caches but preserves unrelated origin cache
 
   const cacheNames = await page.evaluate(() => window.caches.keys());
   expect(cacheNames).not.toContain('open-voice-shell-stale');
+  expect(cacheNames).not.toContain('open-voice-launch-catalog-stale');
   expect(cacheNames).toContain('unrelated-feature-cache');
 });
 
 test('a rejected upgrade preserves the active trusted shell cache', async ({ context, page }) => {
   await page.goto('/');
   await waitForFirstController(page);
-  const originalCacheNames = (await page.evaluate(() => window.caches.keys())).filter((name) =>
-    name.startsWith('open-voice-shell-'),
-  );
-  expect(originalCacheNames).toHaveLength(1);
+  const originalCacheNames = await readVersionedAppCaches(page);
+  expect(originalCacheNames).toHaveLength(2);
 
-  const terminalState = await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.register('/sw-upgrade.js', { scope: '/' });
-    const worker = registration.installing ?? registration.waiting;
-    if (worker === null) {
-      throw new Error('The upgrade worker was not created.');
-    }
-    if (worker.state === 'activated' || worker.state === 'redundant') {
-      return worker.state;
-    }
-    return new Promise<string>((resolve) => {
-      worker.addEventListener('statechange', () => {
-        if (worker.state === 'activated' || worker.state === 'redundant') {
-          resolve(worker.state);
-        }
-      });
-    });
-  });
+  const terminalState = await registerUpgrade(page);
 
   expect(terminalState).toBe('redundant');
-  expect(
-    (await page.evaluate(() => window.caches.keys())).filter((name) =>
-      name.startsWith('open-voice-shell-'),
-    ),
-  ).toEqual(originalCacheNames);
+  expect(await readVersionedAppCaches(page)).toEqual(originalCacheNames);
 
   await context.setOffline(true);
   await page.reload();
@@ -228,6 +250,27 @@ test('a rejected upgrade preserves the active trusted shell cache', async ({ con
     page.getByRole('heading', { level: 1, name: 'Find a voice by the shape of its sound.' }),
   ).toBeVisible();
 });
+
+for (const catalogFixture of ['missing', 'oversized', 'wrong-digest', 'unavailable'] as const) {
+  test(`a ${catalogFixture} upgrade catalog makes the worker redundant and preserves the incumbent pair`, async ({
+    context,
+    page,
+  }) => {
+    await page.goto('/');
+    await waitForFirstController(page);
+    const incumbentCaches = await readVersionedAppCaches(page);
+    expect(incumbentCaches).toHaveLength(2);
+
+    expect(await registerUpgrade(page, catalogFixture)).toBe('redundant');
+    expect(await readVersionedAppCaches(page)).toEqual(incumbentCaches);
+
+    await context.setOffline(true);
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Find a voice by the shape of its sound.' }),
+    ).toBeVisible();
+  });
+}
 
 test('non-app routes cannot refresh the cached application shell', async ({ page }) => {
   await page.goto('/');

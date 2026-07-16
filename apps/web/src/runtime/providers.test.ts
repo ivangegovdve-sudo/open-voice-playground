@@ -69,19 +69,24 @@ function set(engineId = 'kokoro'): AssetSetManifest {
 
 class FakeWorker implements WorkerPort {
   readonly messages: unknown[] = [];
-  readonly listeners = new Set<(event: MessageEvent) => void>();
+  readonly listeners = new Map<string, Set<(event: Event) => void>>();
   terminated = false;
 
   postMessage(message: unknown) {
     this.messages.push(message);
   }
 
-  addEventListener(_type: 'message', listener: (event: MessageEvent) => void) {
-    this.listeners.add(listener);
+  addEventListener(type: 'message' | 'error' | 'messageerror', listener: (event: Event) => void) {
+    const listeners = this.listeners.get(type) ?? new Set<(event: Event) => void>();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
   }
 
-  removeEventListener(_type: 'message', listener: (event: MessageEvent) => void) {
-    this.listeners.delete(listener);
+  removeEventListener(
+    type: 'message' | 'error' | 'messageerror',
+    listener: (event: Event) => void,
+  ) {
+    this.listeners.get(type)?.delete(listener);
   }
 
   terminate() {
@@ -89,8 +94,18 @@ class FakeWorker implements WorkerPort {
   }
 
   emit(data: unknown) {
-    for (const listener of this.listeners) listener(new MessageEvent('message', { data }));
+    for (const listener of this.listeners.get('message') ?? []) {
+      listener(new MessageEvent('message', { data }));
+    }
   }
+
+  emitFailure(type: 'error' | 'messageerror') {
+    for (const listener of this.listeners.get(type) ?? []) listener(new Event(type));
+  }
+}
+
+function stillPendingAfter(delayMs = 20): Promise<'still-pending'> {
+  return new Promise((resolve) => setTimeout(() => resolve('still-pending'), delayMs));
 }
 
 describe('lazy preset-only provider boundaries', () => {
@@ -155,6 +170,408 @@ describe('lazy preset-only provider boundaries', () => {
     await prepared;
   });
 
+  it('resolves forged caller voice objects through the adapter-owned canonical map', async () => {
+    const worker = new FakeWorker();
+    const canonical = voice();
+    const prepareAssets = vi.fn(async () => {});
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [canonical],
+      assetSets: [set()],
+      prepareAssets,
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+    });
+    const forged = {
+      ...canonical,
+      engineId: 'kitten',
+      runtimeModes: ['companion'] as CatalogVoice['runtimeModes'],
+      backend: 'companion' as const,
+      releaseGate: {
+        status: 'unavailable' as const,
+        reason: 'asset-unavailable' as const,
+        detail: 'forged',
+      },
+      assetSetId: 'kitten-assets',
+      declaredDownloadBytes: 999,
+      consentRequired: false,
+    };
+
+    await expect(adapter.checkCapability(forged, 'browser')).resolves.toMatchObject({
+      available: true,
+      controls: [{ id: 'speed', min: 0.75, max: 1.25 }],
+    });
+    const prepared = adapter.prepare({
+      voice: forged,
+      mode: 'browser',
+      text: 'Canonical request.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    expect(prepareAssets).toHaveBeenCalledWith(
+      set(),
+      canonical,
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+    expect(worker.messages[0]).toMatchObject({ engineId: 'kokoro', voiceId: canonical.id });
+    worker.emit({ type: 'ready', operationId: 1 });
+    await prepared;
+
+    await expect(
+      adapter.prepare({
+        voice: { ...canonical, id: 'kokoro:unknown' },
+        mode: 'browser',
+        text: 'Unknown.',
+        controls: { speed: 1 },
+      }),
+    ).rejects.toThrow(/unknown preset/i);
+  });
+
+  it('binds synthesis to a successful prepare of the same canonical voice', async () => {
+    const worker = new FakeWorker();
+    const voiceA = voice();
+    const voiceB = { ...voice(), id: 'kokoro:voice-b', name: 'Voice B' };
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [voiceA, voiceB],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+    });
+    const requestA = {
+      voice: voiceA,
+      mode: 'browser' as const,
+      text: 'Voice A.',
+      controls: { speed: 1 },
+    };
+    const prepared = adapter.prepare(requestA);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await prepared;
+
+    const synthesis = adapter.synthesize(
+      { ...requestA, voice: voiceB, text: 'Voice B without prepare.' },
+      {},
+    );
+    await expect(Promise.race([synthesis, stillPendingAfter()])).rejects.toThrow(
+      /prepare.*selected preset/i,
+    );
+  });
+
+  it.each(['cancel', 'dispose'] as const)(
+    '%s immediately after prepare prevents asset work and Worker creation',
+    async (cleanupMethod) => {
+      const prepareAssets = vi.fn(async () => {});
+      const worker = new FakeWorker();
+      const workerFactory = vi.fn(() => worker);
+      const preset = voice();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets,
+        workerFactory,
+        browserRuntimeEnabled: true,
+      });
+      const pending = adapter.prepare({
+        voice: preset,
+        mode: 'browser',
+        text: 'Cancelled before the first asynchronous boundary.',
+        controls: { speed: 1 },
+      });
+      const settled = pending.then(
+        () => 'resolved' as const,
+        (error: unknown) => error,
+      );
+
+      await adapter[cleanupMethod]();
+      const outcome = await Promise.race([settled, stillPendingAfter()]);
+      if (outcome === 'still-pending') {
+        await adapter.dispose();
+        await settled;
+      }
+
+      expect(outcome).toMatchObject({ name: 'AbortError' });
+      expect(prepareAssets).not.toHaveBeenCalled();
+      expect(workerFactory).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['cancel', 'dispose'] as const)(
+    '%s during asset preparation prevents a later Worker from being created',
+    async (cleanupMethod) => {
+      let releaseAssets!: () => void;
+      const prepareAssets = vi.fn(
+        async () =>
+          new Promise<void>((resolve) => {
+            releaseAssets = resolve;
+          }),
+      );
+      const worker = new FakeWorker();
+      const workerFactory = vi.fn(() => worker);
+      const preset = voice();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets,
+        workerFactory,
+        browserRuntimeEnabled: true,
+      });
+      const pending = adapter.prepare({
+        voice: preset,
+        mode: 'browser',
+        text: 'Cancelled before Worker creation.',
+        controls: { speed: 1 },
+      });
+      const settled = pending.then(
+        () => 'resolved' as const,
+        (error: unknown) => error,
+      );
+      await vi.waitFor(() => expect(prepareAssets).toHaveBeenCalledOnce());
+
+      const cleanup = adapter[cleanupMethod]();
+      releaseAssets();
+      await cleanup;
+      const outcome = await Promise.race([settled, stillPendingAfter()]);
+      if (outcome === 'still-pending') {
+        await adapter.dispose();
+        await settled;
+      }
+
+      expect(outcome).toMatchObject({ name: 'AbortError' });
+      expect(workerFactory).not.toHaveBeenCalled();
+    },
+  );
+
+  it('aborting the prepare signal after posting rejects the operation and clears the generation', async () => {
+    const worker = new FakeWorker();
+    const preset = voice();
+    const controller = new AbortController();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancelTimeoutMs: 0,
+    });
+    const pending = adapter.prepare(
+      {
+        voice: preset,
+        mode: 'browser',
+        text: 'Abort posted prepare.',
+        controls: { speed: 1 },
+      },
+      { signal: controller.signal },
+    );
+    const settled = pending.then(
+      () => 'resolved' as const,
+      (error: unknown) => error,
+    );
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    controller.abort();
+    const outcome = await Promise.race([settled, stillPendingAfter()]);
+    if (outcome === 'still-pending') {
+      await adapter.dispose();
+      await settled;
+    }
+
+    expect(outcome).toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(worker.terminated).toBe(true));
+  });
+
+  it.each(['cancel', 'dispose'] as const)(
+    '%s coordinates with an external abort that already detached a posted preparation',
+    async (cleanupMethod) => {
+      const worker = new FakeWorker();
+      const preset = voice();
+      const controller = new AbortController();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets: async () => {},
+        workerFactory: () => worker,
+        browserRuntimeEnabled: true,
+        cancelTimeoutMs: 30,
+      });
+      const pending = adapter.prepare(
+        {
+          voice: preset,
+          mode: 'browser',
+          text: 'Coordinate external abort with explicit cleanup.',
+          controls: { speed: 1 },
+        },
+        { signal: controller.signal },
+      );
+      const settled = pending.catch((error: unknown) => error);
+      await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+      controller.abort();
+      await expect(settled).resolves.toMatchObject({ name: 'AbortError' });
+      await adapter[cleanupMethod]();
+      const terminatedWhenCleanupResolved = worker.terminated;
+      await new Promise((resolve) => setTimeout(resolve, 35));
+
+      expect(terminatedWhenCleanupResolved).toBe(true);
+    },
+  );
+
+  it('detaches a cancelled generation immediately and ignores its timeout and stale result', async () => {
+    vi.useFakeTimers();
+    const firstWorker = new FakeWorker();
+    const secondWorker = new FakeWorker();
+    const workers = [firstWorker, secondWorker];
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => workers.shift()!,
+      browserRuntimeEnabled: true,
+      cancelTimeoutMs: 10,
+    });
+    const request = {
+      voice: preset,
+      mode: 'browser' as const,
+      text: 'Race-safe.',
+      controls: { speed: 1 },
+    };
+
+    const firstPrepare = adapter.prepare(request);
+    await vi.waitFor(() => expect(firstWorker.messages).toHaveLength(1));
+    firstWorker.emit({ type: 'ready', operationId: 1 });
+    await firstPrepare;
+    const staleSynthesis = adapter.synthesize(request, {});
+    const staleRejection = staleSynthesis.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(firstWorker.messages).toHaveLength(2));
+
+    const cancellation = adapter.cancel();
+    const secondPrepare = adapter.prepare(request);
+    await vi.waitFor(() => expect(secondWorker.messages).toHaveLength(1));
+    secondWorker.emit({ type: 'ready', operationId: 3 });
+    await secondPrepare;
+    const currentSynthesis = adapter.synthesize(request, {});
+    await vi.waitFor(() => expect(secondWorker.messages).toHaveLength(2));
+
+    firstWorker.emit({
+      type: 'result',
+      operationId: 2,
+      audio: new ArrayBuffer(4),
+      mimeType: 'audio/wav',
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    await cancellation;
+    secondWorker.emit({
+      type: 'result',
+      operationId: 4,
+      audio: new ArrayBuffer(4),
+      mimeType: 'audio/wav',
+    });
+
+    await expect(staleRejection).resolves.toMatchObject({ name: 'AbortError' });
+    await expect(currentSynthesis).resolves.toMatchObject({ mimeType: 'audio/wav' });
+    expect(firstWorker.terminated).toBe(true);
+    expect(secondWorker.terminated).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it.each(['error', 'messageerror'] as const)(
+    'rejects pending work and clears prepared state on Worker %s',
+    async (failureType) => {
+      const worker = new FakeWorker();
+      const preset = voice();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets: async () => {},
+        workerFactory: () => worker,
+        browserRuntimeEnabled: true,
+      });
+      const request = {
+        voice: preset,
+        mode: 'browser' as const,
+        text: 'Crash-safe.',
+        controls: { speed: 1 },
+      };
+      const pending = adapter.prepare(request);
+      await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+      worker.emitFailure(failureType);
+
+      await expect(Promise.race([pending, stillPendingAfter()])).rejects.toThrow(/worker.*failed/i);
+      expect(worker.terminated).toBe(true);
+      await expect(adapter.synthesize(request, {})).rejects.toThrow(/prepare/i);
+    },
+  );
+
+  it('rejects malformed responses without leaving work pending and tolerates repeated cleanup', async () => {
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+    });
+    const request = {
+      voice: preset,
+      mode: 'browser' as const,
+      text: 'Malformed response.',
+      controls: { speed: 1 },
+    };
+    const pending = adapter.prepare(request);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    worker.emit({ type: 'ready', operationId: 1, unexpected: true });
+
+    await expect(pending).rejects.toThrow(/malformed worker response/i);
+    await expect(adapter.cancel()).resolves.toBeUndefined();
+    await expect(adapter.cancel()).resolves.toBeUndefined();
+    await expect(adapter.dispose()).resolves.toBeUndefined();
+    await expect(adapter.dispose()).resolves.toBeUndefined();
+  });
+
+  it('rejects a valid response used in the wrong lifecycle phase without leaving work pending', async () => {
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+    });
+    const pending = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Wrong lifecycle.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    worker.emit({
+      type: 'result',
+      operationId: 1,
+      audio: new ArrayBuffer(4),
+      mimeType: 'audio/wav',
+    });
+
+    await expect(Promise.race([pending, stillPendingAfter()])).rejects.toThrow(
+      /unexpected lifecycle/i,
+    );
+    expect(worker.terminated).toBe(true);
+  });
+
   it('ignores stale results after cancellation and terminates an unresponsive Worker', async () => {
     vi.useFakeTimers();
     const worker = new FakeWorker();
@@ -168,7 +585,12 @@ describe('lazy preset-only provider boundaries', () => {
       browserRuntimeEnabled: true,
       cancelTimeoutMs: 10,
     });
-    const request = { voice: preset, mode: 'browser' as const, text: 'Safe text.', controls: {} };
+    const request = {
+      voice: preset,
+      mode: 'browser' as const,
+      text: 'Safe text.',
+      controls: { speed: 1 },
+    };
     const prepared = adapter.prepare(request);
     await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
     worker.emit({ type: 'ready', operationId: 1 });
@@ -184,6 +606,7 @@ describe('lazy preset-only provider boundaries', () => {
       type: 'result',
       operationId: 2,
       audio: new Uint8Array([82, 73, 70, 70]).buffer,
+      mimeType: 'audio/wav',
     });
 
     await rejectedSynthesis;

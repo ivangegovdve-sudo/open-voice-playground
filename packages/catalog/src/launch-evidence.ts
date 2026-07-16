@@ -237,6 +237,7 @@ export const LAUNCH_LICENSES: LicenseRecord[] = [
     {
       exactUpstreamTerms:
         'Exact pinned OpenRAIL-M text must be accepted before any Supertonic asset request.',
+      evidenceSha256: 'sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f',
       redistribution: true,
       commercial: true,
       status: 'restricted',

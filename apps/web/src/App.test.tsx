@@ -88,7 +88,7 @@ describe('application routes', () => {
           status: 200,
         }),
     );
-    const loadServices = vi.fn(() => createLaunchServices(fetcher, '/launch-catalog.json'));
+    const loadServices = vi.fn(() => createLaunchServices(fetcher));
 
     render(<App loadServices={loadServices} />);
 

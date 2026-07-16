@@ -11,11 +11,18 @@ const temporaryRoots: string[] = [];
 const SERVICE_WORKER_TEMPLATE = [
   "const CACHE_VERSION = 'development'; // __VITE_CACHE_VERSION__",
   "const SHELL_DIGEST = 'development'; // __VITE_SHELL_DIGEST__",
+  "const CATALOG_URL = 'development'; // __VITE_CATALOG_URL__",
+  "const CATALOG_DIGEST = 'development'; // __VITE_CATALOG_DIGEST__",
+  'const CATALOG_BYTES = 0; // __VITE_CATALOG_BYTES__',
   'const BUILD_ASSETS = []; // __VITE_BUILD_ASSETS__',
 ].join('\n');
 
 interface BuildMetadata {
+  buildAssets: string[];
   cacheVersion: string;
+  catalogBytes: number;
+  catalogDigest: string;
+  catalogUrl: string;
   indexBytes: Uint8Array;
   serviceWorker: string;
   shellDigest: string;
@@ -30,7 +37,14 @@ async function createBuildFixture(): Promise<string> {
       join(root, 'index.html'),
       '<!doctype html><html><head><title>Fixture A</title></head><body><script type="module" src="/main.js"></script></body></html>',
     ),
-    writeFile(join(root, 'main.js'), "document.body.dataset.ready = 'true';"),
+    writeFile(
+      join(root, 'main.js'),
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ),
+    writeFile(
+      join(root, 'launch-catalog.public.json'),
+      JSON.stringify({ voices: 'x'.repeat(5000) }),
+    ),
     writeFile(join(root, 'public', 'sw.js'), SERVICE_WORKER_TEMPLATE),
     writeFile(join(root, 'public', 'manifest.webmanifest'), '{"name":"Fixture A"}'),
     writeFile(join(root, 'public', 'icon.svg'), '<svg><title>Fixture A</title></svg>'),
@@ -44,11 +58,12 @@ async function buildMetadata(root: string): Promise<BuildMetadata> {
     configFile: join(APP_ROOT, 'vite.config.ts'),
     logLevel: 'silent',
     build: {
+      assetsInlineLimit: 0,
       emptyOutDir: true,
       outDir: 'dist',
       rollupOptions: {
         output: {
-          assetFileNames: 'assets/[name][extname]',
+          assetFileNames: 'assets/[name]-[hash][extname]',
           chunkFileNames: 'assets/[name].js',
           entryFileNames: 'assets/[name].js',
         },
@@ -61,13 +76,36 @@ async function buildMetadata(root: string): Promise<BuildMetadata> {
   ]);
   const cacheVersion = serviceWorker.match(/const CACHE_VERSION = '([^']+)'/)?.[1];
   const shellDigest = serviceWorker.match(/const SHELL_DIGEST = '([^']+)'/)?.[1];
+  const catalogUrl = serviceWorker.match(/const CATALOG_URL = '([^']+)'/)?.[1];
+  const catalogDigest = serviceWorker.match(/const CATALOG_DIGEST = '([^']+)'/)?.[1];
+  const catalogBytes = Number(serviceWorker.match(/const CATALOG_BYTES = (\d+)/)?.[1]);
+  const buildAssetsSource = serviceWorker.match(/const BUILD_ASSETS = (\[[^;]*\]);/)?.[1];
   if (cacheVersion === undefined) {
     throw new Error('The built service worker has no cache version.');
   }
   if (shellDigest === undefined) {
     throw new Error('The built service worker has no shell digest.');
   }
-  return { cacheVersion, indexBytes, serviceWorker, shellDigest };
+  if (
+    catalogUrl === undefined ||
+    catalogDigest === undefined ||
+    !Number.isSafeInteger(catalogBytes)
+  ) {
+    throw new Error('The built service worker has no exact catalog identity.');
+  }
+  if (buildAssetsSource === undefined) {
+    throw new Error('The built service worker has no shell asset list.');
+  }
+  return {
+    buildAssets: JSON.parse(buildAssetsSource) as string[],
+    cacheVersion,
+    catalogBytes,
+    catalogDigest,
+    catalogUrl,
+    indexBytes,
+    serviceWorker,
+    shellDigest,
+  };
 }
 
 async function buildCacheVersion(root: string): Promise<string> {
@@ -102,7 +140,10 @@ test('cache version changes when emitted JavaScript bytes change under a stable 
   const root = await createBuildFixture();
   const initialVersion = await buildCacheVersion(root);
 
-  await writeFile(join(root, 'main.js'), "document.body.dataset.ready = 'changed';");
+  await writeFile(
+    join(root, 'main.js'),
+    "document.body.dataset.changed = new URL('./launch-catalog.public.json', import.meta.url).href;",
+  );
   const changedVersion = await buildCacheVersion(root);
 
   expect(changedVersion).not.toBe(initialVersion);
@@ -150,11 +191,104 @@ test('requires unique injection placeholders and resolves every placeholder in o
     '__VITE_BUILD_ASSETS__',
     '__VITE_CACHE_VERSION__',
     '__VITE_SHELL_DIGEST__',
+    '__VITE_CATALOG_URL__',
+    '__VITE_CATALOG_DIGEST__',
+    '__VITE_CATALOG_BYTES__',
   ]) {
     expect(SERVICE_WORKER_TEMPLATE.match(new RegExp(placeholder, 'g'))).toHaveLength(1);
     expect(serviceWorker).not.toContain(placeholder);
   }
   expect(serviceWorker).not.toContain("'development'");
+});
+
+test('injects exactly one content-addressed catalog identity and excludes it from the shell', async () => {
+  const root = await createBuildFixture();
+  const metadata = await buildMetadata(root);
+  const catalogPath = join(root, 'dist', metadata.catalogUrl.replace(/^\//, ''));
+  const catalog = await readFile(catalogPath);
+
+  expect(metadata.catalogUrl).toMatch(/^\/assets\/launch-catalog\.public-[A-Za-z0-9_-]{6,}\.json$/);
+  expect(metadata.catalogDigest).toBe(
+    `sha256:${createHash('sha256').update(catalog).digest('hex')}`,
+  );
+  expect(metadata.catalogBytes).toBe(catalog.byteLength);
+  expect(metadata.serviceWorker).not.toMatch(
+    new RegExp(`BUILD_ASSETS[^\\n]+${metadata.catalogUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+  );
+  const emittedCatalogs = (
+    await readFile(join(root, 'dist', 'assets', metadata.catalogUrl.split('/').at(-1)!))
+  ).byteLength;
+  expect(emittedCatalogs).toBe(metadata.catalogBytes);
+});
+
+test('shell injection excludes Worker entries, dynamic inference chunks, and runtime assets', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(join(root, 'runtime.worker.js'), "self.postMessage('worker loaded');"),
+    writeFile(join(root, 'inference.js'), "document.body.dataset.inference = 'loaded';"),
+    writeFile(join(root, 'runtime.wasm'), new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])),
+    writeFile(join(root, 'model.bin'), new Uint8Array([1, 2, 3, 4])),
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+        "document.body.dataset.wasm = new URL('./runtime.wasm', import.meta.url).href;",
+        "document.body.dataset.model = new URL('./model.bin', import.meta.url).href;",
+        "new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+        "void import('./inference.js');",
+      ].join('\n'),
+    ),
+  ]);
+
+  const { buildAssets } = await buildMetadata(root);
+
+  expect(buildAssets.some((asset) => /\/assets\/[^/]+\.js$/.test(asset))).toBe(true);
+  for (const forbidden of [
+    /worker.*\.js$/i,
+    /inference.*\.js$/i,
+    /\.wasm$/i,
+    /\.bin$/i,
+    /launch-catalog.*\.json$/i,
+  ]) {
+    expect(buildAssets).not.toEqual(expect.arrayContaining([expect.stringMatching(forbidden)]));
+  }
+});
+
+test('rejects builds with zero emitted launch catalogs', async () => {
+  const root = await createBuildFixture();
+  await writeFile(join(root, 'main.js'), "document.body.dataset.ready = 'true';");
+
+  await expect(buildMetadata(root)).rejects.toThrow(/exactly one.*launch catalog/i);
+});
+
+test('rejects builds with multiple emitted launch catalogs', async () => {
+  const root = await createBuildFixture();
+  await mkdir(join(root, 'alternate'));
+  await writeFile(
+    join(root, 'alternate', 'launch-catalog.public.json'),
+    JSON.stringify({ voices: 'y'.repeat(5000) }),
+  );
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "new URL('./launch-catalog.public.json', import.meta.url).href;",
+      "new URL('./alternate/launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/exactly one.*launch catalog/i);
+});
+
+test('rejects a duplicate catalog-digest injection placeholder', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'public', 'sw.js'),
+    `${SERVICE_WORKER_TEMPLATE}\nconst CATALOG_DIGEST = 'development'; // __VITE_CATALOG_DIGEST__`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(
+    /service-worker injection marker __VITE_CATALOG_DIGEST__ must appear exactly once/i,
+  );
 });
 
 test('rejects a duplicate shell-digest injection placeholder', async () => {

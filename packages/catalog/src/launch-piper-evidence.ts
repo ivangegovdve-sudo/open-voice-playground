@@ -1,6 +1,8 @@
 import type { PinnedReleaseAssetEvidence } from '@open-voice/contracts';
 
-export const PIPER_RELEASE_ASSET_EVIDENCE: PinnedReleaseAssetEvidence[] = [
+const PIPER_RELEASE_ASSET_EVIDENCE_WITHOUT_VOICE: Array<
+  Omit<PinnedReleaseAssetEvidence, 'voiceId'>
+> = [
   {"id":"piper-de-de-thorsten-medium-release-asset","provider":"github-release-asset","repository":"k2-fsa/sherpa-onnx","releaseId":130612623,"assetId":324199311,"assetName":"vits-piper-de_DE-thorsten-medium-int8.tar.bz2","apiUrl":"https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/324199311","browserDownloadUrl":"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-de_DE-thorsten-medium-int8.tar.bz2","sha256":"sha256:07e240b7b9c1fc9211d5a69512f8cbe11b3286c2ed79c15c076ac6ed427fdf13","bytes":20949833,"createdAt":"2025-12-04T06:02:19Z","updatedAt":"2025-12-04T06:02:20Z","corsReadable":false,"sourceIds":["piper-sherpa-source"],"licenseIds":["piper-voice-license"]},
   {"id":"piper-es-es-davefx-medium-release-asset","provider":"github-release-asset","repository":"k2-fsa/sherpa-onnx","releaseId":130612623,"assetId":324610551,"assetName":"vits-piper-es_ES-davefx-medium-int8.tar.bz2","apiUrl":"https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/324610551","browserDownloadUrl":"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium-int8.tar.bz2","sha256":"sha256:8bb8ac1cefb727caec9bd9c6c3185c673c8b42c53bd29bb25d5a7715dac37125","bytes":21171632,"createdAt":"2025-12-05T04:10:36Z","updatedAt":"2025-12-05T04:10:37Z","corsReadable":false,"sourceIds":["piper-sherpa-source"],"licenseIds":["piper-voice-license"]},
   {"id":"piper-nl-nl-alex-medium-release-asset","provider":"github-release-asset","repository":"k2-fsa/sherpa-onnx","releaseId":130612623,"assetId":404083479,"assetName":"vits-piper-nl_NL-alex-medium-int8.tar.bz2","apiUrl":"https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/404083479","browserDownloadUrl":"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-nl_NL-alex-medium-int8.tar.bz2","sha256":"sha256:ea4f024bf5e113435d70d828586b9f7153100d8365eb8d93236ccaf069045bb9","bytes":21188402,"createdAt":"2026-04-24T04:30:19Z","updatedAt":"2026-04-24T04:30:20Z","corsReadable":false,"sourceIds":["piper-sherpa-source"],"licenseIds":["piper-voice-license"]},
@@ -13,3 +15,28 @@ export const PIPER_RELEASE_ASSET_EVIDENCE: PinnedReleaseAssetEvidence[] = [
   {"id":"piper-fr-fr-siwis-medium-release-asset","provider":"github-release-asset","repository":"k2-fsa/sherpa-onnx","releaseId":130612623,"assetId":324609276,"assetName":"vits-piper-fr_FR-siwis-medium-int8.tar.bz2","apiUrl":"https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/324609276","browserDownloadUrl":"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-fr_FR-siwis-medium-int8.tar.bz2","sha256":"sha256:3909cff9b3cfd4820c66aa13bf554315c82e34899c161f0b446ece372bc4b5ec","bytes":20914888,"createdAt":"2025-12-05T04:05:19Z","updatedAt":"2025-12-05T04:05:20Z","corsReadable":false,"sourceIds":["piper-sherpa-source"],"licenseIds":["piper-voice-license"]},
   {"id":"piper-uk-ua-lada-x-low-release-asset","provider":"github-release-asset","repository":"k2-fsa/sherpa-onnx","releaseId":130612623,"assetId":323261458,"assetName":"vits-piper-uk_UA-lada-x_low-int8.tar.bz2","apiUrl":"https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/assets/323261458","browserDownloadUrl":"https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-uk_UA-lada-x_low-int8.tar.bz2","sha256":"sha256:5ba331ec01c811d605951c30ad7f9f57dfe87aaaefb9295c83012867db14a91a","bytes":13332976,"createdAt":"2025-12-02T06:55:14Z","updatedAt":"2025-12-02T06:55:14Z","corsReadable":false,"sourceIds":["piper-sherpa-source"],"licenseIds":["piper-voice-license"]},
 ];
+
+const PIPER_EVIDENCE_VOICE_IDS = {
+  'piper-de-de-thorsten-medium-release-asset': 'piper:de_DE-thorsten-medium',
+  'piper-es-es-davefx-medium-release-asset': 'piper:es_ES-davefx-medium',
+  'piper-nl-nl-alex-medium-release-asset': 'piper:nl_NL-alex-medium',
+  'piper-pl-pl-gosia-medium-release-asset': 'piper:pl_PL-gosia-medium',
+  'piper-pt-br-cadu-medium-release-asset': 'piper:pt_BR-cadu-medium',
+  'piper-ro-ro-mihai-medium-release-asset': 'piper:ro_RO-mihai-medium',
+  'piper-ru-ru-dmitri-medium-release-asset': 'piper:ru_RU-dmitri-medium',
+  'piper-zh-cn-chaowen-medium-release-asset': 'piper:zh_CN-chaowen-medium',
+  'piper-en-gb-cori-medium-release-asset': 'piper:en_GB-cori-medium',
+  'piper-fr-fr-siwis-medium-release-asset': 'piper:fr_FR-siwis-medium',
+  'piper-uk-ua-lada-x-low-release-asset': 'piper:uk_UA-lada-x_low',
+} as const;
+
+export const PIPER_RELEASE_ASSET_EVIDENCE: PinnedReleaseAssetEvidence[] =
+  PIPER_RELEASE_ASSET_EVIDENCE_WITHOUT_VOICE.map((evidence) => {
+    const voiceId = PIPER_EVIDENCE_VOICE_IDS[
+      evidence.id as keyof typeof PIPER_EVIDENCE_VOICE_IDS
+    ] as PinnedReleaseAssetEvidence['voiceId'] | undefined;
+    if (voiceId === undefined) {
+      throw new Error(`Missing explicit Piper voice binding for ${evidence.id}.`);
+    }
+    return { ...evidence, voiceId };
+  });

@@ -48,6 +48,10 @@ const RecordIdsSchema = z
   .array(RecordIdSchema)
   .min(1)
   .refine(hasUniqueValues, 'Record references must be unique');
+const StoredNonBlankTextSchema = z
+  .string()
+  .min(1)
+  .refine((value) => value.trim().length > 0, 'Stored text cannot be blank');
 
 export const StableIdSchema = z
   .string()
@@ -284,6 +288,12 @@ export const ImmutableAssetSchema = z
 export const PinnedReleaseAssetEvidenceSchema = z
   .object({
     id: RecordIdSchema,
+    voiceId: z
+      .string({ error: 'Piper voice binding is required' })
+      .pipe(StableIdSchema)
+      .refine((value) => value.startsWith('piper:'), {
+        message: 'Release evidence voice must be a Piper preset',
+      }),
     provider: z.literal('github-release-asset'),
     repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
     releaseId: z.number().int().positive(),
@@ -445,26 +455,74 @@ export const FeatureFlagSchema = z
     }
   });
 
-const ScalarControlSchema = z.union([z.string(), z.number().finite(), z.boolean()]);
-const OperationIdSchema = z.number().int().nonnegative();
+const ScalarControlSchema = z.union([z.string().max(2_000), z.number().finite(), z.boolean()]);
+const OperationIdSchema = z.number().int().safe().nonnegative();
+const WORKER_ENGINE_IDS = ['kokoro', 'kitten', 'supertonic', 'piper'] as const;
+const WorkerEngineIdSchema = z.enum(WORKER_ENGINE_IDS);
+const WorkerVoiceIdSchema = StableIdSchema;
+
+function addWorkerVoiceBindingIssue(
+  value: { engineId: string; voiceId: string },
+  context: z.RefinementCtx,
+): void {
+  if (!value.voiceId.startsWith(`${value.engineId}:`)) {
+    context.addIssue({
+      code: 'custom',
+      path: ['voiceId'],
+      message: 'Worker voice ID must belong to the selected engine',
+    });
+  }
+}
+
 const PrepareWorkerCommandSchema = z
   .object({
     command: z.literal('prepare'),
     operationId: OperationIdSchema,
-    engineId: EngineIdSchema,
-    voiceId: StableIdSchema,
+    engineId: WorkerEngineIdSchema,
+    voiceId: WorkerVoiceIdSchema,
   })
+  .strict()
+  .superRefine(addWorkerVoiceBindingIssue);
+
+const SpeedWorkerControlsSchema = z
+  .object({ speed: z.number().finite().min(0.75).max(1.25) })
   .strict();
-const SynthesizeWorkerCommandSchema = z
-  .object({
-    command: z.literal('synthesize'),
-    operationId: OperationIdSchema,
-    engineId: EngineIdSchema,
-    voiceId: StableIdSchema,
-    text: z.string().trim().min(1).max(2_000),
-    controls: z.record(z.string(), ScalarControlSchema),
-  })
-  .strict();
+
+const WORKER_CONTROL_SCHEMAS = {
+  kokoro: SpeedWorkerControlsSchema,
+  kitten: SpeedWorkerControlsSchema,
+  supertonic: SpeedWorkerControlsSchema,
+  piper: SpeedWorkerControlsSchema,
+} as const;
+
+function synthesizeWorkerCommandSchema<EngineId extends (typeof WORKER_ENGINE_IDS)[number]>(
+  engineId: EngineId,
+) {
+  return z
+    .object({
+      command: z.literal('synthesize'),
+      operationId: OperationIdSchema,
+      engineId: z.literal(engineId),
+      voiceId: WorkerVoiceIdSchema,
+      text: z
+        .string()
+        .min(1)
+        .max(2_000)
+        .refine((value) => value.trim().length > 0, 'Synthesis text cannot be blank'),
+      controls: WORKER_CONTROL_SCHEMAS[engineId],
+    })
+    .strict()
+    .superRefine(addWorkerVoiceBindingIssue);
+}
+
+const SynthesizeWorkerCommandSchemas = WORKER_ENGINE_IDS.map((engineId) =>
+  synthesizeWorkerCommandSchema(engineId),
+) as [
+  ReturnType<typeof synthesizeWorkerCommandSchema>,
+  ReturnType<typeof synthesizeWorkerCommandSchema>,
+  ReturnType<typeof synthesizeWorkerCommandSchema>,
+  ReturnType<typeof synthesizeWorkerCommandSchema>,
+];
 const LifecycleWorkerCommandSchema = z
   .object({
     command: z.enum(['cancel', 'dispose']),
@@ -472,10 +530,50 @@ const LifecycleWorkerCommandSchema = z
   })
   .strict();
 
-export const WorkerCommandSchema = z.discriminatedUnion('command', [
+export const WorkerCommandSchema = z.union([
   PrepareWorkerCommandSchema,
-  SynthesizeWorkerCommandSchema,
+  ...SynthesizeWorkerCommandSchemas,
   LifecycleWorkerCommandSchema,
+]);
+
+const ReadyWorkerResponseSchema = z
+  .object({ type: z.literal('ready'), operationId: OperationIdSchema })
+  .strict();
+const ProgressWorkerResponseSchema = z
+  .object({
+    type: z.literal('progress'),
+    operationId: OperationIdSchema,
+    phase: z.string().trim().min(1).max(100),
+    percent: z.number().finite().min(0).max(100),
+  })
+  .strict();
+const ResultWorkerResponseSchema = z
+  .object({
+    type: z.literal('result'),
+    operationId: OperationIdSchema,
+    audio: z.custom<ArrayBuffer>((value) => value instanceof ArrayBuffer, {
+      message: 'Worker result audio must be an ArrayBuffer',
+    }),
+    mimeType: z.literal('audio/wav'),
+  })
+  .strict();
+const ErrorWorkerResponseSchema = z
+  .object({
+    type: z.literal('error'),
+    operationId: OperationIdSchema,
+    message: z.string().trim().min(1).max(1_000),
+  })
+  .strict();
+const CancelledWorkerResponseSchema = z
+  .object({ type: z.literal('cancelled'), operationId: OperationIdSchema })
+  .strict();
+
+export const WorkerResponseSchema = z.discriminatedUnion('type', [
+  ReadyWorkerResponseSchema,
+  ProgressWorkerResponseSchema,
+  ResultWorkerResponseSchema,
+  ErrorWorkerResponseSchema,
+  CancelledWorkerResponseSchema,
 ]);
 
 const ProvenanceParametersSchema = z.record(z.string(), ScalarControlSchema);
@@ -496,7 +594,7 @@ const PendingReferenceLineageSchema = z
   .object({
     status: z.literal('pending'),
     generatorCandidateId: RecordIdSchema,
-    promptText: z.string().trim().min(1),
+    promptText: StoredNonBlankTextSchema,
     audioSha256: z.null(),
     transcriptSha256: z.null(),
     rightsBasis: z.string().trim().min(1),
@@ -508,7 +606,7 @@ const VerifiedReferenceLineageSchema = z
   .object({
     status: z.literal('verified'),
     generatorCandidateId: RecordIdSchema,
-    promptText: z.string().trim().min(1),
+    promptText: StoredNonBlankTextSchema,
     audioSha256: Sha256Schema,
     transcriptSha256: Sha256Schema,
     rightsBasis: z.string().trim().min(1),
@@ -565,7 +663,7 @@ export const OfficialSampleSchema = z
   .object({
     id: RecordIdSchema,
     galleryId: RecordIdSchema,
-    transcript: z.string().trim().min(1),
+    transcript: StoredNonBlankTextSchema,
     locale: Bcp47LanguageTagSchema,
     officialSamplePageUrl: HttpUrlSchema,
     sourceIds: RecordIdsSchema,
@@ -646,7 +744,7 @@ export const GenerationCandidateSchema = z
   .object({
     id: RecordIdSchema,
     galleryId: RecordIdSchema,
-    transcript: z.string().trim().min(1),
+    transcript: StoredNonBlankTextSchema,
     locale: Bcp47LanguageTagSchema,
     modelRevision: GitRevisionSchema,
     codeRevision: GitRevisionSchema,
@@ -822,6 +920,7 @@ export type AssetDeliveryEvidence = z.infer<typeof AssetDeliveryEvidenceSchema>;
 export type AssetSetManifest = z.infer<typeof AssetSetManifestSchema>;
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type WorkerCommand = z.infer<typeof WorkerCommandSchema>;
+export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;
 export type GalleryManifest = z.infer<typeof GalleryManifestSchema>;
 export type OfficialSample = z.infer<typeof OfficialSampleSchema>;
 export type GenerationCandidate = z.infer<typeof GenerationCandidateSchema>;

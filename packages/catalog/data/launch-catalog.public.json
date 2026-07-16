@@ -13333,7 +13333,7 @@
       "releaseGate": {
         "status": "unavailable",
         "reason": "asset-unavailable",
-        "detail": "Official release-asset evidence is recorded, but GitHub serves the archives without cross-origin browser access. No rights-reviewed, commit-pinned CORS mirror exists."
+        "detail": "No reviewed immutable browser asset has been located for this preset. No request is made."
       },
       "assetSetId": null,
       "declaredDownloadBytes": 0,
@@ -15502,6 +15502,7 @@
       "name": "OpenRAIL-M",
       "exactUpstreamTerms": "Exact pinned OpenRAIL-M text must be accepted before any Supertonic asset request.",
       "evidenceUrl": "https://huggingface.co/Supertone/supertonic-3/blob/3cadd1ee6394adea1bd021217a0e650ede09a323/LICENSE",
+      "evidenceSha256": "sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f",
       "attribution": "Supertone Inc.",
       "permitsRedistribution": true,
       "permitsCommercialUse": true,
@@ -15920,7 +15921,7 @@
     {
       "id": "kitten-browser-assets",
       "engineId": "kitten",
-      "manifestDigest": "sha256:775f09c46e7ef8c71646c67d832f95ae5ad790a0482cdbf2bcae47648de8bdba",
+      "manifestDigest": "sha256:f1ddafbfa9d135457f8fedaa41aa8709779df19206ab6895ef79f675e71bef10",
       "assets": [
         {
           "id": "kitten-tts-micro-v0-8-onnx",
@@ -15928,7 +15929,7 @@
           "revision": "1ccf72b2c2048fd17efac7de2fab32d10e225084",
           "sha256": "sha256:95481626fee1ba70ce683e69c534fc7cb38433c46ce42d3abbeafb4b9f1a4123",
           "bytes": 41384970,
-          "cacheKey": "kitten/kitten-tts-micro-v0-8-onnx/1ccf72b2c204",
+          "cacheKey": "kitten/kitten-tts-micro-v0-8-onnx/1ccf72b2c2048fd17efac7de2fab32d10e225084/95481626fee1ba70ce683e69c534fc7cb38433c46ce42d3abbeafb4b9f1a4123",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kitten-model-source"
@@ -15944,7 +15945,7 @@
           "revision": "1ccf72b2c2048fd17efac7de2fab32d10e225084",
           "sha256": "sha256:112710c1be8ad0e967c190fb0fd95cbe5848ec4791b93209f20b28b7da20dac1",
           "bytes": 3278902,
-          "cacheKey": "kitten/voices-npz/1ccf72b2c204",
+          "cacheKey": "kitten/voices-npz/1ccf72b2c2048fd17efac7de2fab32d10e225084/112710c1be8ad0e967c190fb0fd95cbe5848ec4791b93209f20b28b7da20dac1",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kitten-model-source"
@@ -15966,7 +15967,7 @@
     {
       "id": "kokoro-af-alloy",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:25fc72be7eff9c41d3c1a795da2202ca4f9dd34bf5a458aeae2515936be5c63c",
+      "manifestDigest": "sha256:97d69218046dafcfad58efccac52842e465ced1fcf730d8c70851f3c7b69e852",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -15974,7 +15975,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -15990,7 +15991,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c4a6b876047fd7fb472edf4ebd63cfac7c3b958a7cae7c106e8f038ca6308c45",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-alloy-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-alloy-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/c4a6b876047fd7fb472edf4ebd63cfac7c3b958a7cae7c106e8f038ca6308c45",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16012,7 +16013,7 @@
     {
       "id": "kokoro-af-aoede",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:86a1ca17eb03047124b2bd16ea527d5d9e99343053077a0e1f02330a0c43468d",
+      "manifestDigest": "sha256:ebee1fec490a040c82c888e8c802f66992b253d822a4f33a32c657df262278d8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16020,7 +16021,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16036,7 +16037,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4a004c33430762e2461eedb2013fad808ef4ab3121f5300f554476caf58d8361",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-aoede-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-aoede-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/4a004c33430762e2461eedb2013fad808ef4ab3121f5300f554476caf58d8361",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16058,7 +16059,7 @@
     {
       "id": "kokoro-af-bella",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:947f17e773a730866322295f70b919430184f89e67b62ebcaf0e6d65db79e561",
+      "manifestDigest": "sha256:2946c95e4eace3799a4e59ab935d565f928663b689f92ecdf1eddad8eaaab23e",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16066,7 +16067,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16082,7 +16083,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-bella-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-bella-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16104,7 +16105,7 @@
     {
       "id": "kokoro-af-heart",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:6609af6bbda2928b52181779aa76e9a7377c16be3dda02250075f15a35a7f02c",
+      "manifestDigest": "sha256:d603d5aa9bbe9470d4d37ecc21759a185a1e568aaf2e86e3d2227bca3f2378ec",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16112,7 +16113,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16128,7 +16129,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-heart-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-heart-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16150,7 +16151,7 @@
     {
       "id": "kokoro-af-jessica",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:67e6e0d6806940d2514b069ddcac4e087ab8aed0cbab0ffcabdb3e04716beb15",
+      "manifestDigest": "sha256:c65fa7dd33e4d539c430e576f662b7ce28a2e91e65309090a2f98f9dd7728e34",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16158,7 +16159,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16174,7 +16175,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:a240a5e3c15b43563d6e923bdca8ef5613a23471d9b77653694012435df23bd8",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-jessica-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-jessica-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/a240a5e3c15b43563d6e923bdca8ef5613a23471d9b77653694012435df23bd8",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16196,7 +16197,7 @@
     {
       "id": "kokoro-af-kore",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:cc3befb9ae133dd32f5f965491513dfdc75c2721326e7fc357dde199fe9d8441",
+      "manifestDigest": "sha256:390fac7e6f6b7bfa7b73e376a75f467800b6b10642f169ce3eb611a81fcfdfa0",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16204,7 +16205,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16220,7 +16221,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:9be5221b6a941c04b561959b8ff0b06e809444dcc4ab7e75a7b23606f691819e",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-kore-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-kore-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/9be5221b6a941c04b561959b8ff0b06e809444dcc4ab7e75a7b23606f691819e",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16242,7 +16243,7 @@
     {
       "id": "kokoro-af-nicole",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:9983433b4dcdaef1d990297cb35ab5f89a4ed6bafbc8f1d8fe311d4c400fec29",
+      "manifestDigest": "sha256:dc6de8a01decaad94c9c7dc37add2dcdd2054a73cb12b8f6a7a7c02cdc259dc3",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16250,7 +16251,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16266,7 +16267,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:cd2191ab31b914ed7b318416b0e4440fdf392ddad9106a060819aa600a64f59a",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-nicole-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-nicole-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/cd2191ab31b914ed7b318416b0e4440fdf392ddad9106a060819aa600a64f59a",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16288,7 +16289,7 @@
     {
       "id": "kokoro-af-nova",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:ed989a3afba0e0a7812d92aa621ad6634d71d2a90cf66a3d0e40ee6ba0ad79f2",
+      "manifestDigest": "sha256:749381df2e7541fa9f445807f962e6bdea712be698fc0182d61fd808f206c48d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16296,7 +16297,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16312,7 +16313,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:18778272caa0d0eebaea251c35fd635f038434f9eee5e691d02a174bd328414f",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-nova-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-nova-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/18778272caa0d0eebaea251c35fd635f038434f9eee5e691d02a174bd328414f",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16334,7 +16335,7 @@
     {
       "id": "kokoro-af-river",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1c95bb7c19090c0fcf39abb33ebda11ef8c6781b88d229269b596f92aa66620f",
+      "manifestDigest": "sha256:f068008c28ef45f7e90f263e52c73f1925ded44eb6f17a5fb824aaa44c59f5dd",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16342,7 +16343,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16358,7 +16359,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:00a2bcf82b1d86e8f19902ede58c65ccf6c0e43b44b7d74fad54e5d8933c9c30",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-river-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-river-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/00a2bcf82b1d86e8f19902ede58c65ccf6c0e43b44b7d74fad54e5d8933c9c30",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16380,7 +16381,7 @@
     {
       "id": "kokoro-af-sarah",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:702d22c6b928afc98c16ecaf136272448e210f32cf3f981141cbf94f49723124",
+      "manifestDigest": "sha256:5a7a17829766657c66cbb36ab481b3218208ead013de4dfa906bd2f303e51fb7",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16388,7 +16389,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16404,7 +16405,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4409fbc125afabacc615d94db5398d847006a737b0247d6892b7a9a0007a2f0a",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-sarah-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-sarah-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/4409fbc125afabacc615d94db5398d847006a737b0247d6892b7a9a0007a2f0a",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16426,7 +16427,7 @@
     {
       "id": "kokoro-af-sky",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:7ebfbbc41a64373ba9f9fa36f85cbc022f0fe30be2956f4c37b084284d7000f8",
+      "manifestDigest": "sha256:b64f28f1ac003243c9cecd117a5a25e6b534f74ad7ece35265409592bcf0098a",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16434,7 +16435,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16450,7 +16451,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4435255c9744f3f31659e0d714ab7689bf65d9e77ec1cce060f083912614f0b9",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-af-sky-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-af-sky-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/4435255c9744f3f31659e0d714ab7689bf65d9e77ec1cce060f083912614f0b9",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16472,7 +16473,7 @@
     {
       "id": "kokoro-am-adam",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c8b5f5df003e8972e91688bdded1a87d87e391ee7666e8f51e552fdfe54c5fc9",
+      "manifestDigest": "sha256:26ce779c1d3820a35df7a45b938df3670e3d37d52b25111df4cadab3c205ead8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16480,7 +16481,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16496,7 +16497,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:162b035ed91cfc48b6046982184c645f72edcdd1b82843347f605d7bf7b15716",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-adam-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-adam-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/162b035ed91cfc48b6046982184c645f72edcdd1b82843347f605d7bf7b15716",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16518,7 +16519,7 @@
     {
       "id": "kokoro-am-echo",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:353ec6d25e639a5641c7e5b9c40c5a470d439e5740d5c3b8dc487ae5a72d1d45",
+      "manifestDigest": "sha256:de1e4d2fc8e1a87e1df8a75637d040aee632f06c0e9601734972b002c163edbf",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16526,7 +16527,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16542,7 +16543,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3968b92c3c4cd1c4416dbded36c13eaa388a90d5788d02a13e4d781f5f8cf3c3",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-echo-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-echo-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/3968b92c3c4cd1c4416dbded36c13eaa388a90d5788d02a13e4d781f5f8cf3c3",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16564,7 +16565,7 @@
     {
       "id": "kokoro-am-eric",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:073c7d9fbf665e36b32882f9aceb5561fe8fb8114ab89cc4abb5bd4924b24bda",
+      "manifestDigest": "sha256:c0701e7954f4d8da73a58d430919eee08327cea83c1dc2f847d4f668cdc73af7",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16572,7 +16573,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16588,7 +16589,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:e8b5be17edd1e3636901ce7598baafe2dc8dd8ff707a0c23bf9e461add7e2832",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-eric-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-eric-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/e8b5be17edd1e3636901ce7598baafe2dc8dd8ff707a0c23bf9e461add7e2832",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16610,7 +16611,7 @@
     {
       "id": "kokoro-am-fenrir",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:cb42ff27d361cf5a0e2086b45577fb9b33b3f01e6d7bc34bb686654f37f85642",
+      "manifestDigest": "sha256:67efa4ebc23e18b9c81733ac4f84f204361d5202ddc4d490f953aa4d702df73f",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16618,7 +16619,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16634,7 +16635,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c27989f741f7ee34d273a39d8a595cc0837d35f5ced9a29b7cc162614616df43",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-fenrir-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-fenrir-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/c27989f741f7ee34d273a39d8a595cc0837d35f5ced9a29b7cc162614616df43",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16656,7 +16657,7 @@
     {
       "id": "kokoro-am-liam",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:72be07458054766c2d7aa651bb150988c25446491c1bf9fa4f9e868efc0ffd0f",
+      "manifestDigest": "sha256:7e5766b9168267e4c3e40467d315545e84d446e7263876d0474bc0dd936386ba",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16664,7 +16665,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16680,7 +16681,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:52403be32fd047c6a44517cb0bcd6b134f2a18baa73e70ef41651e0eab921ade",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-liam-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-liam-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/52403be32fd047c6a44517cb0bcd6b134f2a18baa73e70ef41651e0eab921ade",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16702,7 +16703,7 @@
     {
       "id": "kokoro-am-michael",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:8026a2dfcc28f6e778686a7a05e00bc9630fdf826d1827eed809d93c32bdb43d",
+      "manifestDigest": "sha256:92b27396ccfa7c1df780bb0e103507d5bd777f0326f3da288af083fec5878c98",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16710,7 +16711,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16726,7 +16727,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-michael-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-michael-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16748,7 +16749,7 @@
     {
       "id": "kokoro-am-onyx",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:d09b720321d4d1378e57656245b6a0fd6cdda61dd40dd4bb24e62e763bd8bc7e",
+      "manifestDigest": "sha256:445e7572d650f03a14145a568f12710fd25b309bcb2ca9b5776d296eb5e32912",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16756,7 +16757,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16772,7 +16773,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:da5d135b424164916d75a68ffb4c2abce3d7d5ccc82dd1ee6cf447ce286145e6",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-onyx-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-onyx-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/da5d135b424164916d75a68ffb4c2abce3d7d5ccc82dd1ee6cf447ce286145e6",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16794,7 +16795,7 @@
     {
       "id": "kokoro-am-puck",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:9d1f8925deacdc4890eb94341add082c18586e1a8bd6ae1c6d850f8b2a106472",
+      "manifestDigest": "sha256:9c02bf6c97de1ed2c44359e7fa6e21a5e2ec87201616e8d76015106c3d01de37",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16802,7 +16803,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16818,7 +16819,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:fcf73c989033e9233e0b98713eca600c8c74dcc1614b37009d5450ff4a2274a0",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-puck-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-puck-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/fcf73c989033e9233e0b98713eca600c8c74dcc1614b37009d5450ff4a2274a0",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16840,7 +16841,7 @@
     {
       "id": "kokoro-am-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:0a18f0560dfe36065f09cca4ead062f9555417a9c25382e4806031cdf969b58a",
+      "manifestDigest": "sha256:293c1c09ce9adc31a1175785232894a1fd5f29555c06f313553132b770a31121",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16848,7 +16849,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16864,7 +16865,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:61150cf726ab6c5ed7a99f90a304f91f5a72c00c592e89ec94e5df11c319227a",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-am-santa-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-am-santa-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/61150cf726ab6c5ed7a99f90a304f91f5a72c00c592e89ec94e5df11c319227a",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16886,7 +16887,7 @@
     {
       "id": "kokoro-bf-alice",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:02f3c2e0155c10f3b009b324721b0a473e37a6110308e6c580fd86e959af654f",
+      "manifestDigest": "sha256:b8e64424e522350e174d075a4c092bc42701baf18b72be03843d2f46c1a0eecc",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16894,7 +16895,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16910,7 +16911,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:08afa6ba24da61ea5e8efa139e5aadc938d83f0a6da5a900adaf763ac1da5573",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bf-alice-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bf-alice-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/08afa6ba24da61ea5e8efa139e5aadc938d83f0a6da5a900adaf763ac1da5573",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16932,7 +16933,7 @@
     {
       "id": "kokoro-bf-emma",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:11025876ea63649babfca700685d133ff5f128c9f66fd80a4487ca4e77bd614c",
+      "manifestDigest": "sha256:ff1028be1bbc5188702539867fe314394b50473a36c3266708c1ad446c7244c6",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16940,7 +16941,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16956,7 +16957,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bf-emma-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bf-emma-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -16978,7 +16979,7 @@
     {
       "id": "kokoro-bf-isabella",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:0e4271d4491077c42e509aa023dc31dbefa9f293a183e742f58d049abda9056b",
+      "manifestDigest": "sha256:7810ffe99dd0643332d1db8f49613e1470e619d870f94caf8ed28cbc8af4a071",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -16986,7 +16987,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17002,7 +17003,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3754352c4aaa46d17f27654ab7518d65b62ad6163a0f55a5f4330c2da2c4e94f",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bf-isabella-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bf-isabella-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/3754352c4aaa46d17f27654ab7518d65b62ad6163a0f55a5f4330c2da2c4e94f",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17024,7 +17025,7 @@
     {
       "id": "kokoro-bf-lily",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:8c399631a293e3f067dd0cec4a7045987e0b8d3387c2c2011f02fbc029c871cb",
+      "manifestDigest": "sha256:585b15708c688c0e68656ade064cbc1192a495fce4f5e0bf374449800383dd94",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17032,7 +17033,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17048,7 +17049,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:5e0ee32ebe64a467124976b14e69590746f1c4ce41a12b587a50c862edfea335",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bf-lily-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bf-lily-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/5e0ee32ebe64a467124976b14e69590746f1c4ce41a12b587a50c862edfea335",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17070,7 +17071,7 @@
     {
       "id": "kokoro-bm-daniel",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:5edcf9c34047b458e01c59c4c6d6d4666222e76ffe13b6e2fc2b06dacab1aee1",
+      "manifestDigest": "sha256:b3051019295d2e817164b44dafc462e9bbf78011bf2aa3122c32093e57d8f6ae",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17078,7 +17079,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17094,7 +17095,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:6b3194bbceffb746733cbc22c8f593dd44e401a71d53895a2dca891bc595a1e8",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bm-daniel-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bm-daniel-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/6b3194bbceffb746733cbc22c8f593dd44e401a71d53895a2dca891bc595a1e8",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17116,7 +17117,7 @@
     {
       "id": "kokoro-bm-fable",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:7404e60184540364492ce40cb02a937a9ca273dcf608ec39150704a7a094e792",
+      "manifestDigest": "sha256:abb092cf0775a3ceebc4ca4522d18b3b6cad3e86725de9cdb74fcdf240bfbb94",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17124,7 +17125,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17140,7 +17141,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f889083196807b4adb15e9204252165f503b8d33d3982e681c52443c49d798f1",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bm-fable-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bm-fable-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/f889083196807b4adb15e9204252165f503b8d33d3982e681c52443c49d798f1",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17162,7 +17163,7 @@
     {
       "id": "kokoro-bm-george",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:34bfd284aa3eadaa7fe07a66923f04c9ef7935f1fb8bfe5f4fd0e09b3ace25cd",
+      "manifestDigest": "sha256:3b16f10fa6ed9dbc2892e1139e962b7f8d8f3e196db06813ccb16bd86edb9f7b",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17170,7 +17171,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17186,7 +17187,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bm-george-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bm-george-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17208,7 +17209,7 @@
     {
       "id": "kokoro-bm-lewis",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:8c8c4399fd0ba4e31ddf9112f001eb2ca44b74ac3702f5cc68ed48fd8388c15d",
+      "manifestDigest": "sha256:00e4650403327ded8ef8c64da6277e4616abc327dc3e8074c3005c18455f6bb4",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17216,7 +17217,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17232,7 +17233,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:b8f671cef828c30e66fdf0b0756a76bba58f6bb3398cbbf27058642acbcedb97",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-bm-lewis-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-bm-lewis-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/b8f671cef828c30e66fdf0b0756a76bba58f6bb3398cbbf27058642acbcedb97",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17254,7 +17255,7 @@
     {
       "id": "kokoro-ef-dora",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:7895e23de2c1a9a652ccbe2c44afb032344e28e8e843e272d4412d4dd1d31352",
+      "manifestDigest": "sha256:a4da5da6c1ed0a08f6f99fd8eb06acf3fd107255f07f8fcbeaf14928b15e1e11",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17262,7 +17263,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17278,7 +17279,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f66ec66bd295acb18372e37008533a9a3228483ccd294e7538d5d9294ac9a532",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-ef-dora-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-ef-dora-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/f66ec66bd295acb18372e37008533a9a3228483ccd294e7538d5d9294ac9a532",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17300,7 +17301,7 @@
     {
       "id": "kokoro-em-alex",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:95c82ae6c68931eef251a0daf72a13bcf64672c33a81d29bb0977bbe04c34898",
+      "manifestDigest": "sha256:b4b91eeeed2277a3fc23359903a234d448411c83be5ed663c2a3345d93707258",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17308,7 +17309,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17324,7 +17325,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:27809e9eafdcbcfff90a3016c697568676531de2a2c39cee29c96c7bd6b83e95",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-em-alex-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-em-alex-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/27809e9eafdcbcfff90a3016c697568676531de2a2c39cee29c96c7bd6b83e95",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17346,7 +17347,7 @@
     {
       "id": "kokoro-em-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:2bc35364dce4550d42c1d08d9caae75d68d933bea53e50a4bd73f37232155a02",
+      "manifestDigest": "sha256:b91b9fd3e13f755eefdc3a486651523885ac9b586a9df9fa89ecb95ceb49cf39",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17354,7 +17355,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17370,7 +17371,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:ad43b774e1ca24d05c6161297d8aeb770ac3d29bb95daf516727af5f7d543683",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-em-santa-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-em-santa-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/ad43b774e1ca24d05c6161297d8aeb770ac3d29bb95daf516727af5f7d543683",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17392,7 +17393,7 @@
     {
       "id": "kokoro-ff-siwis",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c42269923e8119934fcc3639a643a24d48e0df8957175d1ad97590f377ad5d37",
+      "manifestDigest": "sha256:38a14c1397dad779a95a0d9f3ad4a8bfddd715376396dc037925d088b8a296fe",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17400,7 +17401,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17416,7 +17417,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:a35f5675ad08948e326ae75fd0ea16ba5d0042e4f76b5f3d1df77d0a48c54861",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-ff-siwis-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-ff-siwis-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/a35f5675ad08948e326ae75fd0ea16ba5d0042e4f76b5f3d1df77d0a48c54861",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17438,7 +17439,7 @@
     {
       "id": "kokoro-hf-alpha",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:8afe0504396b6e6cd9b36c59222d09af144dcee0caedb26a6e31adcd8238d5c2",
+      "manifestDigest": "sha256:9d02136e9d6f4fb7601e78994778ca7be11abfcef3b388dba763169d28d75c6a",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17446,7 +17447,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17462,7 +17463,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:040be6a4425411cc01fda5fd06693c76bfa78572632852bc8cda9c99232ffb56",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-hf-alpha-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-hf-alpha-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/040be6a4425411cc01fda5fd06693c76bfa78572632852bc8cda9c99232ffb56",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17484,7 +17485,7 @@
     {
       "id": "kokoro-hf-beta",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:0afd697ab4024fa7ba01da0ea55251b7441d14cf41d88be3d07c20569ef1ef11",
+      "manifestDigest": "sha256:6f92b8761fd0a89dbbf82ceaa2058ab0633164d24532e26e3184105035a0d1e8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17492,7 +17493,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17508,7 +17509,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:cd83ae0bb9b2e4e4fb92b4973bd8d1822ca0036d3c498bf4fc89aa8e33917cc7",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-hf-beta-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-hf-beta-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/cd83ae0bb9b2e4e4fb92b4973bd8d1822ca0036d3c498bf4fc89aa8e33917cc7",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17530,7 +17531,7 @@
     {
       "id": "kokoro-hm-omega",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1fd730a8494fbbfeaf14a88e6466d3a68f620d8df981a71b40a73f7acb22b585",
+      "manifestDigest": "sha256:f227b0b9fb292cdb5818884c411a4bc7a1d3ccdbb311e9dcd65f805d8f40b3f0",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17538,7 +17539,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17554,7 +17555,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:b02d9222d9ed00ce26b302173a862c2c93f96cc40b5c422b8d14910b9ff34137",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-hm-omega-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-hm-omega-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/b02d9222d9ed00ce26b302173a862c2c93f96cc40b5c422b8d14910b9ff34137",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17576,7 +17577,7 @@
     {
       "id": "kokoro-hm-psi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1ba5e646dea03cbeae581a8b436479a8daf4907e2dc59b3c8f4be33e10063d51",
+      "manifestDigest": "sha256:afb333653791eff5a76b957848660f0396b6730dc9a30c4f90c797588e2a7fd5",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17584,7 +17585,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17600,7 +17601,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:644daf88ba8aeb7bd08950bbdcd4453bb280864e49dc4df93fabc6be32e03f37",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-hm-psi-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-hm-psi-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/644daf88ba8aeb7bd08950bbdcd4453bb280864e49dc4df93fabc6be32e03f37",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17622,7 +17623,7 @@
     {
       "id": "kokoro-if-sara",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:d2fc49df7699fd2926252fa309f22c176702f634637b0b28602f6864f1d26f14",
+      "manifestDigest": "sha256:144dab417116c30513d0d3d5f820a97f54efb3b5dc06a40fb42d4bdde0fc0e0d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17630,7 +17631,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17646,7 +17647,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:409b69248798fcdc2542330c76953d230710f19b057e59cb82fdc3c4cf71265c",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-if-sara-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-if-sara-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/409b69248798fcdc2542330c76953d230710f19b057e59cb82fdc3c4cf71265c",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17668,7 +17669,7 @@
     {
       "id": "kokoro-im-nicola",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:cb65a3ecf66004355493afb8d1e14aa2004e2cd6511217f8ccd9fcec4036b63b",
+      "manifestDigest": "sha256:ffe0c5b8fa84a64f2f570349942511301c279a675f6555b39714c29523551e8f",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17676,7 +17677,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17692,7 +17693,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:bc578e510d52a96d6940d46f12e96d7b3df00905dbea075113226d100e6e1ab0",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-im-nicola-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-im-nicola-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/bc578e510d52a96d6940d46f12e96d7b3df00905dbea075113226d100e6e1ab0",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17714,7 +17715,7 @@
     {
       "id": "kokoro-jf-alpha",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:d26852ed427ac5521926fddf4578fc5dc788709e226e9562d66c15aeb2200c67",
+      "manifestDigest": "sha256:9395a1192814a3dc8849ac7c33e48389eb3cdde9e375a164e1efe60ab684e7e4",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17722,7 +17723,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17738,7 +17739,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:56b479360aad9f367aeb8cef908f9201cf48b4555e488c5f4590c9dfcd978bb6",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-jf-alpha-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-jf-alpha-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/56b479360aad9f367aeb8cef908f9201cf48b4555e488c5f4590c9dfcd978bb6",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17760,7 +17761,7 @@
     {
       "id": "kokoro-jf-gongitsune",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:cb05905a6eea79ff2754b516edcca06349438a4c65812a71c2d64b58109308a5",
+      "manifestDigest": "sha256:990369dfbdd0f98574e2291473512f6cf5dc9be1008107a8b1b3cb22a11f6ef5",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17768,7 +17769,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17784,7 +17785,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:0f1181f3772d27b7c12aaf4bcd71e31b186c4146e330d074a3dc64ee392af396",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-jf-gongitsune-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-jf-gongitsune-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/0f1181f3772d27b7c12aaf4bcd71e31b186c4146e330d074a3dc64ee392af396",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17806,7 +17807,7 @@
     {
       "id": "kokoro-jf-nezumi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b8652ab1b8b77532dd8539f60d7157c9295bc2c4dcd7c1c44cb48faf1119fb2a",
+      "manifestDigest": "sha256:810b813ae2d6f22a7656d0de1915cc51e9bd2275edc70ea4104a6fc672628d97",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17814,7 +17815,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17830,7 +17831,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:13cb71eebb0b48739d444558322aa35a8c9a489b80e1e631f14d2e6aea93026b",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-jf-nezumi-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-jf-nezumi-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/13cb71eebb0b48739d444558322aa35a8c9a489b80e1e631f14d2e6aea93026b",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17852,7 +17853,7 @@
     {
       "id": "kokoro-jf-tebukuro",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:e19c35e2078b45c1ad1d05d546f775830816306da549b14d30b65187db03232c",
+      "manifestDigest": "sha256:3f6598cc7c8923782ee51c50c9de1048dae094c6102346bbed1d38a7b098062b",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17860,7 +17861,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17876,7 +17877,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:29c6c0561b4288d59639677bebe7533c919743d5ea68d0d2ae992644beea6696",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-jf-tebukuro-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-jf-tebukuro-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/29c6c0561b4288d59639677bebe7533c919743d5ea68d0d2ae992644beea6696",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17898,7 +17899,7 @@
     {
       "id": "kokoro-jm-kumo",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b998f0b7b35da827ea30fa03f3ce475d85aab66f7ac98ed274f37759011f6492",
+      "manifestDigest": "sha256:91d81d32bd03c4620575b5f2a2072d8c743bdd53ce0d406c0904f79a881ba501",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17906,7 +17907,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17922,7 +17923,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:09e959d239724c734d65661f06f14cdabcddfd476bfaaad905a937099ae9e64f",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-jm-kumo-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-jm-kumo-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/09e959d239724c734d65661f06f14cdabcddfd476bfaaad905a937099ae9e64f",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17944,7 +17945,7 @@
     {
       "id": "kokoro-pf-dora",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:27b4611b1c4d343b020cd9bf0ae4418ea85234e1f82b63eb39cc1f7f928168c0",
+      "manifestDigest": "sha256:abe675e54b95522d46f6770eae72b2279acfeeab1248c7f9e2f8d98c618a83e9",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17952,7 +17953,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17968,7 +17969,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3da7b5b2d91847ebf5646f57631af6ececae3c29a89cd300f06edf9aa6cfe9ee",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-pf-dora-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-pf-dora-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/3da7b5b2d91847ebf5646f57631af6ececae3c29a89cd300f06edf9aa6cfe9ee",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -17990,7 +17991,7 @@
     {
       "id": "kokoro-pm-alex",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:302fd86a2e0dd6806284378ca7fb4632c5a975d70e490706f5191574a04459fd",
+      "manifestDigest": "sha256:d79d6234a903181b2185ace21513b214dd64e68f9f67a228a205126d76e14874",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -17998,7 +17999,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18014,7 +18015,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:0175c753f59c54e7fd5a995bedef0c5ff2fb67e0043dd3dcb2ae74ec2acbeb2a",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-pm-alex-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-pm-alex-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/0175c753f59c54e7fd5a995bedef0c5ff2fb67e0043dd3dcb2ae74ec2acbeb2a",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18036,7 +18037,7 @@
     {
       "id": "kokoro-pm-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:fec440441d3cb93dfd6b2d56df5be2e0fd462bf9ffe7bb6c113b1be704cdaa7f",
+      "manifestDigest": "sha256:6e2bc5a28d0cd66b5b31472a04e4cfb638570da256a6de544dbb3a0c9d0c88ac",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18044,7 +18045,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18060,7 +18061,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:8b012db3185778afe2e45a62cbad69db73021774fe68dda634bcc748a982eede",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-pm-santa-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-pm-santa-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/8b012db3185778afe2e45a62cbad69db73021774fe68dda634bcc748a982eede",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18082,7 +18083,7 @@
     {
       "id": "kokoro-zf-xiaobei",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:02fa7a143f60fd26294415427bdb624b68c935958bf6db7a0200a66d8e8d5ece",
+      "manifestDigest": "sha256:1c7039df5aaa0984d66c318cb5824db04353dea16556ddbd31765c95042b4639",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18090,7 +18091,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18106,7 +18107,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:5dde6e1c9c4f12c8b327bc29c0cee361a23b52b952c04636858ba637ec66e640",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zf-xiaobei-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zf-xiaobei-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/5dde6e1c9c4f12c8b327bc29c0cee361a23b52b952c04636858ba637ec66e640",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18128,7 +18129,7 @@
     {
       "id": "kokoro-zf-xiaoni",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:5f5ea8840d0aba90901e777d7e54af2da51c259b4a3ba92d069319ef2d62cd0d",
+      "manifestDigest": "sha256:fb14b92978ea45651839197085e352a68ecf2a5111aafd9984522252afb7b3ab",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18136,7 +18137,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18152,7 +18153,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:08892b62a39af0a615cd0581238db7e19e44c578e8fa0bfd0e586e93327d9cba",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zf-xiaoni-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zf-xiaoni-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/08892b62a39af0a615cd0581238db7e19e44c578e8fa0bfd0e586e93327d9cba",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18174,7 +18175,7 @@
     {
       "id": "kokoro-zf-xiaoxiao",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c615e7e28a38c948c338f28025c64a5c2976520e2e18ea4823a4f167bf4ad747",
+      "manifestDigest": "sha256:cde76d67c625bd5f6a54dcea385c751045ddc076ad097198c4dffca9c58fadd6",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18182,7 +18183,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18198,7 +18199,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:03adb5d5e3ddd88b047954e974e651cb0a4b524c985057e5d872e962c7be1169",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zf-xiaoxiao-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zf-xiaoxiao-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/03adb5d5e3ddd88b047954e974e651cb0a4b524c985057e5d872e962c7be1169",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18220,7 +18221,7 @@
     {
       "id": "kokoro-zf-xiaoyi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:a6ff688348d2d083f8109401d709d4f15f7bc905f3427fb233c151618e9d5ac5",
+      "manifestDigest": "sha256:23f2bf14d5e137e4a8f40f4c22df2a285f3ff97e7eb07d8b19ed9b8ee0fc2b81",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18228,7 +18229,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18244,7 +18245,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:bc1555c5c486099196ac254bae5e0bb543c121952a3092f50b7d8724f1bc36b3",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zf-xiaoyi-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zf-xiaoyi-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/bc1555c5c486099196ac254bae5e0bb543c121952a3092f50b7d8724f1bc36b3",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18266,7 +18267,7 @@
     {
       "id": "kokoro-zm-yunjian",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:79c25be3f618cfcf5823bfc8093204387365f606cb44f7f6569023635478db48",
+      "manifestDigest": "sha256:dc8f3eff6854073d2549fb82445d3c1eee9bafbdfc721502f15174c870365dd5",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18274,7 +18275,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18290,7 +18291,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:de48a00bdbf3649f07162269a2b6e0513604389bfac8a2e6c75cb34b323ad6fa",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zm-yunjian-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zm-yunjian-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/de48a00bdbf3649f07162269a2b6e0513604389bfac8a2e6c75cb34b323ad6fa",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18312,7 +18313,7 @@
     {
       "id": "kokoro-zm-yunxi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:52894b9fd06597ca804ce2544f0f6a0b6640fe653ce18d3c960a0e8d6539c8f1",
+      "manifestDigest": "sha256:c92ffff94603170b3a27853f1a79fa54d94bf7103e35eb7a9623aee49f41e6f3",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18320,7 +18321,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18336,7 +18337,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:7243892fb4e560d47014090ddf010f8b8b790f3c6b029ff82b2ac06aa4e27c8b",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zm-yunxi-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zm-yunxi-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/7243892fb4e560d47014090ddf010f8b8b790f3c6b029ff82b2ac06aa4e27c8b",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18358,7 +18359,7 @@
     {
       "id": "kokoro-zm-yunxia",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1c01b5f691a04c60f4e1bc3d5d71f4d4b74734e117127b1c6b65fffbd38a604f",
+      "manifestDigest": "sha256:1f7aa2742181e9fd7ac08315642362d173a2a9d6e4f45f76f8688af294e5a426",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18366,7 +18367,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18382,7 +18383,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:6b2b8fc15b3df19a368daebe5c581c7fabf433ee5b8a17ffd6b3d723cff8936d",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zm-yunxia-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zm-yunxia-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/6b2b8fc15b3df19a368daebe5c581c7fabf433ee5b8a17ffd6b3d723cff8936d",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18404,7 +18405,7 @@
     {
       "id": "kokoro-zm-yunyang",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:92479822fe57372bdd8fbb2300bfc519afa53a924e7b62fbec11336284278152",
+      "manifestDigest": "sha256:b20d249a3a48145a628af6ae37ac503fe45038a475dd12125769d57aedc7974d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
@@ -18412,7 +18413,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
-          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e41",
+          "cacheKey": "kokoro/onnx-model-q8f16-onnx/1939ad2a8e416c0acfeecc08a694d14ef25f2231/04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "mediaType": "application/onnx",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18428,7 +18429,7 @@
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:261e2c89470534dbbcb8fd98b8fdc495ec94063d9bb6c8277f7be43cccba3f42",
           "bytes": 522240,
-          "cacheKey": "kokoro/voices-zm-yunyang-bin/1939ad2a8e41",
+          "cacheKey": "kokoro/voices-zm-yunyang-bin/1939ad2a8e416c0acfeecc08a694d14ef25f2231/261e2c89470534dbbcb8fd98b8fdc495ec94063d9bb6c8277f7be43cccba3f42",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "kokoro-onnx-source"
@@ -18450,7 +18451,7 @@
     {
       "id": "pocket-companion-pack",
       "engineId": "pocket",
-      "manifestDigest": "sha256:222a3e27666844bb5417aa79a61c4d58c94bc73df5f5d5b4d4ebe28e091424f0",
+      "manifestDigest": "sha256:9f0c2aa6fb829a15cda41429bf6136bac69813574ce48fd971d5faea32413e16",
       "assets": [
         {
           "id": "tts-b6369a24-safetensors",
@@ -18458,7 +18459,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:58aa704a88faad35f22c34ea1cb55c4c5629de8b8e035c6e4936e2673dc07617",
           "bytes": 235738732,
-          "cacheKey": "pocket/tts-b6369a24-safetensors/e041936c7547",
+          "cacheKey": "pocket/tts-b6369a24-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/58aa704a88faad35f22c34ea1cb55c4c5629de8b8e035c6e4936e2673dc07617",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18474,7 +18475,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:d461765ae179566678c93091c5fa6f2984c31bbe990bf1aa62d92c64d91bc3f6",
           "bytes": 59339,
-          "cacheKey": "pocket/tokenizer-model/e041936c7547",
+          "cacheKey": "pocket/tokenizer-model/e041936c75475d350b405bc870bcf7c22da4e9e6/d461765ae179566678c93091c5fa6f2984c31bbe990bf1aa62d92c64d91bc3f6",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18490,7 +18491,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:76fcc99b552439f1d2a96d593285113f6afaf628281195a2959b40f5c3610f3f",
           "bytes": 6145272,
-          "cacheKey": "pocket/embeddings-v3-alba-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-alba-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/76fcc99b552439f1d2a96d593285113f6afaf628281195a2959b40f5c3610f3f",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18506,7 +18507,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:ccebef7f51762c7fc08870f5ecf268e8713551ae2c9f7984ddaec0c1e1c77153",
           "bytes": 8258808,
-          "cacheKey": "pocket/languages-english-embeddings-estelle-safetensors/e041936c7547",
+          "cacheKey": "pocket/languages-english-embeddings-estelle-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/ccebef7f51762c7fc08870f5ecf268e8713551ae2c9f7984ddaec0c1e1c77153",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18522,7 +18523,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:613a0244f538f6916645da06de12f57389a9f95855ec9db04c8be0806ff4ddc5",
           "bytes": 7767288,
-          "cacheKey": "pocket/embeddings-v3-anna-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-anna-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/613a0244f538f6916645da06de12f57389a9f95855ec9db04c8be0806ff4ddc5",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18538,7 +18539,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:773e9d338148b2e428a498af3174a0b76d9ba1bfc44eac159e38a2209aa5e4cf",
           "bytes": 6685944,
-          "cacheKey": "pocket/embeddings-v3-vera-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-vera-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/773e9d338148b2e428a498af3174a0b76d9ba1bfc44eac159e38a2209aa5e4cf",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18554,7 +18555,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7c07450f96a0d75b57c44d3b7254d2338b4ba5130016997168f65272dc3c6332",
           "bytes": 6489336,
-          "cacheKey": "pocket/embeddings-v3-fantine-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-fantine-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/7c07450f96a0d75b57c44d3b7254d2338b4ba5130016997168f65272dc3c6332",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18570,7 +18571,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:595d60eccc8cd3e2018f03bd8a1e83d6ae075e6c637e38940850e76c98a3f747",
           "bytes": 6145272,
-          "cacheKey": "pocket/embeddings-v3-charles-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-charles-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/595d60eccc8cd3e2018f03bd8a1e83d6ae075e6c637e38940850e76c98a3f747",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18586,7 +18587,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:a5738f4593c7d2424fdcfc935e9b5fc9cf1bcfe024c4fce204f19f1346d38d2f",
           "bytes": 6931704,
-          "cacheKey": "pocket/embeddings-v3-paul-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-paul-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/a5738f4593c7d2424fdcfc935e9b5fc9cf1bcfe024c4fce204f19f1346d38d2f",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18602,7 +18603,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:c2b0ab4c86a946c0bf4a14d6ca586a9f72d9ff6911839bd7c9b3613b3a726dd6",
           "bytes": 6882552,
-          "cacheKey": "pocket/embeddings-v3-eponine-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-eponine-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/c2b0ab4c86a946c0bf4a14d6ca586a9f72d9ff6911839bd7c9b3613b3a726dd6",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18618,7 +18619,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:90da1c3967ca9505dbe82e3388829b97ade2b9b5d48750be0cedaf6a77355f58",
           "bytes": 7914744,
-          "cacheKey": "pocket/embeddings-v3-azelma-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-azelma-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/90da1c3967ca9505dbe82e3388829b97ade2b9b5d48750be0cedaf6a77355f58",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18634,7 +18635,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:96f7947468e92920c9d6e5aeda8903e15845f0a811f4471f90fe988ebc38cd71",
           "bytes": 6194424,
-          "cacheKey": "pocket/embeddings-v3-george-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-george-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/96f7947468e92920c9d6e5aeda8903e15845f0a811f4471f90fe988ebc38cd71",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18650,7 +18651,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:5180a56946840103b0e53756cb9b53cc18e580ff68fad5a2d741dc6ce03f5da1",
           "bytes": 6145272,
-          "cacheKey": "pocket/embeddings-v3-mary-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-mary-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/5180a56946840103b0e53756cb9b53cc18e580ff68fad5a2d741dc6ce03f5da1",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18666,7 +18667,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:f9cd0c17fab9aef3ff274f3e42b3679e39277ad148353c1461b4c0bcb9221bd5",
           "bytes": 7324920,
-          "cacheKey": "pocket/embeddings-v3-jane-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-jane-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/f9cd0c17fab9aef3ff274f3e42b3679e39277ad148353c1461b4c0bcb9221bd5",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18682,7 +18683,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7bc77e645e7a530484844454de003fc434c9f2dca08e88ba4bcae1e5f52b1653",
           "bytes": 7226616,
-          "cacheKey": "pocket/embeddings-v3-michael-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-michael-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/7bc77e645e7a530484844454de003fc434c9f2dca08e88ba4bcae1e5f52b1653",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18698,7 +18699,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:2a0501e2a90c56cb83fc5ac20796dab9d5f6189ed2f98d5cb7aa7f55047c76bf",
           "bytes": 6489336,
-          "cacheKey": "pocket/embeddings-v3-eve-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-eve-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/2a0501e2a90c56cb83fc5ac20796dab9d5f6189ed2f98d5cb7aa7f55047c76bf",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18714,7 +18715,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7e77da11c6deb8bddf7b6ac1e0c9988dab36874b1432b9fb1d8a985bf7675f6e",
           "bytes": 6685944,
-          "cacheKey": "pocket/embeddings-v3-bill-boerst-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-bill-boerst-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/7e77da11c6deb8bddf7b6ac1e0c9988dab36874b1432b9fb1d8a985bf7675f6e",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18730,7 +18731,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:9280f8e2141ce45316c2020138641a08895eb05ab53c93f0257c5b71c42f47c4",
           "bytes": 5211384,
-          "cacheKey": "pocket/embeddings-v3-caro-davy-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-caro-davy-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/9280f8e2141ce45316c2020138641a08895eb05ab53c93f0257c5b71c42f47c4",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18746,7 +18747,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:619f8a155ab47ac8e3556ccfa9caee0cf94997a343395d3233d7fa35c202a5d9",
           "bytes": 3687664,
-          "cacheKey": "pocket/embeddings-v3-peter-yearsley-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-peter-yearsley-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/619f8a155ab47ac8e3556ccfa9caee0cf94997a343395d3233d7fa35c202a5d9",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18762,7 +18763,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:3851de39075693911b41676ab557bc6900fdba801a03e40d140b962ab36cbbeb",
           "bytes": 5211384,
-          "cacheKey": "pocket/embeddings-v3-stuart-bell-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-stuart-bell-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/3851de39075693911b41676ab557bc6900fdba801a03e40d140b962ab36cbbeb",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18778,7 +18779,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:2393140a1ff79fefd7ac0b70fdfa71fd7a0034255a9dc44f9931661ad70bb476",
           "bytes": 6145272,
-          "cacheKey": "pocket/embeddings-v3-marius-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-marius-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/2393140a1ff79fefd7ac0b70fdfa71fd7a0034255a9dc44f9931661ad70bb476",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18794,7 +18795,7 @@
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:fce55ce88a4f8239f336b940b7bd33b97d9795975653aaff074526f0dfbea1e0",
           "bytes": 6145272,
-          "cacheKey": "pocket/embeddings-v3-javert-safetensors/e041936c7547",
+          "cacheKey": "pocket/embeddings-v3-javert-safetensors/e041936c75475d350b405bc870bcf7c22da4e9e6/fce55ce88a4f8239f336b940b7bd33b97d9795975653aaff074526f0dfbea1e0",
           "mediaType": "application/octet-stream",
           "sourceIds": [
             "pocket-weights-source"
@@ -18816,7 +18817,7 @@
     {
       "id": "supertonic-browser-assets",
       "engineId": "supertonic",
-      "manifestDigest": "sha256:aca7ba24e733218f80fdf9615ba5bc843f5cff9718b9f274732267d1421bf455",
+      "manifestDigest": "sha256:4290469dd169a98489f3a0de61d7dc45ddf46c84e01f7550f1a6294ff8681c18",
       "assets": [
         {
           "id": "config-json",
@@ -18824,7 +18825,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2",
           "bytes": 174,
-          "cacheKey": "supertonic/config-json/3cadd1ee6394",
+          "cacheKey": "supertonic/config-json/3cadd1ee6394adea1bd021217a0e650ede09a323/4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -18843,7 +18844,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
           "bytes": 3700147,
-          "cacheKey": "supertonic/onnx-duration-predictor-onnx/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-duration-predictor-onnx/3cadd1ee6394adea1bd021217a0e650ede09a323/c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
           "mediaType": "application/onnx",
           "sourceIds": [
             "supertone-model-source"
@@ -18862,7 +18863,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
           "bytes": 36416150,
-          "cacheKey": "supertonic/onnx-text-encoder-onnx/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-text-encoder-onnx/3cadd1ee6394adea1bd021217a0e650ede09a323/c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
           "mediaType": "application/onnx",
           "sourceIds": [
             "supertone-model-source"
@@ -18881,7 +18882,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
           "bytes": 8253,
-          "cacheKey": "supertonic/onnx-tts-json/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-tts-json/3cadd1ee6394adea1bd021217a0e650ede09a323/42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -18900,7 +18901,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f",
           "bytes": 277676,
-          "cacheKey": "supertonic/onnx-unicode-indexer-json/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-unicode-indexer-json/3cadd1ee6394adea1bd021217a0e650ede09a323/9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -18919,7 +18920,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c",
           "bytes": 256534781,
-          "cacheKey": "supertonic/onnx-vector-estimator-onnx/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-vector-estimator-onnx/3cadd1ee6394adea1bd021217a0e650ede09a323/883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c",
           "mediaType": "application/onnx",
           "sourceIds": [
             "supertone-model-source"
@@ -18938,7 +18939,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba",
           "bytes": 101424195,
-          "cacheKey": "supertonic/onnx-vocoder-onnx/3cadd1ee6394",
+          "cacheKey": "supertonic/onnx-vocoder-onnx/3cadd1ee6394adea1bd021217a0e650ede09a323/085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba",
           "mediaType": "application/onnx",
           "sourceIds": [
             "supertone-model-source"
@@ -18957,7 +18958,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2",
           "bytes": 292046,
-          "cacheKey": "supertonic/voice-styles-f1-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-f1-json/3cadd1ee6394adea1bd021217a0e650ede09a323/bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -18976,7 +18977,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:7c722c6a72707b1a77f035d67f0d1351ba187738e06f7683e8c72b1df3477fc6",
           "bytes": 292423,
-          "cacheKey": "supertonic/voice-styles-f2-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-f2-json/3cadd1ee6394adea1bd021217a0e650ede09a323/7c722c6a72707b1a77f035d67f0d1351ba187738e06f7683e8c72b1df3477fc6",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -18995,7 +18996,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab",
           "bytes": 290794,
-          "cacheKey": "supertonic/voice-styles-f3-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-f3-json/3cadd1ee6394adea1bd021217a0e650ede09a323/12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19014,7 +19015,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c2fa764c1225a76dfc3e2c73e8aa4f70d9ee48793860eb34c295fff01c2e032b",
           "bytes": 291808,
-          "cacheKey": "supertonic/voice-styles-f4-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-f4-json/3cadd1ee6394adea1bd021217a0e650ede09a323/c2fa764c1225a76dfc3e2c73e8aa4f70d9ee48793860eb34c295fff01c2e032b",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19033,7 +19034,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:45966e73316415626cf41a7d1c6f3b4c70dbc1ba2bee5c1978ef0ce33244fc8d",
           "bytes": 291479,
-          "cacheKey": "supertonic/voice-styles-f5-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-f5-json/3cadd1ee6394adea1bd021217a0e650ede09a323/45966e73316415626cf41a7d1c6f3b4c70dbc1ba2bee5c1978ef0ce33244fc8d",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19052,7 +19053,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b",
           "bytes": 291748,
-          "cacheKey": "supertonic/voice-styles-m1-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-m1-json/3cadd1ee6394adea1bd021217a0e650ede09a323/e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19071,7 +19072,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50",
           "bytes": 292055,
-          "cacheKey": "supertonic/voice-styles-m2-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-m2-json/3cadd1ee6394adea1bd021217a0e650ede09a323/b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19090,7 +19091,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b",
           "bytes": 290198,
-          "cacheKey": "supertonic/voice-styles-m3-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-m3-json/3cadd1ee6394adea1bd021217a0e650ede09a323/ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19109,7 +19110,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303",
           "bytes": 291522,
-          "cacheKey": "supertonic/voice-styles-m4-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-m4-json/3cadd1ee6394adea1bd021217a0e650ede09a323/ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19128,7 +19129,7 @@
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2",
           "bytes": 291469,
-          "cacheKey": "supertonic/voice-styles-m5-json/3cadd1ee6394",
+          "cacheKey": "supertonic/voice-styles-m5-json/3cadd1ee6394adea1bd021217a0e650ede09a323/dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2",
           "mediaType": "application/json",
           "sourceIds": [
             "supertone-model-source"
@@ -19400,7 +19401,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:de_DE-thorsten-medium"
     },
     {
       "id": "piper-en-gb-cori-medium-release-asset",
@@ -19421,7 +19423,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:en_GB-cori-medium"
     },
     {
       "id": "piper-es-es-davefx-medium-release-asset",
@@ -19442,7 +19445,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:es_ES-davefx-medium"
     },
     {
       "id": "piper-fr-fr-siwis-medium-release-asset",
@@ -19463,7 +19467,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:fr_FR-siwis-medium"
     },
     {
       "id": "piper-nl-nl-alex-medium-release-asset",
@@ -19484,7 +19489,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:nl_NL-alex-medium"
     },
     {
       "id": "piper-pl-pl-gosia-medium-release-asset",
@@ -19505,7 +19511,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:pl_PL-gosia-medium"
     },
     {
       "id": "piper-pt-br-cadu-medium-release-asset",
@@ -19526,7 +19533,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:pt_BR-cadu-medium"
     },
     {
       "id": "piper-ro-ro-mihai-medium-release-asset",
@@ -19547,7 +19555,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:ro_RO-mihai-medium"
     },
     {
       "id": "piper-ru-ru-dmitri-medium-release-asset",
@@ -19568,7 +19577,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:ru_RU-dmitri-medium"
     },
     {
       "id": "piper-uk-ua-lada-x-low-release-asset",
@@ -19589,7 +19599,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:uk_UA-lada-x_low"
     },
     {
       "id": "piper-zh-cn-chaowen-medium-release-asset",
@@ -19610,7 +19621,8 @@
       ],
       "licenseIds": [
         "piper-voice-license"
-      ]
+      ],
+      "voiceId": "piper:zh_CN-chaowen-medium"
     }
   ],
   "featureFlags": [
