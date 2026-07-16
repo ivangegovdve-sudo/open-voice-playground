@@ -49,5 +49,5 @@ tempfile = { version = "=3.27.0" }
 [profile.release]
 codegen-units = 1
 lto = true
-panic = "abort"
+panic = "unwind"
 strip = true

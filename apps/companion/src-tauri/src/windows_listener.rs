@@ -102,10 +102,13 @@ mod tests {
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpSocket, TcpStream},
+        sync::Mutex,
         time::{sleep, timeout},
     };
 
     use super::{WindowsExclusiveListenerPort, bind_exclusive_fixed, classify_raw_error};
+
+    static FIXED_PORT_TEST_LOCK: Mutex<()> = Mutex::const_new(());
 
     fn ordinary_fixed_listener() -> TcpListener {
         let socket = TcpSocket::new_v4().expect("ordinary IPv4 socket");
@@ -171,6 +174,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn c9_windows_exclusive_bind_blocks_both_directions_and_maps_both_codes() {
+        let _fixed_port = FIXED_PORT_TEST_LOCK.lock().await;
         assert_eq!(LISTENER_PORT, 17_843);
         assert_eq!(LISTENER_BACKLOG, 32);
         assert_eq!(
@@ -236,6 +240,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn c9_windows_exclusive_rebind_cycles_and_full_server_shutdowns() {
+        let _fixed_port = FIXED_PORT_TEST_LOCK.lock().await;
         for _ in 0..16 {
             let listener = WindowsExclusiveListenerPort::new()
                 .bind_fixed()

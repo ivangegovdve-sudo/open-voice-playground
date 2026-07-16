@@ -1,3 +1,8 @@
+#[cfg(panic = "abort")]
+compile_error!(
+    "the companion server requires panic=unwind so supervised connection panics are contained and capacity is restored"
+);
+
 use std::{
     future::Future,
     io,
