@@ -23,17 +23,75 @@ use open_voice_companion::{
     rate::{RateLimitError, RateLimitPort, RatePermit, RateRequest},
     router::{Method, OPERATION_CONTRACTS},
     scheduler::Clock,
-    server::{CompanionServer, ServerPorts},
+    server::{
+        CompanionServer, FIXED_LISTENER_ADDR, FixedListenerPort, LISTENER_BACKLOG, ListenerError,
+        ServerPorts,
+    },
 };
 use time::OffsetDateTime;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
+    net::{TcpListener, TcpSocket, TcpStream},
     time::{Duration, timeout},
 };
 
 const GOOD_ORIGIN: &str = "http://127.0.0.1:5173";
 static FIXED_PORT: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+struct RecordingFixedListener {
+    calls: Arc<AtomicUsize>,
+}
+
+impl FixedListenerPort for RecordingFixedListener {
+    fn bind_fixed(&self) -> Result<TcpListener, ListenerError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        let socket = TcpSocket::new_v4().map_err(|_| ListenerError::Unavailable)?;
+        socket
+            .bind(std::net::SocketAddr::V4(FIXED_LISTENER_ADDR))
+            .map_err(|_| ListenerError::Conflict)?;
+        socket
+            .listen(LISTENER_BACKLOG)
+            .map_err(|_| ListenerError::Unavailable)
+    }
+}
+
+fn fixed_listener_port() -> Arc<dyn FixedListenerPort> {
+    Arc::new(RecordingFixedListener {
+        calls: Arc::new(AtomicUsize::new(0)),
+    })
+}
+
+#[derive(Clone, Copy)]
+enum ScriptedListenerOutcome {
+    Error(ListenerError),
+    WrongAddress,
+}
+
+struct ScriptedFixedListener {
+    calls: Arc<AtomicUsize>,
+    outcome: ScriptedListenerOutcome,
+}
+
+impl FixedListenerPort for ScriptedFixedListener {
+    fn bind_fixed(&self) -> Result<TcpListener, ListenerError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        match self.outcome {
+            ScriptedListenerOutcome::Error(error) => Err(error),
+            ScriptedListenerOutcome::WrongAddress => {
+                let socket = TcpSocket::new_v4().map_err(|_| ListenerError::Unavailable)?;
+                socket
+                    .bind(std::net::SocketAddr::from((
+                        std::net::Ipv4Addr::LOCALHOST,
+                        0,
+                    )))
+                    .map_err(|_| ListenerError::Unavailable)?;
+                socket
+                    .listen(LISTENER_BACKLOG)
+                    .map_err(|_| ListenerError::Unavailable)
+            }
+        }
+    }
+}
 
 macro_rules! assert_not_impl {
     ($type:ty: $trait:path) => {
@@ -468,6 +526,7 @@ fn scripted_auth_ports(
             monotonic: Instant::now(),
             utc: OffsetDateTime::UNIX_EPOCH,
         }),
+        fixed_listener_port(),
     )
 }
 
@@ -486,13 +545,14 @@ fn problem_status_code_and_www(bytes: &[u8]) -> (String, String, bool) {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn server_requires_all_four_injected_ports() {
+async fn server_requires_all_five_injected_ports() {
     let _fixed_port = FIXED_PORT.lock().await;
     let handler_calls = Arc::new(AtomicUsize::new(0));
     let auth_reserves = Arc::new(AtomicUsize::new(0));
     let auth_commits = Arc::new(AtomicUsize::new(0));
     let rate_reserves = Arc::new(AtomicUsize::new(0));
     let rate_commits = Arc::new(AtomicUsize::new(0));
+    let listener_calls = Arc::new(AtomicUsize::new(0));
     let ports = ServerPorts::new(
         Arc::new(RecordingHandler {
             calls: Arc::clone(&handler_calls),
@@ -510,6 +570,9 @@ async fn server_requires_all_four_injected_ports() {
             monotonic: Instant::now(),
             utc: OffsetDateTime::UNIX_EPOCH,
         }),
+        Arc::new(RecordingFixedListener {
+            calls: Arc::clone(&listener_calls),
+        }),
     );
 
     let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
@@ -522,6 +585,62 @@ async fn server_requires_all_four_injected_ports() {
     assert_eq!(auth_commits.load(Ordering::SeqCst), 0);
     assert_eq!(rate_reserves.load(Ordering::SeqCst), 0);
     assert_eq!(rate_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(listener_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c9_fixed_listener_errors_and_wrong_address_are_closed_without_retry() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let cases = [
+        (
+            ScriptedListenerOutcome::Error(ListenerError::Conflict),
+            ListenerError::Conflict,
+        ),
+        (
+            ScriptedListenerOutcome::Error(ListenerError::Unavailable),
+            ListenerError::Unavailable,
+        ),
+        (
+            ScriptedListenerOutcome::WrongAddress,
+            ListenerError::Unavailable,
+        ),
+    ];
+
+    for (outcome, expected) in cases {
+        let handler_calls = Arc::new(AtomicUsize::new(0));
+        let listener_calls = Arc::new(AtomicUsize::new(0));
+        let ports = ServerPorts::new(
+            Arc::new(RecordingHandler {
+                calls: Arc::clone(&handler_calls),
+            }),
+            Arc::new(RecordingAuth {
+                reserves: Arc::new(AtomicUsize::new(0)),
+                commits: Arc::new(AtomicUsize::new(0)),
+                observed: None,
+            }),
+            Arc::new(RecordingRate {
+                reserves: Arc::new(AtomicUsize::new(0)),
+                commits: Arc::new(AtomicUsize::new(0)),
+            }),
+            Arc::new(FixedClock {
+                monotonic: Instant::now(),
+                utc: OffsetDateTime::UNIX_EPOCH,
+            }),
+            Arc::new(ScriptedFixedListener {
+                calls: Arc::clone(&listener_calls),
+                outcome,
+            }),
+        );
+
+        assert_eq!(
+            CompanionServer::start(OriginPolicy::debug_local(), ports)
+                .await
+                .unwrap_err(),
+            expected
+        );
+        assert_eq!(listener_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(handler_calls.load(Ordering::SeqCst), 0);
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -709,6 +828,7 @@ async fn all_twelve_preflights_have_no_dispatch_auth_rate_or_clock_effect() {
             monotonic_calls: Arc::clone(&monotonic_calls),
             utc_calls: Arc::clone(&utc_calls),
         }),
+        fixed_listener_port(),
     );
     let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
         .await
@@ -841,6 +961,7 @@ async fn all_fourteen_operations_dispatch_once_with_exact_typed_context() {
             commits: Arc::clone(&rate_commits),
         }),
         Arc::new(FixedClock { monotonic, utc }),
+        fixed_listener_port(),
     );
     let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
         .await

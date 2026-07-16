@@ -27,18 +27,57 @@ use open_voice_companion::{
         RetryAfterSeconds,
     },
     scheduler::Clock,
-    server::{CompanionServer, ListenerError, ServerPorts},
+    server::{
+        CompanionServer, FIXED_LISTENER_ADDR, FixedListenerPort, LISTENER_BACKLOG, ListenerError,
+        ServerPorts,
+    },
 };
 use serde::{Deserialize, de::DeserializeOwned};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
+    net::{TcpListener, TcpSocket, TcpStream},
+    sync::{Notify, Semaphore},
     time::{sleep, timeout},
 };
 
 const GOOD_ORIGIN: &str = "http://127.0.0.1:5173";
 const PROTOCOL_CORPUS: &str = include_str!("../../openapi/fixtures/protocol-corpus.json");
 static FIXED_PORT: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+struct BoundaryFixedListener;
+
+impl FixedListenerPort for BoundaryFixedListener {
+    fn bind_fixed(&self) -> Result<TcpListener, ListenerError> {
+        let socket = TcpSocket::new_v4().map_err(|_| ListenerError::Unavailable)?;
+        socket
+            .bind(SocketAddr::V4(FIXED_LISTENER_ADDR))
+            .map_err(|_| ListenerError::Conflict)?;
+        socket
+            .listen(LISTENER_BACKLOG)
+            .map_err(|_| ListenerError::Unavailable)
+    }
+}
+
+struct SmallSendBufferFixedListener;
+
+impl FixedListenerPort for SmallSendBufferFixedListener {
+    fn bind_fixed(&self) -> Result<TcpListener, ListenerError> {
+        let socket = TcpSocket::new_v4().map_err(|_| ListenerError::Unavailable)?;
+        socket
+            .set_send_buffer_size(1_024)
+            .map_err(|_| ListenerError::Unavailable)?;
+        socket
+            .bind(SocketAddr::V4(FIXED_LISTENER_ADDR))
+            .map_err(|_| ListenerError::Conflict)?;
+        socket
+            .listen(LISTENER_BACKLOG)
+            .map_err(|_| ListenerError::Unavailable)
+    }
+}
+
+fn fixed_listener_port() -> Arc<dyn FixedListenerPort> {
+    Arc::new(BoundaryFixedListener)
+}
 
 #[derive(Deserialize)]
 struct RequestCorpus {
@@ -65,6 +104,33 @@ struct BoundaryState {
     rate_requests: Mutex<Vec<(RateClass, RateSubject)>>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct BoundarySnapshot {
+    auth_reservations: usize,
+    auth_commits: usize,
+    rate_reservations: usize,
+    rate_commits: usize,
+    handler_calls: usize,
+    monotonic_calls: usize,
+    utc_calls: usize,
+    rate_requests: usize,
+}
+
+impl BoundaryState {
+    fn snapshot(&self) -> BoundarySnapshot {
+        BoundarySnapshot {
+            auth_reservations: self.auth_reservations.load(Ordering::SeqCst),
+            auth_commits: self.auth_commits.load(Ordering::SeqCst),
+            rate_reservations: self.rate_reservations.load(Ordering::SeqCst),
+            rate_commits: self.rate_commits.load(Ordering::SeqCst),
+            handler_calls: self.handler_calls.load(Ordering::SeqCst),
+            monotonic_calls: self.monotonic_calls.load(Ordering::SeqCst),
+            utc_calls: self.utc_calls.load(Ordering::SeqCst),
+            rate_requests: self.rate_requests.lock().unwrap().len(),
+        }
+    }
+}
+
 struct BoundaryAuth {
     state: Arc<BoundaryState>,
     accept: bool,
@@ -75,6 +141,19 @@ struct BoundaryAuthPermit {
     pairing: PairingRecord,
 }
 
+struct BlockingCommitAuth {
+    state: Arc<BoundaryState>,
+    entered: Arc<AtomicUsize>,
+    release: Arc<Notify>,
+}
+
+struct BlockingCommitAuthPermit {
+    state: Arc<BoundaryState>,
+    pairing: PairingRecord,
+    entered: Arc<AtomicUsize>,
+    release: Arc<Notify>,
+}
+
 #[async_trait]
 impl AuthPermit for BoundaryAuthPermit {
     fn pairing_id(&self) -> uuid::Uuid {
@@ -82,6 +161,20 @@ impl AuthPermit for BoundaryAuthPermit {
     }
 
     async fn commit(self: Box<Self>) -> Result<AuthenticatedPairing, AuthError> {
+        self.state.auth_commits.fetch_add(1, Ordering::SeqCst);
+        Ok(AuthenticatedPairing::from_record(self.pairing))
+    }
+}
+
+#[async_trait]
+impl AuthPermit for BlockingCommitAuthPermit {
+    fn pairing_id(&self) -> uuid::Uuid {
+        self.pairing.id
+    }
+
+    async fn commit(self: Box<Self>) -> Result<AuthenticatedPairing, AuthError> {
+        self.entered.fetch_add(1, Ordering::SeqCst);
+        self.release.notified().await;
         self.state.auth_commits.fetch_add(1, Ordering::SeqCst);
         Ok(AuthenticatedPairing::from_record(self.pairing))
     }
@@ -106,6 +199,28 @@ impl AuthPort for BoundaryAuth {
                 created_at: now,
                 last_used_at: now,
             },
+        }))
+    }
+}
+
+#[async_trait]
+impl AuthPort for BlockingCommitAuth {
+    async fn reserve(&self, request: AuthRequest) -> Result<Box<dyn AuthPermit>, AuthError> {
+        self.state.auth_reservations.fetch_add(1, Ordering::SeqCst);
+        let (token, origin, _scope, _ownership, now) = request.into_parts();
+        assert_eq!(token.expose().len(), 43);
+        Ok(Box::new(BlockingCommitAuthPermit {
+            state: Arc::clone(&self.state),
+            pairing: PairingRecord {
+                id: uuid::Uuid::from_u128(0xc9),
+                origin,
+                client_label: "C9 blocking commit fake".to_owned(),
+                scopes: Vec::new(),
+                created_at: now,
+                last_used_at: now,
+            },
+            entered: Arc::clone(&self.entered),
+            release: Arc::clone(&self.release),
         }))
     }
 }
@@ -321,6 +436,82 @@ impl HandlerPort for ErrorHandler {
     }
 }
 
+struct BlockingHealthHandler {
+    state: Arc<BoundaryState>,
+    entered: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+struct SaturatingHandler {
+    state: Arc<BoundaryState>,
+    release: Arc<Semaphore>,
+}
+
+struct PanicHandler;
+
+#[async_trait]
+impl HandlerPort for PanicHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        _request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        panic!("controlled C9 handler panic")
+    }
+}
+
+struct LargeWavHandler {
+    calls: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl HandlerPort for LargeWavHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        assert!(matches!(request, HandlerRequest::GetJobAudio { .. }));
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        Ok(HandlerSuccess::JobAudio {
+            body: WavBody::new(vec![0x55; 64 * 1024 * 1024]).unwrap(),
+            etag: EntityTag::new("\"large-c9-writer\"".to_owned()).unwrap(),
+        })
+    }
+}
+
+#[async_trait]
+impl HandlerPort for SaturatingHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        _request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+        self.release
+            .acquire()
+            .await
+            .expect("release semaphore remains open")
+            .forget();
+        Err(HandlerError::ResourceNotFound)
+    }
+}
+
+#[async_trait]
+impl HandlerPort for BlockingHealthHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        assert!(matches!(request, HandlerRequest::GetHealth));
+        self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+        self.entered.notify_one();
+        self.release.notified().await;
+        Ok(HandlerSuccess::Health(HealthResponse::listening()))
+    }
+}
+
 struct WireErrorCase {
     handler: Arc<dyn HandlerPort>,
     raw: Vec<u8>,
@@ -371,6 +562,7 @@ fn ports_with_handler(
         Arc::new(BoundaryClock {
             state: Arc::clone(&state),
         }),
+        fixed_listener_port(),
     );
     (ports, state)
 }
@@ -399,6 +591,7 @@ fn test_ports_with_rate(
         Arc::new(BoundaryClock {
             state: Arc::clone(&state),
         }),
+        fixed_listener_port(),
     );
     (ports, state)
 }
@@ -424,6 +617,59 @@ async fn roundtrip_bytes(raw: impl AsRef<[u8]>) -> Vec<u8> {
         .expect("server must close one-request connection")
         .unwrap();
     response
+}
+
+async fn wait_until(mut predicate: impl FnMut() -> bool) {
+    timeout(Duration::from_secs(2), async {
+        while !predicate() {
+            tokio::task::yield_now().await;
+            sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("bounded state transition");
+}
+
+async fn assert_closed_without_bytes(stream: &mut TcpStream) {
+    let mut byte = [0_u8; 1];
+    match timeout(Duration::from_millis(500), stream.read(&mut byte)).await {
+        Ok(Ok(0)) => {}
+        Ok(Err(error))
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::ConnectionReset
+                    | std::io::ErrorKind::ConnectionAborted
+                    | std::io::ErrorKind::BrokenPipe
+            ) => {}
+        Ok(Ok(read)) => panic!("shutdown peer wrote {read} response byte(s)"),
+        Ok(Err(error)) => panic!("unexpected shutdown read failure: {error:?}"),
+        Err(_) => panic!("shutdown peer remained open"),
+    }
+}
+
+async fn assert_eventually_closed(stream: &mut TcpStream) {
+    timeout(Duration::from_secs(2), async {
+        let mut bytes = [0_u8; 8 * 1024];
+        loop {
+            match stream.read(&mut bytes).await {
+                Ok(0) => return,
+                Ok(_) => {}
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::ConnectionAborted
+                            | std::io::ErrorKind::BrokenPipe
+                    ) =>
+                {
+                    return;
+                }
+                Err(error) => panic!("unexpected shutdown read failure: {error:?}"),
+            }
+        }
+    })
+    .await
+    .expect("shutdown peer remained open");
 }
 
 struct ParsedWireResponse {
@@ -768,6 +1014,7 @@ async fn c8_all_four_request_schema_corpora_cross_the_live_typed_boundary_exactl
         Arc::new(BoundaryClock {
             state: Arc::clone(&state),
         }),
+        fixed_listener_port(),
     );
     let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
         .await
@@ -2031,6 +2278,828 @@ async fn c7_preflight_is_route_method_header_parameter_and_body_exact() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_explicit_shutdown_quiesces_tracked_tasks_before_return() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let ports = ServerPorts::new(
+        Arc::new(BlockingHealthHandler {
+            state: Arc::clone(&state),
+            entered: Arc::clone(&entered),
+            release: Arc::clone(&release),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        fixed_listener_port(),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    let mut partial_header = TcpStream::connect(server.local_addr()).await.unwrap();
+    partial_header.write_all(b"GET /v1/health").await.unwrap();
+
+    let mut blocked_handler = TcpStream::connect(server.local_addr()).await.unwrap();
+    blocked_handler
+        .write_all(request("GET", "/v1/health", "").as_bytes())
+        .await
+        .unwrap();
+    timeout(Duration::from_secs(2), entered.notified())
+        .await
+        .expect("handler entered");
+
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    let calls_after_shutdown = state.handler_calls.load(Ordering::SeqCst);
+    release.notify_waiters();
+    sleep(Duration::from_millis(25)).await;
+
+    assert_eq!(
+        state.handler_calls.load(Ordering::SeqCst),
+        calls_after_shutdown,
+        "a handler ran after shutdown returned"
+    );
+    assert_closed_without_bytes(&mut partial_header).await;
+    assert_closed_without_bytes(&mut blocked_handler).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_connection_admission_is_exactly_32_then_closes_33rd_and_recovers() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
+        .await
+        .expect("fixed listener should bind");
+
+    let mut held = Vec::new();
+    for _ in 0..32 {
+        let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+        stream.write_all(b"G").await.unwrap();
+        held.push(stream);
+    }
+    wait_until(|| {
+        let metrics = server.metrics();
+        metrics.active_connections == 32
+            && metrics.tracked_connection_tasks == 32
+            && metrics.occupied_handler_slots == 0
+    })
+    .await;
+    assert_eq!(server.metrics().peak_connections, 32);
+
+    let mut overflow = TcpStream::connect(server.local_addr()).await.unwrap();
+    assert_closed_without_bytes(&mut overflow).await;
+    wait_until(|| server.metrics().rejected_connections == 1).await;
+    assert_eq!(server.metrics().active_connections, 32);
+    assert_eq!(server.metrics().tracked_connection_tasks, 32);
+
+    drop(held.remove(0));
+    wait_until(|| server.metrics().active_connections == 31).await;
+    let mut replacement = TcpStream::connect(server.local_addr()).await.unwrap();
+    replacement.write_all(b"G").await.unwrap();
+    wait_until(|| server.metrics().active_connections == 32).await;
+    assert_eq!(server.metrics().peak_connections, 32);
+
+    drop(replacement);
+    drop(held);
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_sixty_four_connection_race_has_exactly_32_admitted_and_recovers_edges() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
+        .await
+        .expect("fixed listener should bind");
+    let address = server.local_addr();
+    let mut connect_tasks = tokio::task::JoinSet::new();
+    for _ in 0..64 {
+        connect_tasks.spawn(async move {
+            let mut stream = TcpStream::connect(address).await.unwrap();
+            stream.write_all(b"G").await.unwrap_or_default();
+            stream
+        });
+    }
+    let mut streams = Vec::new();
+    while let Some(joined) = connect_tasks.join_next().await {
+        streams.push(joined.unwrap());
+    }
+    wait_until(|| {
+        let metrics = server.metrics();
+        metrics.active_connections == 32
+            && metrics.tracked_connection_tasks == 32
+            && metrics.rejected_connections == 32
+    })
+    .await;
+    let metrics = server.metrics();
+    assert_eq!(metrics.peak_connections, 32);
+    assert_eq!(metrics.occupied_handler_slots, 0);
+
+    let mut classify_tasks = tokio::task::JoinSet::new();
+    for mut stream in streams {
+        classify_tasks.spawn(async move {
+            let mut byte = [0_u8; 1];
+            let admitted = timeout(Duration::from_millis(250), stream.read(&mut byte))
+                .await
+                .is_err();
+            (admitted, stream)
+        });
+    }
+    let mut held = Vec::new();
+    let mut closed = 0;
+    while let Some(joined) = classify_tasks.join_next().await {
+        let (admitted, stream) = joined.unwrap();
+        if admitted {
+            held.push(stream);
+        } else {
+            closed += 1;
+        }
+    }
+    assert_eq!(held.len(), 32);
+    assert_eq!(closed, 32);
+
+    for index in [31_usize, 16, 0] {
+        drop(held.remove(index));
+        let expected = held.len();
+        wait_until(|| server.metrics().active_connections == expected).await;
+        let mut replacement = TcpStream::connect(address).await.unwrap();
+        replacement.write_all(b"G").await.unwrap();
+        held.push(replacement);
+        wait_until(|| server.metrics().active_connections == 32).await;
+        assert_eq!(server.metrics().peak_connections, 32);
+    }
+
+    drop(held);
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_slow_headers_do_not_consume_handler_slots() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, state) = test_ports(false);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    let mut slow_headers = Vec::new();
+    for _ in 0..8 {
+        let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+        stream.write_all(b"G").await.unwrap();
+        slow_headers.push(stream);
+    }
+    wait_until(|| {
+        let metrics = server.metrics();
+        metrics.active_connections == 8 && metrics.occupied_handler_slots == 0
+    })
+    .await;
+
+    let response = roundtrip(request("GET", "/v1/health", "")).await;
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 1);
+
+    drop(slow_headers);
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_preflight_and_every_prehandler_rejection_keep_handler_peak_zero() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, state) = test_ports(false);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let mut partial = TcpStream::connect(server.local_addr()).await.unwrap();
+    partial.write_all(b"G").await.unwrap();
+    wait_until(|| server.metrics().active_connections == 1).await;
+
+    let preflight = roundtrip(preflight_request(
+        "/v1/health",
+        "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: X-OVP-Client-Version\r\n",
+        "",
+    ))
+    .await;
+    assert!(preflight.starts_with("HTTP/1.1 204 No Content\r\n"));
+
+    let route_error = roundtrip(request("GET", "/v1/not-a-route", "")).await;
+    assert_problem(&route_error, "404 Not Found", "resource-not-found");
+
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let auth_rejection = roundtrip(request("GET", "/v1/runtime", &bearer)).await;
+    assert_problem(&auth_rejection, "401 Unauthorized", "auth-invalid");
+
+    let schema_rejection = roundtrip(format!(
+        "{}{{}}",
+        request(
+            "POST",
+            "/v1/pairings/challenges",
+            "Content-Type: application/json\r\nContent-Length: 2\r\n",
+        )
+    ))
+    .await;
+    assert_problem(&schema_rejection, "400 Bad Request", "schema-invalid");
+
+    let metrics = server.metrics();
+    assert_eq!(metrics.occupied_handler_slots, 0);
+    assert_eq!(metrics.peak_handler_slots, 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    assert_eq!(final_metrics.peak_handler_slots, 0);
+    assert_closed_without_bytes(&mut partial).await;
+
+    let delay = RetryAfterSeconds::new(1).unwrap();
+    let (ports, state) = test_ports_with_rate(true, Some(RateLimitError::Limited(delay)));
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should immediately rebind");
+    let rate_rejection = roundtrip(format!(
+        "{}{{}}",
+        request(
+            "POST",
+            "/v1/pairings/challenges",
+            "Content-Type: application/json\r\nContent-Length: 2\r\n",
+        )
+    ))
+    .await;
+    assert_problem(&rate_rejection, "429 Too Many Requests", "rate-limited");
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    assert_eq!(final_metrics.peak_handler_slots, 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_auth_commit_in_progress_holds_handler_slot_until_shutdown_cancels_it() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let commit_entered = Arc::new(AtomicUsize::new(0));
+    let release = Arc::new(Notify::new());
+    let ports = ServerPorts::new(
+        Arc::new(BoundaryHandler {
+            state: Arc::clone(&state),
+        }),
+        Arc::new(BlockingCommitAuth {
+            state: Arc::clone(&state),
+            entered: Arc::clone(&commit_entered),
+            release: Arc::clone(&release),
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        fixed_listener_port(),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+    stream
+        .write_all(
+            request(
+                "GET",
+                "/v1/jobs/11111111-1111-4111-8111-111111111111/audio",
+                &bearer,
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    wait_until(|| {
+        commit_entered.load(Ordering::SeqCst) == 1 && server.metrics().occupied_handler_slots == 1
+    })
+    .await;
+    assert_eq!(state.auth_reservations.load(Ordering::SeqCst), 1);
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.rate_reservations.load(Ordering::SeqCst), 1);
+    assert_eq!(state.rate_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    release.notify_waiters();
+    sleep(Duration::from_millis(10)).await;
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.rate_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    assert_closed_without_bytes(&mut stream).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_handler_admission_is_exactly_8_then_checked_503_before_commits() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let release = Arc::new(Semaphore::new(0));
+    let ports = ServerPorts::new(
+        Arc::new(SaturatingHandler {
+            state: Arc::clone(&state),
+            release: Arc::clone(&release),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        fixed_listener_port(),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let initial = [
+        request("GET", "/v1/health", ""),
+        request("GET", "/v1/pairings/current", &bearer),
+        request("GET", "/v1/runtime", &bearer),
+        request("GET", "/v1/engines", &bearer),
+        request("GET", "/v1/voices", &bearer),
+        request("GET", "/v1/packs", &bearer),
+        request(
+            "GET",
+            "/v1/jobs/11111111-1111-4111-8111-111111111111",
+            &bearer,
+        ),
+        request(
+            "GET",
+            "/v1/jobs/22222222-2222-4222-8222-222222222222/audio",
+            &bearer,
+        ),
+    ];
+    let mut held = Vec::new();
+    for raw in initial {
+        let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+        stream.write_all(raw.as_bytes()).await.unwrap();
+        held.push(stream);
+    }
+    wait_until(|| {
+        let metrics = server.metrics();
+        state.handler_calls.load(Ordering::SeqCst) == 8
+            && metrics.occupied_handler_slots == 8
+            && metrics.peak_handler_slots == 8
+    })
+    .await;
+
+    let auth_commits_before = state.auth_commits.load(Ordering::SeqCst);
+    let rate_commits_before = state.rate_commits.load(Ordering::SeqCst);
+    let auth_reservations_before = state.auth_reservations.load(Ordering::SeqCst);
+    let rate_reservations_before = state.rate_reservations.load(Ordering::SeqCst);
+    let ninth = roundtrip(request("GET", "/v1/runtime", &bearer)).await;
+    assert_problem(&ninth, "503 Service Unavailable", "queue-full");
+    assert!(ninth.contains("Retry-After: 1\r\n"));
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 8);
+    assert_eq!(
+        state.auth_reservations.load(Ordering::SeqCst),
+        auth_reservations_before + 1
+    );
+    assert_eq!(
+        state.rate_reservations.load(Ordering::SeqCst),
+        rate_reservations_before + 1
+    );
+    assert_eq!(
+        state.auth_commits.load(Ordering::SeqCst),
+        auth_commits_before
+    );
+    assert_eq!(
+        state.rate_commits.load(Ordering::SeqCst),
+        rate_commits_before
+    );
+    assert_eq!(server.metrics().rejected_handlers, 1);
+
+    release.add_permits(1);
+    wait_until(|| server.metrics().occupied_handler_slots == 7).await;
+    let mut replacement = TcpStream::connect(server.local_addr()).await.unwrap();
+    replacement
+        .write_all(request("GET", "/v1/runtime", &bearer).as_bytes())
+        .await
+        .unwrap();
+    wait_until(|| {
+        state.handler_calls.load(Ordering::SeqCst) == 9
+            && server.metrics().occupied_handler_slots == 8
+    })
+    .await;
+
+    release.add_permits(8);
+    held.push(replacement);
+    for mut stream in held {
+        let mut response = Vec::new();
+        timeout(Duration::from_secs(2), stream.read_to_end(&mut response))
+            .await
+            .expect("released handler response closes")
+            .unwrap_or_default();
+    }
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_real_socket_blocked_handler_times_out_with_checked_504_smoke() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let ports = ServerPorts::new(
+        Arc::new(BlockingHealthHandler {
+            state: Arc::clone(&state),
+            entered: Arc::clone(&entered),
+            release: Arc::clone(&release),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        fixed_listener_port(),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+    stream
+        .write_all(request("GET", "/v1/health", "").as_bytes())
+        .await
+        .unwrap();
+    timeout(Duration::from_secs(2), entered.notified())
+        .await
+        .expect("blocked handler entered");
+
+    let mut response = Vec::new();
+    timeout(Duration::from_secs(32), stream.read_to_end(&mut response))
+        .await
+        .expect("thirty-second handler wall-clock smoke")
+        .unwrap();
+    let response = String::from_utf8(response).unwrap();
+    assert_problem(&response, "504 Gateway Timeout", "handler-timeout");
+    wait_until(|| server.metrics().occupied_handler_slots == 0).await;
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 1);
+    release.notify_waiters();
+    sleep(Duration::from_millis(25)).await;
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 1);
+
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_request_head_and_body_ceilings_are_inclusive_and_max_plus_one_is_exact() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, state) = test_ports(false);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    let target_2048 = format!("/{}", "a".repeat(2_034));
+    let line_2048 = format!("GET {target_2048} HTTP/1.1");
+    assert_eq!(line_2048.len(), 2_048);
+    let response = roundtrip(format!(
+        "{line_2048}\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\n\r\n"
+    ))
+    .await;
+    assert_problem(&response, "404 Not Found", "resource-not-found");
+
+    let target_2049 = format!("/{}", "a".repeat(2_035));
+    let line_2049 = format!("GET {target_2049} HTTP/1.1");
+    assert_eq!(line_2049.len(), 2_049);
+    let response = roundtrip(format!(
+        "{line_2049}\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\n\r\n"
+    ))
+    .await;
+    assert_problem(&response, "414 URI Too Long", "request-line-too-large");
+
+    let head_prefix = format!(
+        "GET /v1/health HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\nX-Fill: "
+    );
+    let head_suffix = "\r\n\r\n";
+    let fill_8192 = "a".repeat(8_192 - head_prefix.len() - head_suffix.len());
+    let head_8192 = format!("{head_prefix}{fill_8192}{head_suffix}");
+    assert_eq!(head_8192.len(), 8_192);
+    let response = roundtrip(head_8192).await;
+    assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+    let calls_after_head_max = state.handler_calls.load(Ordering::SeqCst);
+
+    let fill_8193 = "a".repeat(8_193 - head_prefix.len() - head_suffix.len());
+    let head_8193 = format!("{head_prefix}{fill_8193}{head_suffix}");
+    assert_eq!(head_8193.len(), 8_193);
+    let response = roundtrip(head_8193).await;
+    assert_problem(
+        &response,
+        "431 Request Header Fields Too Large",
+        "headers-too-large",
+    );
+    assert_eq!(
+        state.handler_calls.load(Ordering::SeqCst),
+        calls_after_head_max
+    );
+
+    let mut body_16384 = b"{}".to_vec();
+    body_16384.resize(16_384, b' ');
+    let mut raw = request(
+        "POST",
+        "/v1/pairings/challenges",
+        "Content-Type: application/json\r\nContent-Length: 16384\r\n",
+    )
+    .into_bytes();
+    raw.extend_from_slice(&body_16384);
+    let reads_before_max = server.metrics().body_reads;
+    let response = String::from_utf8(roundtrip_bytes(raw).await).unwrap();
+    assert_problem(&response, "400 Bad Request", "schema-invalid");
+    assert!(server.metrics().body_reads > reads_before_max);
+    let reads_before_over = server.metrics().body_reads;
+    let calls_before_over = state.handler_calls.load(Ordering::SeqCst);
+
+    let response = roundtrip(request(
+        "POST",
+        "/v1/pairings/challenges",
+        "Content-Type: application/json\r\nContent-Length: 16385\r\n",
+    ))
+    .await;
+    assert_problem(&response, "413 Payload Too Large", "body-too-large");
+    assert_eq!(server.metrics().body_reads, reads_before_over);
+    assert_eq!(
+        state.handler_calls.load(Ordering::SeqCst),
+        calls_before_over
+    );
+
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_sixteen_shutdown_rebind_generations_are_quiescent() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let mut prior_states: Vec<(Arc<BoundaryState>, BoundarySnapshot)> = Vec::new();
+    let mut prior_writer_calls: Vec<(Arc<AtomicUsize>, usize)> = Vec::new();
+
+    for generation in 0..16 {
+        for (state, snapshot) in &prior_states {
+            assert_eq!(state.snapshot(), *snapshot);
+        }
+        for (calls, expected) in &prior_writer_calls {
+            assert_eq!(calls.load(Ordering::SeqCst), *expected);
+        }
+
+        let state = Arc::new(BoundaryState::default());
+        let release = Arc::new(Semaphore::new(0));
+        let writer_calls = Arc::new(AtomicUsize::new(0));
+        let phase = generation % 5;
+        let handler: Arc<dyn HandlerPort> = if phase == 3 {
+            Arc::new(LargeWavHandler {
+                calls: Arc::clone(&writer_calls),
+            })
+        } else {
+            Arc::new(SaturatingHandler {
+                state: Arc::clone(&state),
+                release: Arc::clone(&release),
+            })
+        };
+        let listener: Arc<dyn FixedListenerPort> = if phase == 3 {
+            Arc::new(SmallSendBufferFixedListener)
+        } else {
+            fixed_listener_port()
+        };
+        let ports = ServerPorts::new(
+            handler,
+            Arc::new(BoundaryAuth {
+                state: Arc::clone(&state),
+                accept: true,
+            }),
+            Arc::new(BoundaryRate {
+                state: Arc::clone(&state),
+                error: None,
+            }),
+            Arc::new(BoundaryClock {
+                state: Arc::clone(&state),
+            }),
+            listener,
+        );
+        let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+            .await
+            .expect("every generation binds the exact fixed address");
+        let mut active_stream = match phase {
+            0 => {
+                let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+                stream.write_all(b"G").await.unwrap();
+                wait_until(|| server.metrics().active_connections == 1).await;
+                Some(stream)
+            }
+            1 => {
+                let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+                stream
+                    .write_all(
+                        request(
+                            "POST",
+                            "/v1/pairings/challenges",
+                            "Content-Type: application/json\r\nContent-Length: 100\r\n",
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                wait_until(|| server.metrics().body_reads > 0).await;
+                Some(stream)
+            }
+            2 => {
+                let mut stream = TcpStream::connect(server.local_addr()).await.unwrap();
+                stream
+                    .write_all(request("GET", "/v1/health", "").as_bytes())
+                    .await
+                    .unwrap();
+                wait_until(|| {
+                    state.handler_calls.load(Ordering::SeqCst) == 1
+                        && server.metrics().occupied_handler_slots == 1
+                })
+                .await;
+                Some(stream)
+            }
+            3 => {
+                let client = TcpSocket::new_v4().unwrap();
+                client.set_recv_buffer_size(1_024).unwrap();
+                let mut stream = client.connect(server.local_addr()).await.unwrap();
+                let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+                stream
+                    .write_all(
+                        request(
+                            "GET",
+                            "/v1/jobs/11111111-1111-4111-8111-111111111111/audio",
+                            &bearer,
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+                wait_until(|| writer_calls.load(Ordering::SeqCst) == 1).await;
+                let mut first = [0_u8; 1];
+                timeout(Duration::from_secs(2), stream.read_exact(&mut first))
+                    .await
+                    .expect("writer must enter the socket response")
+                    .unwrap();
+                assert_eq!(first[0], b'H');
+                let metrics = server.metrics();
+                assert_eq!(metrics.occupied_handler_slots, 0);
+                Some(stream)
+            }
+            _ => None,
+        };
+
+        let writer_calls_before_shutdown = writer_calls.load(Ordering::SeqCst);
+        let final_metrics = server.shutdown().await;
+        assert_eq!(final_metrics.active_connections, 0);
+        assert_eq!(final_metrics.tracked_connection_tasks, 0);
+        assert_eq!(final_metrics.occupied_handler_slots, 0);
+        let state_after_shutdown = state.snapshot();
+        release.add_permits(1);
+        sleep(Duration::from_millis(10)).await;
+        assert_eq!(state.snapshot(), state_after_shutdown);
+        assert_eq!(
+            writer_calls.load(Ordering::SeqCst),
+            writer_calls_before_shutdown
+        );
+        if let Some(stream) = active_stream.as_mut() {
+            if phase == 3 {
+                assert_eventually_closed(stream).await;
+            } else {
+                assert_closed_without_bytes(stream).await;
+            }
+        }
+        prior_states.push((state, state_after_shutdown));
+        prior_writer_calls.push((writer_calls, writer_calls_before_shutdown));
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_handler_panic_is_contained_and_restores_all_capacity() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let ports = ServerPorts::new(
+        Arc::new(PanicHandler),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        fixed_listener_port(),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let mut panicking = TcpStream::connect(server.local_addr()).await.unwrap();
+    panicking
+        .write_all(request("GET", "/v1/health", "").as_bytes())
+        .await
+        .unwrap();
+    assert_closed_without_bytes(&mut panicking).await;
+    wait_until(|| {
+        let metrics = server.metrics();
+        metrics.active_connections == 0
+            && metrics.tracked_connection_tasks == 0
+            && metrics.occupied_handler_slots == 0
+    })
+    .await;
+
+    let mut replacement = TcpStream::connect(server.local_addr()).await.unwrap();
+    replacement.write_all(b"G").await.unwrap();
+    wait_until(|| server.metrics().active_connections == 1).await;
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    assert_closed_without_bytes(&mut replacement).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn c9_large_response_nonreading_client_writer_smoke_restores_capacity() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let state = Arc::new(BoundaryState::default());
+    let handler_calls = Arc::new(AtomicUsize::new(0));
+    let ports = ServerPorts::new(
+        Arc::new(LargeWavHandler {
+            calls: Arc::clone(&handler_calls),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+        Arc::new(SmallSendBufferFixedListener),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let client = TcpSocket::new_v4().unwrap();
+    client.set_recv_buffer_size(1_024).unwrap();
+    let mut stream = client.connect(server.local_addr()).await.unwrap();
+    stream
+        .write_all(
+            request(
+                "GET",
+                "/v1/jobs/11111111-1111-4111-8111-111111111111/audio",
+                &bearer,
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    wait_until(|| handler_calls.load(Ordering::SeqCst) == 1).await;
+    sleep(Duration::from_millis(100)).await;
+    assert_eq!(server.metrics().occupied_handler_slots, 0);
+
+    let final_metrics = server.shutdown().await;
+    assert_eq!(final_metrics.active_connections, 0);
+    assert_eq!(final_metrics.tracked_connection_tasks, 0);
+    assert_eq!(final_metrics.occupied_handler_slots, 0);
+    let calls_after_shutdown = handler_calls.load(Ordering::SeqCst);
+
+    drop(stream);
+    assert_eq!(handler_calls.load(Ordering::SeqCst), calls_after_shutdown);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn fixed_ipv4_raw_http_boundary_fails_closed() {
     let _fixed_port = FIXED_PORT.lock().await;
     let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
@@ -2190,7 +3259,7 @@ async fn fixed_ipv4_raw_http_boundary_fails_closed() {
     sleep(Duration::from_millis(100)).await;
     let metrics = server.metrics();
     assert!(metrics.peak_connections <= 32);
-    assert!(metrics.peak_in_flight <= 8);
+    assert!(metrics.peak_handler_slots <= 8);
     drop(held);
 
     server.shutdown().await;
@@ -2242,6 +3311,36 @@ async fn real_header_and_body_deadlines_close_slow_requests() {
     )
     .await
     .expect("ten second absolute body deadline")
+    .unwrap();
+    assert!(
+        String::from_utf8(response)
+            .unwrap()
+            .contains("\"code\":\"body-timeout\"")
+    );
+
+    let mut trickle_body = TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, 17_843))
+        .await
+        .unwrap();
+    trickle_body
+        .write_all(
+            request(
+                "POST",
+                "/v1/pairings/challenges",
+                "Content-Type: application/json\r\nContent-Length: 2\r\n",
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    sleep(Duration::from_secs(9)).await;
+    trickle_body.write_all(b"{").await.unwrap();
+    let mut response = Vec::new();
+    timeout(
+        Duration::from_secs(12),
+        trickle_body.read_to_end(&mut response),
+    )
+    .await
+    .expect("nine-second progress resets the ten-second idle deadline")
     .unwrap();
     assert!(
         String::from_utf8(response)
