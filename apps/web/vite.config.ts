@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { parse, type DefaultTreeAdapterTypes } from 'parse5';
 import { defineConfig, type Plugin } from 'vite';
 
 const BUILD_ASSETS_MARKER = 'const BUILD_ASSETS = []; // __VITE_BUILD_ASSETS__';
@@ -23,98 +24,47 @@ const FORBIDDEN_INITIAL_MODULE_PATTERNS = [
   /(?:^|[\\/])[^\\/]*\.worker\.(?:[cm]?[jt]s|[jt]sx)(?:$|[?&])/i,
 ];
 
-function isHtmlTagBoundary(character: string | undefined): boolean {
-  return character !== undefined && /[\t\n\f\r />]/.test(character);
+function hasNonemptyScriptContent(script: DefaultTreeAdapterTypes.Element): boolean {
+  return script.childNodes.some((child) => !('value' in child) || child.value.trim() !== '');
 }
 
-function findHtmlTagStart(html: string, tag: string, offset: number): number {
-  const normalizedHtml = html.toLowerCase();
-  const normalizedTag = tag.toLowerCase();
-  let candidate = normalizedHtml.indexOf(normalizedTag, offset);
-  while (candidate !== -1) {
-    if (isHtmlTagBoundary(html[candidate + normalizedTag.length])) return candidate;
-    candidate = normalizedHtml.indexOf(normalizedTag, candidate + normalizedTag.length);
-  }
-  return -1;
-}
+function hasExactReviewedJsonType(script: DefaultTreeAdapterTypes.Element, html: string): boolean {
+  const typeAttribute = script.attrs.find((attribute) => attribute.name === 'type');
+  if (typeAttribute?.value !== 'application/json') return false;
 
-function findHtmlTagEnd(html: string, offset: number): number | null {
-  let quote: '"' | "'" | null = null;
-  for (let cursor = offset; cursor < html.length; cursor += 1) {
-    const character = html[cursor]!;
-    if (quote !== null) {
-      if (character === quote) quote = null;
-    } else if (character === '"' || character === "'") {
-      quote = character;
-    } else if (character === '>') {
-      return cursor;
-    }
-  }
-  return null;
-}
+  const sourceLocation = script.sourceCodeLocation?.attrs?.[typeAttribute.name];
+  if (sourceLocation === undefined) return false;
 
-function htmlAttributeValue(attributes: string, name: string): string | null {
-  const expectedName = name.toLowerCase();
-  let offset = 0;
-  while (offset < attributes.length) {
-    while (offset < attributes.length && /[\s/]/.test(attributes[offset]!)) offset += 1;
-    const nameStart = offset;
-    while (offset < attributes.length && !/[\s=/>]/.test(attributes[offset]!)) offset += 1;
-    if (nameStart === offset) {
-      offset += 1;
-      continue;
-    }
-    const attributeName = attributes.slice(nameStart, offset).toLowerCase();
-    while (offset < attributes.length && /\s/.test(attributes[offset]!)) offset += 1;
-    let value = '';
-    if (attributes[offset] === '=') {
-      offset += 1;
-      while (offset < attributes.length && /\s/.test(attributes[offset]!)) offset += 1;
-      const quote =
-        attributes[offset] === '"' || attributes[offset] === "'" ? attributes[offset] : null;
-      if (quote !== null) {
-        offset += 1;
-        const valueStart = offset;
-        while (offset < attributes.length && attributes[offset] !== quote) offset += 1;
-        value = attributes.slice(valueStart, offset);
-        if (attributes[offset] === quote) offset += 1;
-      } else {
-        const valueStart = offset;
-        while (offset < attributes.length && !/\s/.test(attributes[offset]!)) offset += 1;
-        value = attributes.slice(valueStart, offset);
-      }
-    }
-    if (attributeName === expectedName) return value;
-  }
-  return null;
+  // Character references are decoded in the parsed value. Keep the reviewed policy narrower:
+  // the exact literal value must also appear in the parser-owned source range.
+  return !html.slice(sourceLocation.startOffset, sourceLocation.endOffset).includes('&');
 }
 
 function assertNoInlineExecutableScripts(html: string): void {
-  let offset = 0;
-  while (offset < html.length) {
-    const openingStart = findHtmlTagStart(html, '<script', offset);
-    if (openingStart === -1) return;
-    const openingEnd = findHtmlTagEnd(html, openingStart + '<script'.length);
-    if (openingEnd === null) return;
+  const document = parse(html, { sourceCodeLocationInfo: true });
 
-    const attributes = html.slice(openingStart + '<script'.length, openingEnd);
-    const closingStart = findHtmlTagStart(html, '</script', openingEnd + 1);
-    const bodyEnd = closingStart === -1 ? html.length : closingStart;
-    const body = html.slice(openingEnd + 1, bodyEnd);
+  const visit = (node: DefaultTreeAdapterTypes.Node): void => {
     if (
-      body.trim() !== '' &&
-      htmlAttributeValue(attributes, 'src') === null &&
-      htmlAttributeValue(attributes, 'type') !== 'application/json'
+      'tagName' in node &&
+      node.tagName.toLowerCase() === 'script' &&
+      hasNonemptyScriptContent(node) &&
+      !node.attrs.some((attribute) => attribute.name === 'src') &&
+      !hasExactReviewedJsonType(node, html)
     ) {
       throw new Error(
         'The production shell contains an inline executable script or non-reviewed inline script data; executable JavaScript must be emitted as a budgeted module and only the exact raw type application/json is allowed for inline data.',
       );
     }
 
-    if (closingStart === -1) return;
-    const closingEnd = findHtmlTagEnd(html, closingStart + '</script'.length);
-    offset = closingEnd === null ? html.length : closingEnd + 1;
-  }
+    if ('childNodes' in node) {
+      for (const child of node.childNodes) visit(child);
+    }
+    if ('content' in node) {
+      for (const child of node.content.childNodes) visit(child);
+    }
+  };
+
+  visit(document);
 }
 
 function isGuardedInitialModule(moduleId: string): boolean {

@@ -576,6 +576,81 @@ test.each([
   },
 );
 
+test.each([
+  [
+    'a comment decoy',
+    '<!-- <script src="/decoy.js"> --><script>globalThis.__commentDecoyBypass = true;</script>',
+  ],
+  [
+    'a quoted attribute decoy on another element',
+    '<div data-note="<script src=\'/decoy.js\'>"><script>globalThis.__attributeDecoyBypass = true;</script></div>',
+  ],
+] as const)('rejects a real inline script after %s', async (_label, markup) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body>${markup}<script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+});
+
+test('rejects inline JavaScript after a quote in an unquoted attribute value', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title></head><body><script data=x">globalThis.__unquotedQuoteBypass = true; src=fake</script><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+});
+
+test.each([
+  ['src', 'data=x\u00a0src=/decoy.js', 'globalThis.__nbspSrcBypass = true;'],
+  ['type', 'data=x\u00a0type=application/json', 'globalThis.__nbspTypeBypass = true;'],
+] as const)(
+  'rejects inline JavaScript when NBSP makes scanner-only %s text part of another attribute value',
+  async (_label, attributes, body) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'index.html'),
+      `<!doctype html><html><head><title>Fixture</title></head><body><script ${attributes}>${body}</script><script type="module" src="/main.js"></script></body></html>`,
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+  },
+);
+
+test('rejects inline JavaScript inside parsed template content', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title><template><script>globalThis.__templateInline = true;</script></template></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+});
+
+test('permits script-shaped comment and attribute text when every real script is external', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title></head><body><!-- <script>comment text</script> --><div data-note="<script>attribute text</script>"></div><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('permits an empty inline script node', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title><template><script></script></template></head><body><script></script><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
 test('permits an ordinary external module when another attribute contains greater-than', async () => {
   const root = await createBuildFixture();
   await writeFile(
