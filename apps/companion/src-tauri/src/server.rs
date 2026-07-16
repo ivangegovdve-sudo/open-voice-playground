@@ -514,6 +514,9 @@ fn validate_pre_body(
     if content_length > MAX_BODY_BYTES {
         return Err(BoundaryFailure::new(ProblemCode::BodyTooLarge).with_origin(&origin));
     }
+    if request.body_prefix.len() > content_length {
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+    }
 
     if request.method == "OPTIONS" {
         let route = resolve_route(&request.method, &request.target)

@@ -297,6 +297,30 @@ async fn c7_classifies_unknown_wrong_method_and_bad_parameters_before_auth() {
     server.shutdown().await;
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c7_buffered_body_overrun_precedes_protected_auth() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let server = CompanionServer::start(OriginPolicy::debug_local())
+        .await
+        .expect("fixed listener should bind");
+    let authorization = format!("Authorization: Bearer {}\r\n", "S".repeat(43));
+    let raw = format!(
+        "POST /v1/jobs HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\nContent-Type: application/json\r\nContent-Length: 0\r\n{authorization}\r\nX"
+    );
+
+    let before = server.metrics().body_reads;
+    let response = roundtrip(raw).await;
+    assert_problem(&response, "400 Bad Request", "schema-invalid");
+    assert!(!response.contains("auth-invalid"));
+    assert_eq!(
+        server.metrics().body_reads,
+        before,
+        "buffered framing overrun reached body polling"
+    );
+
+    server.shutdown().await;
+}
+
 fn preflight_request(target: &str, headers: &str, body: &str) -> String {
     format!(
         "OPTIONS {target} HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\n{headers}\r\n{body}"

@@ -681,8 +681,12 @@ const BEARER_JSON_HEADERS: &[RequestedHeader] = &[
 
 fn requested_headers(operation: OperationId) -> &'static [RequestedHeader] {
     let contract = operation.contract();
-    let has_json = matches!(contract.messages.request, RequestMessage::Json { .. });
-    match (contract.access.auth, has_json) {
+    requested_headers_for(contract.access.auth, contract.messages.request)
+}
+
+fn requested_headers_for(auth: AuthClass, request: RequestMessage) -> &'static [RequestedHeader] {
+    let has_json = matches!(request, RequestMessage::Json { required: true, .. });
+    match (auth, has_json) {
         (AuthClass::OriginOnly, false) => ORIGIN_NONE_HEADERS,
         (AuthClass::OriginOnly, true) => ORIGIN_JSON_HEADERS,
         (AuthClass::Bearer, false) => BEARER_NONE_HEADERS,
@@ -820,4 +824,29 @@ fn match_path(
         _ => panic!("closed path template and parameter kind disagree"),
     };
     Ok(Some(parameters))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn c7_optional_json_descriptor_does_not_request_content_type() {
+        let RequestMessage::Json {
+            media_type, schema, ..
+        } = OperationId::CreateJob.contract().messages.request
+        else {
+            panic!("createJob must retain its accepted JSON descriptor")
+        };
+        let optional = RequestMessage::Json {
+            required: false,
+            media_type,
+            schema,
+        };
+
+        assert_eq!(
+            requested_headers_for(AuthClass::Bearer, optional),
+            BEARER_NONE_HEADERS
+        );
+    }
 }
