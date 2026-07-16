@@ -348,6 +348,21 @@ function canonicalJson(value) {
   return value;
 }
 
+function compareCanonicalJson(left, right) {
+  return compareCodeUnits(JSON.stringify(left), JSON.stringify(right));
+}
+
+function canonicalJsonSet(values) {
+  return values.map(canonicalJson).sort(compareCanonicalJson);
+}
+
+function sortedSchemaSet(schemas) {
+  return schemas
+    .map((schema) => ({ schema, canonical: canonicalRuntimeSchema(schema) }))
+    .sort((left, right) => compareCanonicalJson(left.canonical, right.canonical))
+    .map(({ schema }) => schema);
+}
+
 function canonicalRuntimeSchema(schema) {
   const entries = [];
   for (const [key, value] of sortedEntries(schema)) {
@@ -361,8 +376,12 @@ function canonicalRuntimeSchema(schema) {
       ]);
     } else if (key === 'items') {
       entries.push([key, canonicalRuntimeSchema(value)]);
+    } else if (key === 'enum') {
+      entries.push([key, canonicalJsonSet(value)]);
     } else if (key === 'oneOf') {
-      entries.push([key, value.map(canonicalRuntimeSchema)]);
+      entries.push([key, value.map(canonicalRuntimeSchema).sort(compareCanonicalJson)]);
+    } else if (key === 'required') {
+      entries.push([key, [...value].sort(compareCodeUnits)]);
     } else {
       entries.push([key, canonicalJson(value)]);
     }
@@ -382,51 +401,62 @@ function literalType(value) {
 }
 
 function schemaType(schema, path) {
-  let base;
-  if (schema.const !== undefined) {
-    base = literalType(schema.const);
-  } else if (schema.enum !== undefined) {
-    base = schema.enum.map(literalType).join(' | ');
-  } else if (schema.oneOf !== undefined) {
-    base = schema.oneOf
-      .map((branch, index) => schemaType(branch, `${path}.oneOf${index}`))
-      .join(' | ');
-  } else if (schema.type === 'object') {
-    const required = new Set(schema.required ?? []);
-    base = `{ ${sortedEntries(schema.properties)
-      .map(
-        ([name, property]) =>
-          `readonly ${JSON.stringify(name)}${required.has(name) ? '' : '?'}: ${schemaType(property, `${path}.${name}`)};`,
-      )
-      .join(' ')} }`;
-  } else if (schema.type === 'array') {
-    base = `readonly (${schemaType(schema.items, `${path}.item`)})[]`;
-  } else if (schema.type === 'integer' || schema.type === 'number') {
-    base = 'number';
-  } else if (schema.type === 'boolean') {
-    base = 'boolean';
-  } else if (schema.type === 'string') {
-    base = 'string';
-  }
+  const assertions = [];
   if (schema.$ref !== undefined) {
-    const reference = schema.$ref.slice(schemaReferencePrefix.length);
-    base = base === undefined ? reference : `(${reference}) & (${base})`;
+    assertions.push(schema.$ref.slice(schemaReferencePrefix.length));
   }
-  if (base === undefined) fail(`${path} cannot be represented as TypeScript.`);
-  const constrained = [
-    'exclusiveMaximum',
-    'exclusiveMinimum',
-    'format',
-    'maxItems',
-    'maxLength',
-    'maximum',
-    'minItems',
-    'minLength',
-    'minimum',
-    'pattern',
-    'uniqueItems',
-    'x-maxUtf8Bytes',
-  ].some((key) => schema[key] !== undefined);
+  if (schema.const !== undefined) {
+    assertions.push(literalType(schema.const));
+  }
+  if (schema.enum !== undefined) {
+    assertions.push(canonicalJsonSet(schema.enum).map(literalType).join(' | '));
+  }
+  if (schema.oneOf !== undefined) {
+    assertions.push(
+      sortedSchemaSet(schema.oneOf)
+        .map((branch, index) => schemaType(branch, `${path}.oneOf${index}`))
+        .join(' | '),
+    );
+  }
+  if (schema.type === 'object') {
+    const required = new Set(schema.required ?? []);
+    assertions.push('object');
+    assertions.push(
+      `{ ${sortedEntries(schema.properties)
+        .map(
+          ([name, property]) =>
+            `readonly ${JSON.stringify(name)}${required.has(name) ? '' : '?'}: ${schemaType(property, `${path}.${name}`)};`,
+        )
+        .join(' ')} }`,
+    );
+  } else if (schema.type === 'array') {
+    assertions.push(`readonly (${schemaType(schema.items, `${path}.item`)})[]`);
+  } else if (schema.type === 'integer' || schema.type === 'number') {
+    assertions.push('number');
+  } else if (schema.type === 'boolean') {
+    assertions.push('boolean');
+  } else if (schema.type === 'string') {
+    assertions.push('string');
+  }
+  if (assertions.length === 0) fail(`${path} cannot be represented as TypeScript.`);
+  const base = assertions.map((assertion) => `(${assertion})`).join(' & ');
+  const constrained =
+    schema.type === 'integer' ||
+    schema.type === 'number' ||
+    [
+      'exclusiveMaximum',
+      'exclusiveMinimum',
+      'format',
+      'maxItems',
+      'maxLength',
+      'maximum',
+      'minItems',
+      'minLength',
+      'minimum',
+      'pattern',
+      'uniqueItems',
+      'x-maxUtf8Bytes',
+    ].some((key) => schema[key] !== undefined);
   return constrained ? `(${base}) & Brand<${JSON.stringify(path)}>` : base;
 }
 
@@ -828,7 +858,7 @@ export function generateProtocol(document) {
     `export const ROUTES = ${JSON.stringify(routes, null, 2)} as const;`,
     '',
     'declare const protocolBrand: unique symbol;',
-    'type Brand<Name extends string> = { readonly [protocolBrand]: Name };',
+    'type Brand<Name extends string> = { readonly [protocolBrand]: { readonly [Key in Name]: true } };',
     '',
   ];
   for (const [name, schema] of sortedEntries(schemas)) {

@@ -1,6 +1,16 @@
 import { Buffer } from 'node:buffer';
 import { describe, expect, it, vi } from 'vitest';
-import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
+import {
+  createCompilerHost,
+  createProgram,
+  createSourceFile,
+  flattenDiagnosticMessageText,
+  getPreEmitDiagnostics,
+  ModuleKind,
+  ScriptTarget,
+  transpileModule,
+  type CompilerOptions,
+} from 'typescript';
 
 import { loadOpenApiDocument } from '../scripts/openapi-loader.mjs';
 import * as generatorModule from '../scripts/protocol-generator.mjs';
@@ -46,6 +56,33 @@ function is(runtime: RuntimeModule, name: string, value: unknown): boolean {
 
 function parse(runtime: RuntimeModule, name: string, value: unknown): unknown {
   return (runtime[`parse${name}`] as (candidate: unknown) => unknown)(value);
+}
+
+function typeDiagnostics(source: string): readonly string[] {
+  const fileName = 'generated-contract.ts';
+  const options: CompilerOptions = {
+    module: ModuleKind.ESNext,
+    noEmit: true,
+    skipLibCheck: true,
+    strict: true,
+    target: ScriptTarget.ES2022,
+  };
+  const sourceFile = createSourceFile(fileName, source, ScriptTarget.ES2022, true);
+  const host = createCompilerHost(options);
+  const getSourceFile = host.getSourceFile.bind(host);
+  const fileExists = host.fileExists.bind(host);
+  const readFile = host.readFile.bind(host);
+  host.getSourceFile = (requested, ...args) =>
+    requested === fileName ? sourceFile : getSourceFile(requested, ...args);
+  host.fileExists = (requested) => requested === fileName || fileExists(requested);
+  host.readFile = (requested) => (requested === fileName ? source : readFile(requested));
+
+  return getPreEmitDiagnostics(createProgram([fileName], options, host)).map((diagnostic) => {
+    const message = flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+    if (diagnostic.file === undefined || diagnostic.start === undefined) return message;
+    const position = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+    return `${diagnostic.file.fileName}:${position.line + 1}:${position.character + 1} ${message}`;
+  });
 }
 
 function jsonObject(source: string): Record<string, unknown> {
@@ -132,10 +169,25 @@ async function syntheticRuntime(): Promise<RuntimeModule> {
 }
 
 describe('deterministic generated protocol runtime', () => {
-  it('generates byte-identical output independent of object insertion order', async () => {
+  it('generates byte-identical output across object and semantic-set ordering', async () => {
     const document = await sourceDocument();
     document.components.schemas.OrderProbe = {
       const: jsonObject('{"z":1,"a":{"z":2,"a":3}}'),
+    };
+    document.components.schemas.EnumOrderProbe = {
+      enum: [jsonObject('{"z":1,"a":2}'), ['z', 'a'], 'z', 'a'],
+    };
+    document.components.schemas.OneOfOrderProbe = {
+      oneOf: [{ $ref: '#/components/schemas/VoiceId' }, { $ref: '#/components/schemas/PackId' }],
+    };
+    document.components.schemas.RequiredOrderProbe = {
+      type: 'object',
+      additionalProperties: false,
+      required: ['z', 'a'],
+      properties: {
+        z: { type: 'string' },
+        a: { type: 'string' },
+      },
     };
     const expected = generator.generateProtocol(document);
     const reordered = structuredClone(document);
@@ -147,10 +199,22 @@ describe('deterministic generated protocol runtime', () => {
       }
     }
     reordered.components.schemas.OrderProbe!.const = jsonObject('{"a":{"a":3,"z":2},"z":1}');
+    for (const [schemaName, keyword] of [
+      ['EnumOrderProbe', 'enum'],
+      ['OneOfOrderProbe', 'oneOf'],
+      ['RequiredOrderProbe', 'required'],
+    ] as const) {
+      const schema = reordered.components.schemas[schemaName]!;
+      schema[keyword] = [...(schema[keyword] as unknown[])].reverse();
+    }
 
     expect(generator.generateProtocol(document)).toBe(expected);
     expect(generator.generateProtocol(reordered)).toBe(expected);
     expect(expected).not.toMatch(/generated at|[A-Z]:\\|localeCompare/iu);
+
+    const runtime = await importGenerated(expected);
+    expect(is(runtime, 'EnumOrderProbe', ['z', 'a'])).toBe(true);
+    expect(is(runtime, 'EnumOrderProbe', ['a', 'z'])).toBe(false);
   });
 
   it('imports without filesystem, network, Ajv, or Hyperjump runtime work', async () => {
@@ -186,6 +250,90 @@ describe('deterministic generated protocol runtime', () => {
     expect(is(runtime, 'OneOfProbe', 5)).toBe(false);
     expect(is(runtime, 'RefSiblingProbe', 'pocket:alba')).toBe(true);
     expect(is(runtime, 'RefSiblingProbe', 'pocket:anna')).toBe(false);
+  });
+
+  it('models combined assertions conjunctively and brands bare numeric refinements', async () => {
+    const document = await sourceDocument();
+    Object.assign(document.components.schemas, {
+      ConstEnumProbe: {
+        const: 'safe',
+        enum: ['other', 'safe'],
+      },
+      ImpossibleConstEnumProbe: {
+        const: 'safe',
+        enum: ['other'],
+      },
+      IntegerObjectProbe: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['count'],
+        properties: { count: { type: 'integer' } },
+      },
+      NumberObjectProbe: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['amount'],
+        properties: { amount: { type: 'number' } },
+      },
+      ObjectTypeEnumProbe: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {},
+        enum: [1, {}],
+      },
+      RefSiblingCombinedProbe: {
+        $ref: '#/components/schemas/StringOrNumberProbe',
+        type: 'string',
+        enum: [1, 'safe'],
+      },
+      StringOrNumberProbe: {
+        oneOf: [{ type: 'number' }, { type: 'string' }],
+      },
+      TypeEnumProbe: {
+        type: 'string',
+        enum: [1, 'safe'],
+      },
+    });
+    const source = generator.generateProtocol(document);
+    expect(
+      typeDiagnostics(`${source}
+type IsNever<Value> = [Value] extends [never] ? true : false;
+type IsStrictSubtype<Value, Base> = IsNever<Value> extends true
+  ? false
+  : [Value] extends [Base]
+    ? [Base] extends [Value] ? false : true
+    : false;
+type Assert<Condition extends true> = Condition;
+export type SyntheticTypeContract = readonly [
+  Assert<IsNever<Extract<TypeEnumProbe, number>>>,
+  Assert<IsNever<Extract<TypeEnumProbe, string>> extends false ? true : false>,
+  Assert<IsNever<Extract<ObjectTypeEnumProbe, number>>>,
+  Assert<IsNever<Extract<ObjectTypeEnumProbe, object>> extends false ? true : false>,
+  Assert<IsNever<ConstEnumProbe> extends false ? true : false>,
+  Assert<IsNever<ImpossibleConstEnumProbe>>,
+  Assert<IsNever<Extract<RefSiblingCombinedProbe, number>>>,
+  Assert<IsNever<Extract<RefSiblingCombinedProbe, string>> extends false ? true : false>,
+  Assert<IsStrictSubtype<IntegerObjectProbe["count"], number>>,
+  Assert<IsStrictSubtype<NumberObjectProbe["amount"], number>>,
+];
+`),
+    ).toEqual([]);
+
+    const runtime = await importGenerated(source);
+    expect(is(runtime, 'TypeEnumProbe', 'safe')).toBe(true);
+    expect(is(runtime, 'TypeEnumProbe', 1)).toBe(false);
+    expect(is(runtime, 'ObjectTypeEnumProbe', {})).toBe(true);
+    expect(is(runtime, 'ObjectTypeEnumProbe', 1)).toBe(false);
+    expect(is(runtime, 'ConstEnumProbe', 'safe')).toBe(true);
+    expect(is(runtime, 'ConstEnumProbe', 'other')).toBe(false);
+    expect(is(runtime, 'ImpossibleConstEnumProbe', 'safe')).toBe(false);
+    expect(is(runtime, 'ImpossibleConstEnumProbe', 'other')).toBe(false);
+    expect(is(runtime, 'RefSiblingCombinedProbe', 'safe')).toBe(true);
+    expect(is(runtime, 'RefSiblingCombinedProbe', 1)).toBe(false);
+    expect(is(runtime, 'IntegerObjectProbe', { count: 1 })).toBe(true);
+    expect(is(runtime, 'IntegerObjectProbe', { count: 1.5 })).toBe(false);
+    expect(is(runtime, 'NumberObjectProbe', { amount: 1.5 })).toBe(true);
+    expect(is(runtime, 'NumberObjectProbe', { amount: Number.NaN })).toBe(false);
   });
 
   it('uses deep JSON equality for const, enum, and uniqueItems independent of key order', async () => {
