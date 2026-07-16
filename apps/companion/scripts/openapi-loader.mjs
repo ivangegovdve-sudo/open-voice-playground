@@ -22,6 +22,7 @@ const draft202012 = 'https://json-schema.org/draft/2020-12/schema';
 const structuralWrapperId = 'urn:ovp:oas-3.1-draft-2020-12';
 const referenceKeywords = new Set(['$ref', '$dynamicRef', '$recursiveRef', 'operationRef']);
 const referenceBaseKeywords = new Set(['$id', '$anchor', '$dynamicAnchor', '$recursiveAnchor']);
+const canonicalPointerToken = /^(?:[A-Za-z0-9._!$&'()*+,;=:@?-]|~[01])+$/u;
 let structuralValidatorPromise;
 
 export class OpenApiDocumentError extends Error {
@@ -91,7 +92,7 @@ function parseYaml(source, sourceName) {
 }
 
 function decodePointerSegment(segment, sourceName) {
-  if (segment.length === 0 || segment.includes('%') || !/^(?:[^~]|~[01])+$/.test(segment)) {
+  if (!canonicalPointerToken.test(segment)) {
     reject('reference-invalid', sourceName);
   }
   return segment.replaceAll('~1', '/').replaceAll('~0', '~');

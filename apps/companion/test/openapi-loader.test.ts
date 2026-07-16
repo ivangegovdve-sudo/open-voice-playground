@@ -3,6 +3,19 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
+const readFileTripwire = vi.hoisted(() => vi.fn());
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs/promises')>();
+  return {
+    ...original,
+    readFile: (...args: Parameters<typeof original.readFile>) => {
+      readFileTripwire(args[0]);
+      return original.readFile(...args);
+    },
+  };
+});
+
 import {
   OpenApiDocumentError,
   loadOpenApiDocument,
@@ -18,7 +31,10 @@ async function authoritativeSource(): Promise<string> {
 }
 
 function replaceFirstReference(source: string, reference: string): string {
-  return source.replace("$ref: '#/components/parameters/Origin'", `$ref: '${reference}'`);
+  return source.replace(
+    "$ref: '#/components/parameters/Origin'",
+    `$ref: ${JSON.stringify(reference)}`,
+  );
 }
 
 async function expectCode(source: string, code: string): Promise<void> {
@@ -122,11 +138,31 @@ describe('offline OpenAPI document loader', () => {
     '//attacker.invalid/schema.yaml#/Thing',
     '#/components/schemas/Voice%49d',
   ])('rejects external or noncanonical reference %s', async (reference) => {
-    await expectCode(
-      replaceFirstReference(await authoritativeSource(), reference),
-      'reference-invalid',
-    );
+    const source = replaceFirstReference(await authoritativeSource(), reference);
+    readFileTripwire.mockClear();
+    const fetchTripwire = vi.fn(() => {
+      throw new Error('external references must not touch the network');
+    });
+    vi.stubGlobal('fetch', fetchTripwire);
+    try {
+      await expectCode(source, 'reference-invalid');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(fetchTripwire).not.toHaveBeenCalled();
+    expect(readFileTripwire).not.toHaveBeenCalled();
   });
+
+  it.each(['x-bad space', 'x-bad#fragment', 'x-bad\\path', 'x-bad\tpath'])(
+    'rejects raw non-URI character references even when the key %j exists',
+    async (key) => {
+      const source = replaceFirstReference(
+        (await authoritativeSource()).replace('paths:', `${JSON.stringify(key)}: true\npaths:`),
+        `#/${key}`,
+      );
+      await expectCode(source, 'reference-invalid');
+    },
+  );
 
   it.each(['$dynamicRef', '$recursiveRef', 'operationRef'])(
     'rejects external %s references without trying to resolve them',
