@@ -1,5 +1,15 @@
 import type { CatalogVoice, RuntimeMode } from './filters';
 import fixture from '../../../../packages/catalog/fixtures/catalog.fixture.json';
+import type {
+  AssetDeliveryEvidence,
+  AssetSetManifest,
+  FeatureFlag,
+  GalleryManifest,
+  GeneratedMediaProvenance,
+  GenerationCandidate,
+  OfficialSample,
+  PinnedReleaseAssetEvidence,
+} from '@open-voice/contracts';
 
 export type CatalogEngine = {
   id: string;
@@ -9,6 +19,9 @@ export type CatalogEngine = {
   languageTags: string[];
   licenseIds: string[];
   sourceIds: string[];
+  backend?: CatalogVoice['backend'];
+  releaseGate?: CatalogVoice['releaseGate'];
+  assetSetIds?: string[];
 };
 
 export type LicenseInfo = {
@@ -21,6 +34,7 @@ export type LicenseInfo = {
   commercialUse: boolean;
   terms: string | null;
   reviewStatus: string;
+  spdxId?: string;
 };
 
 export type SourceInfo = {
@@ -30,6 +44,7 @@ export type SourceInfo = {
   lastVerifiedAt: string;
   health: string;
   revision: string;
+  contentHash?: string;
 };
 
 export const RUNTIME_LABELS: Record<RuntimeMode, string> = {
@@ -40,16 +55,26 @@ export const RUNTIME_LABELS: Record<RuntimeMode, string> = {
 };
 
 export type SeedCatalog = {
+  kind: 'fixture' | 'launch';
+  catalogId: string;
   voices: CatalogVoice[];
   engines: CatalogEngine[];
   licenses: ReadonlyMap<string, LicenseInfo>;
   sources: ReadonlyMap<string, SourceInfo>;
   generatedAt: string;
+  assetSets: AssetSetManifest[];
+  assetDeliveryEvidence: AssetDeliveryEvidence[];
+  releaseAssetEvidence: PinnedReleaseAssetEvidence[];
+  featureFlags: FeatureFlag[];
+  galleries: GalleryManifest[];
+  officialSamples: OfficialSample[];
+  generationCandidates: GenerationCandidate[];
+  generatedMedia: GeneratedMediaProvenance[];
 };
 
 const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
 
-function languageName(locale: string): string {
+export function deriveLanguageName(locale: string): string {
   const language = new Intl.Locale(locale).language;
   return languageNames.of(language) ?? language;
 }
@@ -78,6 +103,8 @@ const samplesByVoice = new Map(
 const enginesById = new Map(fixture.engines.map((engine) => [engine.id, engine]));
 
 export const seedCatalog: SeedCatalog = {
+  kind: 'fixture',
+  catalogId: fixture.catalogId,
   voices: fixture.voices.map((voice) => {
     const engine = enginesById.get(voice.engineId);
     if (engine === undefined) {
@@ -89,8 +116,11 @@ export const seedCatalog: SeedCatalog = {
       engineId: voice.engineId,
       engineName: engine.displayName,
       locale: voice.locale,
-      language: languageName(voice.locale),
+      languageTags: [...voice.languageTags],
+      languages: [...new Set(voice.languageTags.map(deriveLanguageName))],
+      language: deriveLanguageName(voice.locale),
       region: deriveRegionFromLocale(voice.locale),
+      regions: [...new Set(voice.languageTags.map(deriveRegionFromLocale))],
       gender: voice.gender,
       styles: [...voice.styleTags],
       licenseIds: [...voice.licenseIds],
@@ -121,6 +151,7 @@ export const seedCatalog: SeedCatalog = {
         commercialUse: license.permitsCommercialUse,
         terms: 'exactUpstreamTerms' in license ? (license.exactUpstreamTerms ?? null) : null,
         reviewStatus: license.reviewStatus,
+        ...('spdxId' in license && license.spdxId !== undefined ? { spdxId: license.spdxId } : {}),
       },
     ]),
   ),
@@ -134,8 +165,19 @@ export const seedCatalog: SeedCatalog = {
         lastVerifiedAt: source.lastVerifiedAt,
         health: source.health,
         revision: source.upstreamRevision,
+        ...('contentHash' in source && typeof source.contentHash === 'string'
+          ? { contentHash: source.contentHash }
+          : {}),
       },
     ]),
   ),
   generatedAt: fixture.generatedAt,
+  assetSets: [],
+  assetDeliveryEvidence: [],
+  releaseAssetEvidence: [],
+  featureFlags: [],
+  galleries: [],
+  officialSamples: [],
+  generationCandidates: [],
+  generatedMedia: [],
 };

@@ -6,7 +6,7 @@ import { useAppServices, useLocalState } from '../state/AppState';
 
 export function EnginePage() {
   const { slug } = useParams();
-  const { catalog } = useAppServices();
+  const { catalog, runtimeSummary } = useAppServices();
   const { snapshot } = useLocalState();
   const engine = catalog.engines.find((candidate) => candidate.id === slug);
 
@@ -14,7 +14,10 @@ export function EnginePage() {
     return (
       <div className="page narrow-page">
         <h1>Engine not found</h1>
-        <p>The requested engine is not present in this validated seed.</p>
+        <p>
+          The requested engine is not present in this{' '}
+          {catalog.kind === 'launch' ? 'reviewed launch catalog' : 'validated seed'}.
+        </p>
         <Link className="button button--primary" to="/voices">
           Return to voices
         </Link>
@@ -24,6 +27,7 @@ export function EnginePage() {
 
   const voices = catalog.voices.filter((voice) => voice.engineId === engine.id);
   const cache = snapshot.modelCache[engine.id] ?? 'not-cached';
+  const operational = voices.some((voice) => runtimeSummary.operationalVoiceIds.includes(voice.id));
 
   return (
     <div className="page page--engine">
@@ -43,7 +47,7 @@ export function EnginePage() {
 
       <dl className="engine-facts">
         <div>
-          <dt>Presets in seed</dt>
+          <dt>{catalog.kind === 'launch' ? 'Catalog presets' : 'Presets in seed'}</dt>
           <dd>{voices.length}</dd>
         </div>
         <div>
@@ -68,7 +72,11 @@ export function EnginePage() {
             <li key={voice.id}>
               <span>{voice.name}</span>
               <small>{voice.locale}</small>
-              {!voice.runtimeModes.includes('sample-only') ? (
+              {catalog.kind === 'launch' ? (
+                <Link to={`/play?voice=${encodeURIComponent(voice.id)}`}>
+                  Inspect status <ArrowIcon />
+                </Link>
+              ) : !voice.runtimeModes.includes('sample-only') ? (
                 <Link to={`/play?voice=${encodeURIComponent(voice.id)}`}>
                   Use preset <ArrowIcon />
                 </Link>
@@ -81,8 +89,18 @@ export function EnginePage() {
       </section>
 
       <section aria-labelledby="engine-evidence" className="evidence-line">
-        <h2 id="engine-evidence">Evidence carried by this fixture</h2>
-        <p>These are synthetic foundation records, not public launch provenance.</p>
+        <h2 id="engine-evidence">
+          {catalog.kind === 'launch'
+            ? 'Reviewed launch evidence'
+            : 'Evidence carried by this fixture'}
+        </h2>
+        <p>
+          {catalog.kind === 'launch'
+            ? operational
+              ? 'This engine has a verified operational adapter.'
+              : 'Catalog evidence is present, but this engine has no verified operational adapter in the current build.'
+            : 'These are synthetic foundation records, not public launch provenance.'}
+        </p>
         <div>
           <span>Sources</span>
           {engine.sourceIds.map((id) => (

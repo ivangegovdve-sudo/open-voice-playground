@@ -1,7 +1,10 @@
 import { useAppServices } from '../state/AppState';
 
-function BooleanFact({ value }: { value: boolean }) {
-  return <span>{value ? 'Permitted by fixture record' : 'Not permitted by fixture record'}</span>;
+function BooleanFact({ launch, value }: { launch: boolean; value: boolean }) {
+  if (!launch) {
+    return <span>{value ? 'Permitted by fixture record' : 'Not permitted by fixture record'}</span>;
+  }
+  return <span>{value ? 'Permission recorded' : 'No permission established by this record'}</span>;
 }
 
 export function SourcesPage() {
@@ -22,19 +25,31 @@ export function SourcesPage() {
         </div>
       </header>
 
-      <aside className="fixture-warning">
-        <strong>This build uses synthetic fixture evidence.</strong>
-        <p>
-          The <code>example.invalid</code> URLs are intentionally non-resolving and must not be
-          treated as public provenance. Task 4 can replace this adapter with the reviewed launch
-          catalog.
-        </p>
-      </aside>
+      {catalog.kind === 'fixture' ? (
+        <aside className="fixture-warning">
+          <strong>This build uses synthetic fixture evidence.</strong>
+          <p>
+            The <code>example.invalid</code> URLs are intentionally non-resolving and must not be
+            treated as public provenance.
+          </p>
+        </aside>
+      ) : (
+        <aside className="launch-evidence-note">
+          <strong>Reviewed public launch evidence</strong>
+          <p>
+            Source, license, revision, digest, and gate records are loaded from the deterministic
+            external launch catalog. Evidence-cleared does not mean operational inference.
+          </p>
+        </aside>
+      )}
 
       <section aria-labelledby="license-heading" className="evidence-section">
         <div className="section-heading">
           <h2 id="license-heading">License records</h2>
-          <span>{catalog.licenses.size} reviewed fixture records</span>
+          <span>
+            {catalog.licenses.size} reviewed {catalog.kind === 'launch' ? 'public' : 'fixture'}{' '}
+            records
+          </span>
         </div>
         <div className="evidence-list">
           {[...catalog.licenses.values()].map((license) => (
@@ -52,13 +67,16 @@ export function SourcesPage() {
                 <div>
                   <dt>Redistribution</dt>
                   <dd>
-                    <BooleanFact value={license.redistribution} />
+                    <BooleanFact
+                      launch={catalog.kind === 'launch'}
+                      value={license.redistribution}
+                    />
                   </dd>
                 </div>
                 <div>
                   <dt>Commercial use</dt>
                   <dd>
-                    <BooleanFact value={license.commercialUse} />
+                    <BooleanFact launch={catalog.kind === 'launch'} value={license.commercialUse} />
                   </dd>
                 </div>
                 <div>

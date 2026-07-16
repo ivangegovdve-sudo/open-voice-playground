@@ -15,14 +15,36 @@ export type CatalogVoice = {
   engineId: string;
   engineName: string;
   locale: string;
+  /** Canonical BCP-47 coverage; launch entries may advertise more than one tag. */
+  languageTags?: string[];
+  /** Display names corresponding to languageTags. */
+  languages?: string[];
   language: string;
   region: string;
+  regions?: string[];
   gender: string;
   styles: string[];
   licenseIds: string[];
   sourceIds: string[];
   runtimeModes: RuntimeMode[];
   sample: CatalogSample | null;
+  backend?: 'webgpu-wasm' | 'wasm' | 'companion' | 'external-service' | 'none';
+  releaseGate?: {
+    status: 'enabled' | 'unavailable';
+    reason:
+      | 'terms-not-cleared'
+      | 'asset-unavailable'
+      | 'companion-not-connected'
+      | 'feature-disabled'
+      | 'consent-required'
+      | 'license-acceptance-required'
+      | 'unsupported-browser'
+      | null;
+    detail: string;
+  };
+  assetSetId?: string | null;
+  declaredDownloadBytes?: number;
+  consentRequired?: boolean;
 };
 
 export type VoiceSort = 'name' | 'engine' | 'language';
@@ -88,6 +110,8 @@ export function filterVoices(
         voice.name,
         voice.engineName,
         voice.locale,
+        ...(voice.languageTags ?? [voice.locale]),
+        ...(voice.languages ?? [voice.language]),
         voice.language,
         voice.region,
         voice.gender,
@@ -100,9 +124,9 @@ export function filterVoices(
       (query.length === 0 || haystack.includes(query)) &&
       intersects(voice.runtimeModes, filters.mode) &&
       matchesSingle(voice.engineId, filters.engine) &&
-      matchesSingle(voice.language, filters.lang) &&
-      matchesSingle(voice.locale, filters.locale) &&
-      matchesSingle(voice.region, filters.region) &&
+      intersects(voice.languages ?? [voice.language], filters.lang) &&
+      intersects(voice.languageTags ?? [voice.locale], filters.locale) &&
+      intersects(voice.regions ?? [voice.region], filters.region) &&
       matchesSingle(voice.gender, filters.gender) &&
       intersects(voice.styles, filters.style) &&
       intersects(voice.licenseIds, filters.license)

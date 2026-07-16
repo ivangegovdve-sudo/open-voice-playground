@@ -49,6 +49,7 @@ const voicePreset = {
   upstreamId: 'voice-a',
   displayName: 'Fixture Voice A',
   locale: 'en-US',
+  languageTags: ['en-US'],
   gender: 'unspecified',
   runtimeModes: ['browser'],
   styleTags: ['neutral'],
@@ -126,6 +127,23 @@ describe('runtime and identity contracts', () => {
 });
 
 describe('catalog record contracts', () => {
+  it('keeps code, runtime, weights, voice, dataset, service, sample, and generated-output rights distinct', () => {
+    const licenseSchema = schema('LicenseRecordSchema');
+
+    for (const scope of [
+      'code',
+      'runtime',
+      'weights',
+      'voice',
+      'dataset',
+      'service',
+      'sample',
+      'generated-output',
+    ]) {
+      expect(licenseSchema.safeParse({ ...licenseRecord, scope }).success).toBe(true);
+    }
+  });
+
   it('validates engine, voice, sample, license, and source records', () => {
     expect(schema('EngineManifestSchema').safeParse(engineManifest).success).toBe(true);
     expect(schema('VoicePresetSchema').safeParse(voicePreset).success).toBe(true);

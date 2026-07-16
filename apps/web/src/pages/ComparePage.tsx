@@ -22,8 +22,15 @@ export function ComparePage() {
   const { recordHistory } = useLocalState();
   const [searchParameters] = useSearchParams();
   const runnableVoices = useMemo(
-    () => services.catalog.voices.filter((voice) => !voice.runtimeModes.includes('sample-only')),
-    [services.catalog.voices],
+    () =>
+      services.catalog.voices.filter(
+        (voice) =>
+          !voice.runtimeModes.includes('sample-only') &&
+          (services.catalog.kind === 'fixture' ||
+            (voice.releaseGate?.status === 'enabled' &&
+              services.runtimeSummary.operationalVoiceIds.includes(voice.id))),
+      ),
+    [services.catalog.kind, services.catalog.voices, services.runtimeSummary.operationalVoiceIds],
   );
   const initialVoice = searchParameters.get('voice');
   const [selectedIds, setSelectedIds] = useState<string[]>(
@@ -149,7 +156,9 @@ export function ComparePage() {
             </span>
           </div>
           <p className="sample-exclusion">
-            Sample-only presets stay in the listening atlas and cannot enter generation comparison.
+            {services.catalog.kind === 'launch' && runnableVoices.length === 0
+              ? 'No launch adapter is operational yet, so comparison remains locked without fabricating audio or substituting a runtime.'
+              : 'Sample-only presets stay in the listening atlas and cannot enter generation comparison.'}
           </p>
         </section>
 
@@ -256,7 +265,7 @@ export function ComparePage() {
           </div>
           <button
             className="button button--primary button--large"
-            disabled={running}
+            disabled={running || runnableVoices.length === 0}
             onClick={() => void compare()}
             type="button"
           >

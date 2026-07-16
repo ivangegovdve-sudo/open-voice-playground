@@ -38,6 +38,12 @@ function createServices(preview: PreviewController): AppServices {
     store: createLocalDataStore({ indexedDB: null }),
     preview,
     runtime: new StaticRuntimeRegistry([]),
+    runtimeSummary: {
+      evidenceClearedVoiceCount: 0,
+      operationalVoiceCount: 0,
+      operationalEngineIds: [],
+      operationalVoiceIds: [],
+    },
     now: () => new Date('2026-07-15T00:00:00Z'),
     createObjectUrl: () => 'blob:sample',
     revokeObjectUrl: () => undefined,

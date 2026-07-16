@@ -13,8 +13,9 @@ export function CompanionPage() {
         <div>
           <h1>Local companion</h1>
           <p>
-            A future Windows tray companion can run heavier preset engines on this machine. The
-            public app stays useful without it.
+            {catalog.kind === 'launch'
+              ? 'A planned uv-managed local companion will run the fixed Pocket TTS presets without Docker. It is not implemented or connected in this build.'
+              : 'A future Windows tray companion can run heavier preset engines on this machine. The public app stays useful without it.'}
           </p>
         </div>
         <div className="connection-state" role="status">
@@ -61,7 +62,11 @@ export function CompanionPage() {
 
       <section aria-labelledby="companion-seed" className="companion-seed">
         <div className="section-heading">
-          <h2 id="companion-seed">Companion-ready fixture entries</h2>
+          <h2 id="companion-seed">
+            {catalog.kind === 'launch'
+              ? 'Pocket companion manifest'
+              : 'Companion-ready fixture entries'}
+          </h2>
           <span>{companionVoices.length} presets</span>
         </div>
         <ul>
@@ -74,6 +79,20 @@ export function CompanionPage() {
           ))}
         </ul>
       </section>
+      {catalog.kind === 'launch' ? (
+        <aside className="companion-source-note">
+          <p>
+            The pinned upstream voice WAVs are reference/source clips, not Pocket TTS outputs. This
+            playground does not present them as generated samples.
+          </p>
+          <a href="https://kyutai.org/tts" rel="noreferrer" target="_blank">
+            Open Kyutai's official remote demo
+          </a>
+          <small>
+            External link only: this app does not copy, proxy, cache, or call the demo service.
+          </small>
+        </aside>
+      ) : null}
     </div>
   );
 }

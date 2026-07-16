@@ -5,7 +5,7 @@ import { ArrowIcon, WaveformMark } from '../components/Icons';
 import { useAppServices, useLocalState } from '../state/AppState';
 
 export function HomePage() {
-  const { catalog } = useAppServices();
+  const { catalog, runtimeSummary } = useAppServices();
   const { snapshot } = useLocalState();
   const recentVoices = snapshot.recent
     .map((id) => catalog.voices.find((voice) => voice.id === id))
@@ -18,8 +18,9 @@ export function HomePage() {
         <div className="home-hero__copy">
           <h1>Find a voice by the shape of its sound.</h1>
           <p>
-            Browse preset voices across browser, online, companion, and official-sample
-            runtimes—with source and license context kept beside every choice.
+            {catalog.kind === 'launch'
+              ? 'Browse source-backed presets across declared browser, external-service, and companion modes, then inspect twelve carefully gated model galleries.'
+              : 'Browse preset voices across browser, online, companion, and official-sample runtimes—with source and license context kept beside every choice.'}
           </p>
           <div className="hero-actions">
             <Link className="button button--primary button--large" to="/voices">
@@ -30,8 +31,9 @@ export function HomePage() {
             </Link>
           </div>
           <p className="fixture-disclosure">
-            Interface seed: {catalog.voices.length} validated synthetic fixture presets. This is not
-            the final public launch catalog.
+            {catalog.kind === 'launch'
+              ? `${catalog.voices.length} source-backed preset voices. ${runtimeSummary.evidenceClearedVoiceCount} are evidence-cleared for their declared browser or companion mode; ${runtimeSummary.operationalVoiceCount} are operational in this build. Real workers or a paired companion must pass verification first.`
+              : `Interface seed: ${catalog.voices.length} validated synthetic fixture presets. This is not the final public launch catalog.`}
           </p>
         </div>
         <div className="sonic-map" aria-hidden="true">
@@ -49,8 +51,16 @@ export function HomePage() {
 
       <section aria-labelledby="runtime-heading" className="runtime-rail">
         <div className="section-heading">
-          <h2 id="runtime-heading">Four honest runtime coordinates</h2>
-          <p>No mode is substituted silently.</p>
+          <h2 id="runtime-heading">
+            {catalog.kind === 'launch'
+              ? 'Declared runtime coordinates'
+              : 'Four honest runtime coordinates'}
+          </h2>
+          <p>
+            {catalog.kind === 'launch'
+              ? 'Catalog declarations are not operational capability; no mode is substituted silently.'
+              : 'No mode is substituted silently.'}
+          </p>
         </div>
         <ol>
           {(Object.keys(RUNTIME_LABELS) as Array<keyof typeof RUNTIME_LABELS>).map(
@@ -70,7 +80,9 @@ export function HomePage() {
 
       <section aria-labelledby="engines-heading" className="engine-rail">
         <div className="section-heading">
-          <h2 id="engines-heading">Engines in this seed</h2>
+          <h2 id="engines-heading">
+            {catalog.kind === 'launch' ? 'Six launch catalog engines' : 'Engines in this seed'}
+          </h2>
           <Link className="text-link" to="/about/sources">
             How evidence works <ArrowIcon />
           </Link>

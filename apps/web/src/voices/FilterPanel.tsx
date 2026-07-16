@@ -77,18 +77,24 @@ export function FilterPanel({
     (mode) => ({ value: mode, label: RUNTIME_LABELS[mode] }),
   );
   const engineOptions = catalog.engines.map((engine) => ({ value: engine.id, label: engine.name }));
-  const languageOptions = unique(voices.map((voice) => voice.language)).map((value) => ({
+  const languageOptions = unique(
+    voices.flatMap((voice) => voice.languages ?? [voice.language]),
+  ).map((value) => ({
     value,
     label: value,
   }));
-  const localeOptions = unique(voices.map((voice) => voice.locale)).map((value) => ({
-    value,
-    label: value,
-  }));
-  const regionOptions = unique(voices.map((voice) => voice.region)).map((value) => ({
-    value,
-    label: value,
-  }));
+  const localeOptions = unique(voices.flatMap((voice) => voice.languageTags ?? [voice.locale])).map(
+    (value) => ({
+      value,
+      label: value,
+    }),
+  );
+  const regionOptions = unique(voices.flatMap((voice) => voice.regions ?? [voice.region])).map(
+    (value) => ({
+      value,
+      label: value,
+    }),
+  );
   const genderOptions = unique(voices.map((voice) => voice.gender)).map((value) => ({
     value,
     label: titleCase(value),

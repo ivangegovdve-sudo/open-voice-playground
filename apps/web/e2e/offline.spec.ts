@@ -126,6 +126,23 @@ test('first service-worker activation preserves the application shell offline', 
 
   await page.goto('/');
   await waitForFirstController(page);
+  const catalogRequests = await page.evaluate(async () => {
+    const cache = await window.caches.open('open-voice-launch-catalog-v2');
+    return (await cache.keys()).map((request) => new URL(request.url).pathname);
+  });
+  expect(catalogRequests).toHaveLength(1);
+  expect(catalogRequests[0]).toMatch(/\/assets\/launch-catalog\.public-[A-Za-z0-9_-]+\.json$/);
+
+  const shellCatalogRequests = await page.evaluate(async () => {
+    const shellName = (await window.caches.keys()).find((name) =>
+      name.startsWith('open-voice-shell-'),
+    );
+    if (shellName === undefined) throw new Error('Shell cache is missing.');
+    return (await (await window.caches.open(shellName)).keys()).filter((request) =>
+      request.url.endsWith('.json'),
+    ).length;
+  });
+  expect(shellCatalogRequests).toBe(0);
 
   await context.setOffline(true);
   await page.reload();
@@ -134,6 +151,23 @@ test('first service-worker activation preserves the application shell offline', 
   ).toBeVisible();
   await page.goto('/voices');
   await expect(page.getByRole('heading', { level: 1, name: 'Voice atlas' })).toBeVisible();
+});
+
+test('a clean offline catalog state fails honestly and never loads fixtures', async ({
+  context,
+  page,
+}) => {
+  await page.goto('/');
+  await waitForFirstController(page);
+  await page.evaluate(async () => {
+    await window.caches.delete('open-voice-launch-catalog-v2');
+  });
+
+  await context.setOffline(true);
+  await page.reload();
+
+  await expect(page.getByRole('alert')).toContainText('Catalog unavailable');
+  await expect(page.getByText(/synthetic fixture|Fixture Voice|example\.invalid/i)).toHaveCount(0);
 });
 
 test('activation removes stale shell caches but preserves unrelated origin caches', async ({

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { MiniPlayer } from '../audio/MiniPlayer';
+import { useAppServices } from '../state/AppState';
 import { CloseIcon, MenuIcon, WaveformMark } from './Icons';
 import { useModalDrawer } from './useModalDrawer';
 
@@ -10,9 +11,9 @@ type ThemeMode = 'system' | 'light' | 'dark';
 
 const NAV_ITEMS = [
   { to: '/voices', label: 'Voices' },
+  { to: '/galleries', label: 'Galleries' },
   { to: '/play', label: 'Play' },
   { to: '/compare', label: 'Compare' },
-  { to: '/engines/fixture-browser', label: 'Engines' },
   { to: '/companion', label: 'Companion' },
   { to: '/about/sources', label: 'Sources' },
 ] as const;
@@ -44,6 +45,7 @@ function PrimaryLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { catalog } = useAppServices();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(initialTheme);
   const location = useLocation();
@@ -136,7 +138,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <footer className="site-footer">
         <p>Preset voices only · Local history · No account</p>
         <p>
-          Fixture catalog for interface validation.{' '}
+          {catalog.kind === 'launch'
+            ? 'Reviewed launch catalog · 0 operational synthesis runtimes. '
+            : 'Fixture catalog for interface validation. '}
           <Link to="/about/sources">Read the source notes.</Link>
         </p>
       </footer>

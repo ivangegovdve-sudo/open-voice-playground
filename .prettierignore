@@ -3,3 +3,10 @@ coverage
 node_modules
 package-lock.json
 docs/implementation-plan.md
+packages/catalog/data/launch-catalog.public.json
+packages/catalog/data/launch-catalog.integrity.json
+packages/catalog/src/launch-data.ts
+packages/catalog/src/launch-assets-browser.ts
+packages/catalog/src/launch-assets-kokoro.ts
+packages/catalog/src/launch-assets-pocket.ts
+packages/catalog/src/launch-piper-evidence.ts

@@ -18,9 +18,12 @@
   "scripts": {
     "audit:import": "tsx ./src/audit-cli.ts",
     "build": "tsc -p tsconfig.build.json",
+    "generate:launch": "tsx ./src/generate-launch.ts --write",
+    "review:edge-snapshot": "tsx ./src/edge-snapshot-cli.ts",
+    "check:launch": "tsx ./src/generate-launch.ts --check",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json"
+    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json && tsx ./src/generate-launch.ts --check"
   },
   "dependencies": {
     "@open-voice/contracts": "*",

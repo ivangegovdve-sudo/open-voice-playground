@@ -101,7 +101,11 @@ export function PlayPage() {
         setCapability(next);
         setCapabilityStatus(next.available ? 'ready' : 'unavailable');
         setCapabilityMessage(
-          next.available ? 'Runtime is ready.' : (next.reason ?? 'This runtime is unavailable.'),
+          next.available
+            ? 'Runtime is ready.'
+            : next.reason === 'runtime-verification-pending'
+              ? 'Runtime verification is pending; no model download or Worker was started.'
+              : (next.reason ?? 'This runtime is unavailable.'),
         );
         setControls(
           next.available
@@ -504,7 +508,7 @@ export function PlayPage() {
           <div className="workbench__actions">
             <button
               className="button button--primary"
-              disabled={busy || capabilityStatus === 'checking' || capabilityStatus === 'error'}
+              disabled={busy || capabilityStatus !== 'ready' || capability?.available !== true}
               onClick={() => void generate()}
               type="button"
             >

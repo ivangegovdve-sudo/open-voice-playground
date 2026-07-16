@@ -58,12 +58,16 @@ export function VoicesPage() {
         <div>
           <h1>Voice atlas</h1>
           <p>
-            Search the validated seed catalog by language, runtime, source-published metadata, and
-            license. Every mode and limitation stays visible.
+            Search the{' '}
+            {catalog.kind === 'launch' ? 'reviewed launch catalog' : 'validated seed catalog'} by
+            language, runtime, source-published metadata, and license. Every mode and limitation
+            stays visible.
           </p>
         </div>
         <div className="atlas-coordinate" aria-hidden="true">
-          05 PRESETS / FIXTURE V1
+          {catalog.kind === 'launch'
+            ? `${catalog.voices.length} PRESETS / LAUNCH V2`
+            : '05 PRESETS / FIXTURE V1'}
         </div>
       </header>
 

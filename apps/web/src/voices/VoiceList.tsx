@@ -15,12 +15,30 @@ function estimatedHeight(voice: CatalogVoice): number {
   return voice.sample === null ? ESTIMATED_ROW_HEIGHT : ESTIMATED_SAMPLE_ROW_HEIGHT;
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return 'No runtime download';
+  const units = ['B', 'KiB', 'MiB', 'GiB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
 function VoiceRow({ voice }: { voice: CatalogVoice }) {
-  const { preview } = useAppServices();
+  const services = useAppServices();
+  const { catalog, preview, runtimeSummary } = services;
   const { snapshot, toggleFavorite, recordRecent } = useLocalState();
   const favorite = snapshot.favorites.includes(voice.id);
   const cacheStatus = snapshot.modelCache[voice.engineId] ?? 'not-cached';
-  const runnable = !voice.runtimeModes.includes('sample-only');
+  const declaredForGeneration = !voice.runtimeModes.includes('sample-only');
+  const operational =
+    catalog.kind === 'launch'
+      ? voice.releaseGate?.status === 'enabled' &&
+        runtimeSummary.operationalVoiceIds.includes(voice.id)
+      : declaredForGeneration;
 
   return (
     <article className="voice-row">
@@ -60,7 +78,38 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
           ))}
         </div>
 
-        {runnable ? (
+        {catalog.kind === 'launch' ? (
+          <dl className="voice-row__runtime-facts">
+            <div>
+              <dt>Catalog gate</dt>
+              <dd>
+                {voice.releaseGate?.status === 'enabled'
+                  ? 'Evidence-cleared · runtime pending'
+                  : `Unavailable · ${voice.releaseGate?.reason?.replaceAll('-', ' ') ?? 'not cleared'}`}
+              </dd>
+            </div>
+            <div>
+              <dt>Backend</dt>
+              <dd>{voice.backend?.replaceAll('-', ' ') ?? 'not declared'}</dd>
+            </div>
+            <div>
+              <dt>Declared assets</dt>
+              <dd>{formatBytes(voice.declaredDownloadBytes ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Consent</dt>
+              <dd>
+                {voice.consentRequired ? 'Required before any asset request' : 'Not applicable'}
+              </dd>
+            </div>
+          </dl>
+        ) : null}
+
+        {catalog.kind === 'launch' && voice.releaseGate !== undefined ? (
+          <p className="voice-row__gate-detail">{voice.releaseGate.detail}</p>
+        ) : null}
+
+        {declaredForGeneration ? (
           <div aria-label={`Evidence for ${voice.name}`} className="voice-row__evidence">
             <span>Voice evidence</span>
             <p>
@@ -91,7 +140,11 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
 
         {voice.sample === null ? (
           <p className="voice-row__notice">
-            No verified preview is attached to this fixture preset.
+            {catalog.kind === 'launch'
+              ? voice.engineId === 'pocket'
+                ? 'No reviewed Pocket TTS output is published. Upstream reference clips are source audio, not model output.'
+                : 'No rights-reviewed model-output preview is published for this preset.'
+              : 'No verified preview is attached to this fixture preset.'}
           </p>
         ) : (
           <div className="sample-disclosure">
@@ -135,7 +188,7 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
         )}
       </div>
       <div className="voice-row__actions">
-        {runnable ? (
+        {operational ? (
           <>
             <Link
               className="button button--primary"
@@ -149,6 +202,20 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
             >
               Add to compare
             </Link>
+          </>
+        ) : catalog.kind === 'launch' ? (
+          <>
+            <Link
+              className="button button--secondary"
+              to={`/play?voice=${encodeURIComponent(voice.id)}`}
+            >
+              Inspect preset <ArrowIcon />
+            </Link>
+            <span className="sample-only-note">
+              {voice.releaseGate?.status === 'unavailable'
+                ? 'Catalog unavailable'
+                : 'Runtime verification pending'}
+            </span>
           </>
         ) : (
           <span className="sample-only-note">Listening only</span>

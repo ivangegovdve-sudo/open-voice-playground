@@ -22,6 +22,18 @@ export {
   type SourceRecordCatalog,
 } from './audit.js';
 
+export {
+  LaunchCatalogManifestSchema,
+  LaunchCatalogValidationError,
+  buildLaunchCatalog,
+  computeEdgeSnapshotContentHash,
+  countLaunchCatalog,
+  stableStringifyLaunchCatalog,
+  validateLaunchCatalogForRelease,
+  type LaunchCatalogCounts,
+  type LaunchCatalogManifest,
+} from './launch.js';
+
 export const CatalogManifestSchema = z
   .object({
     schemaVersion: z.literal(1),

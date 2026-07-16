@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 
 test('keyboard users can enter the main landmark with visible focus', async ({ page }) => {
   await page.goto('/');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Find a voice by the shape of its sound.' }),
+  ).toBeVisible();
   await page.keyboard.press('Tab');
   const skipLink = page.getByRole('link', { name: 'Skip to content' });
   await expect(skipLink).toBeFocused();
@@ -12,13 +15,14 @@ test('keyboard users can enter the main landmark with visible focus', async ({ p
 });
 
 test('filter URL state survives a direct load and reload', async ({ page }) => {
-  await page.goto('/voices?q=voice&mode=browser&engine=fixture-browser');
-  await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('voice');
+  await page.goto('/voices?q=heart&mode=browser&engine=kokoro');
+  await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('heart');
   await expect(page.getByRole('checkbox', { name: 'Runs in browser' })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Fixture Browser Engine' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Kokoro 82M' })).toBeChecked();
+  await expect(page.getByText('1 preset')).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('voice');
+  await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('heart');
   await expect(page).toHaveURL(/mode=browser/);
 });
 

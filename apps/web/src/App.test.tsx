@@ -1,11 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { AppView } from './App';
-import { createDefaultServices } from './app-services';
+import { App, AppView } from './App';
+import { createDefaultServices, createLaunchServices } from './app-services';
+import launchJson from '../../../packages/catalog/data/launch-catalog.public.json';
+import launchRaw from '../../../packages/catalog/data/launch-catalog.public.json?raw';
 import { PreviewController, type AudioPort } from './audio/preview-controller';
+import { mapLaunchCatalog } from './catalog/launch-catalog';
 
 function LocationProbe() {
   const location = useLocation();
@@ -17,6 +20,25 @@ function renderRoute(route: string) {
     <MemoryRouter initialEntries={[route]}>
       <AppView />
       <LocationProbe />
+    </MemoryRouter>,
+  );
+}
+
+function renderLaunchRoute(route: string) {
+  const defaults = createDefaultServices();
+  const services = {
+    ...defaults,
+    catalog: mapLaunchCatalog(launchJson),
+    runtimeSummary: {
+      evidenceClearedVoiceCount: 92,
+      operationalVoiceCount: 0,
+      operationalEngineIds: [],
+      operationalVoiceIds: [],
+    },
+  };
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      <AppView services={services} />
     </MemoryRouter>,
   );
 }
@@ -58,6 +80,48 @@ async function renderRouteWithPlayingPreview(route: string) {
 }
 
 describe('application routes', () => {
+  it('boots production from the external launch catalog without a fixture fallback', async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(launchRaw, {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        }),
+    );
+    const loadServices = vi.fn(() => createLaunchServices(fetcher, '/launch-catalog.json'));
+
+    render(<App loadServices={loadServices} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading the reviewed voice catalog');
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Find a voice by the shape of its sound.',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/426 source-backed preset voices/i)).toBeInTheDocument();
+    expect(loadServices).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps launch routes and the shell free of fixture claims or widened runtime actions', () => {
+    const view = renderLaunchRoute('/engines/kokoro');
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Kokoro 82M' })).toBeInTheDocument();
+    expect(screen.getByText(/no verified operational adapter/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /use preset/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Reviewed launch catalog.*0 operational synthesis runtimes/i),
+    ).toBeInTheDocument();
+    expect(view.container).not.toHaveTextContent(
+      /example\.invalid|synthetic fixture|not the final/i,
+    );
+
+    view.unmount();
+    renderLaunchRoute('/about/sources');
+    expect(screen.getByText('Reviewed public launch evidence')).toBeInTheDocument();
+    expect(screen.queryByText(/synthetic fixture evidence/i)).not.toBeInTheDocument();
+  });
+
   it.each([
     ['/', 'Find a voice by the shape of its sound.'],
     ['/voices', 'Voice atlas'],
@@ -196,8 +260,7 @@ describe('creator workflows', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('enforces the text limit and reports the unavailable runtime without fallback', async () => {
-    const user = userEvent.setup();
+  it('enforces the text limit and disables unavailable generation without fallback', async () => {
     renderRoute('/play?voice=fixture-browser%3Avoice-a');
 
     const text = screen.getByRole('textbox', { name: 'Text to synthesize' });
@@ -206,11 +269,10 @@ describe('creator workflows', () => {
     expect(text).toHaveValue('a'.repeat(2000));
     expect(screen.getByText('2,000 / 2,000')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Generate speech' }));
-
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Browser runtime is not installed in this build.',
-    );
+    expect(
+      await screen.findByText('Browser runtime is not installed in this build.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate speech' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Download WAV' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel generation' })).toBeDisabled();
   });

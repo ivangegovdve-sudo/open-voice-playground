@@ -42,6 +42,58 @@ describe('variable-height virtual voice list', () => {
     );
   });
 
+  it('never widens launch operability from an engine or voice-level claim', () => {
+    const fixtureVoice = seedCatalog.voices.find(
+      (candidate) => candidate.id === 'fixture-browser:voice-a',
+    )!;
+    const enabledButUnverified: CatalogVoice = {
+      ...fixtureVoice,
+      id: 'launch:enabled-unverified',
+      name: 'Enabled but unverified',
+      releaseGate: { status: 'enabled', reason: null, detail: 'Catalog evidence is cleared.' },
+    };
+    const unavailableButListed: CatalogVoice = {
+      ...fixtureVoice,
+      id: 'launch:unavailable-listed',
+      name: 'Unavailable but listed',
+      releaseGate: {
+        status: 'unavailable',
+        reason: 'asset-unavailable',
+        detail: 'A required immutable asset is unavailable.',
+      },
+    };
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog: {
+        ...defaults.catalog,
+        kind: 'launch' as const,
+        voices: [enabledButUnverified, unavailableButListed],
+      },
+      runtimeSummary: {
+        evidenceClearedVoiceCount: 1,
+        operationalVoiceCount: 1,
+        operationalEngineIds: [fixtureVoice.engineId],
+        operationalVoiceIds: [unavailableButListed.id],
+      },
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+
+    render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={services.catalog.voices} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('link', { name: /use voice/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /add to compare/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /inspect preset/i })).toHaveLength(2);
+    expect(screen.getByText('Runtime verification pending')).toBeInTheDocument();
+    expect(screen.getByText('Catalog unavailable')).toBeInTheDocument();
+  });
+
   it('measures mixed rows and exposes the final item with its full-list position', async () => {
     const plainVoice = seedCatalog.voices.find((voice) => voice.sample === null)!;
     const sample = seedCatalog.voices.find((voice) => voice.sample !== null)!.sample;

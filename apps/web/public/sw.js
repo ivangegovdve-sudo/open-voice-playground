@@ -11,6 +11,7 @@ const BUILT_STATIC_ASSET_PATTERN =
   /^\/assets\/[^?#]+\.(?:css|js|mjs|woff2?|png|svg|webp|avif|ico)$/i;
 const SPA_APP_ROUTES = new Set([
   '/',
+  '/galleries',
   '/voices',
   '/play',
   '/compare',
