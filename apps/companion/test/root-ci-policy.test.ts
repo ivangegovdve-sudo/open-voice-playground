@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -26,6 +27,76 @@ const rebindCycleTest =
   'windows_listener::tests::c9_windows_exclusive_rebind_cycles_and_full_server_shutdowns';
 const twoTestSummary = String.raw`^test result: ok\. 2 passed; 0 failed; 0 ignored;`;
 const oneTestSummary = String.raw`^test result: ok\. 1 passed; 0 failed; 0 ignored;`;
+const providerDiagnostic = 'SENSITIVE_PROVIDER_DIAGNOSTIC';
+
+function runWindowsNativeWithPortShim(mode: 'no-listeners' | 'occupied' | 'provider-error') {
+  const scriptPath = windowsNativeScriptPath.replaceAll("'", "''");
+  const portBehavior = {
+    'no-listeners':
+      "Write-Error -Message 'No matching MSFT_NetTCPConnection objects found by CIM query.' -Category ObjectNotFound -ErrorId 'CmdletizationQuery_NotFound' -TargetObject 'MSFT_NetTCPConnection'",
+    occupied: "[pscustomobject]@{ LocalAddress = '0.0.0.0' }",
+    'provider-error': `Write-Error '${providerDiagnostic}'`,
+  }[mode];
+  const harness = `
+function rustc {
+    $global:LASTEXITCODE = 0
+    Write-Output 'rustc 1.97.0 (test shim)'
+    Write-Output 'host: x86_64-pc-windows-msvc'
+    Write-Output 'release: 1.97.0'
+}
+
+function cargo {
+    $cargoArguments = @($args)
+    $global:LASTEXITCODE = 0
+    if ($cargoArguments -contains 'windows_listener::tests::') {
+        Write-Output 'test result: ok. 2 passed; 0 failed; 0 ignored;'
+    }
+    elseif (
+        $cargoArguments -contains '${hostileBindTest}' -or
+        $cargoArguments -contains '${rebindCycleTest}'
+    ) {
+        Write-Output 'test result: ok. 1 passed; 0 failed; 0 ignored;'
+    }
+    else {
+        Write-Output 'cargo shim success'
+    }
+}
+
+function Get-CimInstance {
+    [pscustomobject]@{
+        Caption = 'Windows test shim'
+        Version = '10.0.0'
+        BuildNumber = '0'
+    }
+}
+
+function Get-NetTCPConnection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $State,
+
+        [Parameter(Mandatory = $true)]
+        [int] $LocalPort
+    )
+
+    ${portBehavior}
+}
+
+. '${scriptPath}'
+`;
+
+  return spawnSync(
+    'powershell.exe',
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-'],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      input: harness,
+      windowsHide: true,
+    },
+  );
+}
 
 function readManifest(path: string): { scripts: Record<string, string> } {
   return JSON.parse(readFileSync(resolve(root, path), 'utf8')) as {
@@ -87,6 +158,40 @@ describe('root and companion policy', () => {
       'Get-NetTCPConnection -State Listen -LocalPort 17843 -ErrorAction SilentlyContinue',
     );
     expect(windowsNativeScript).toMatch(/if\s*\(\$listeners\.Count\s+-gt\s+0\)/);
+  });
+
+  it('checks captured fixed-port query errors before accepting listener results', () => {
+    const initializeErrors = '$portQueryErrors = @()';
+    const query =
+      'Get-NetTCPConnection -State Listen -LocalPort 17843 -ErrorAction SilentlyContinue -ErrorVariable portQueryErrors';
+    const classifyQueryErrors = '$portQueryFailures = @(';
+    const noListenerErrorId = "'CmdletizationQuery_NotFound,Get-NetTCPConnection'";
+    const noListenerCategory = '[System.Management.Automation.ErrorCategory]::ObjectNotFound';
+    const noListenerTarget = "'MSFT_NetTCPConnection'";
+    const rejectQueryErrors =
+      "if ($portQueryFailures.Count -gt 0) { throw 'TCP listener query failed.' }";
+    const rejectListeners =
+      "if ($listeners.Count -gt 0) { throw 'TCP port 17843 is already occupied.' }";
+
+    expect(windowsNativeScript).toContain(noListenerErrorId);
+    expect(windowsNativeScript).toContain(noListenerCategory);
+    expect(windowsNativeScript).toContain(noListenerTarget);
+
+    const orderedPortChecks = [
+      initializeErrors,
+      query,
+      classifyQueryErrors,
+      rejectQueryErrors,
+      rejectListeners,
+    ];
+    let previousIndex = -1;
+    for (const check of orderedPortChecks) {
+      const checkIndex = normalizedWindowsNativeScript.indexOf(check, previousIndex + 1);
+      expect(checkIndex, `missing or misordered port check: ${check}`).toBeGreaterThan(
+        previousIndex,
+      );
+      previousIndex = checkIndex;
+    }
   });
 
   it('runs the exact default and focused native test evidence', () => {
@@ -300,5 +405,35 @@ describe('root and companion policy', () => {
     expect(rootTestGates.findIndex((gate) => gate.startsWith('npm run test:'))).toBeGreaterThan(1);
     expect(rootTestGates).toContain('npm run test:companion');
     expect(rootTestGates.at(-1)).toBe('npm run rust:test');
+  });
+});
+
+const describeWindowsNativeBehavior = process.platform === 'win32' ? describe : describe.skip;
+
+describeWindowsNativeBehavior('native Windows fixed-port query behavior', () => {
+  it('fails closed without echoing provider diagnostics when the query reports an error', () => {
+    const result = runWindowsNativeWithPortShim('provider-error');
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).not.toBe(0);
+    expect(output).toContain('TCP listener query failed.');
+    expect(output).not.toContain(providerDiagnostic);
+  });
+
+  it('fails closed when the fixed port has a listener', () => {
+    const result = runWindowsNativeWithPortShim('occupied');
+    const output = `${result.stdout}${result.stderr}`;
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).not.toBe(0);
+    expect(output).toContain('TCP port 17843 is already occupied.');
+  });
+
+  it('continues only when the fixed-port query succeeds with no listeners', () => {
+    const result = runWindowsNativeWithPortShim('no-listeners');
+
+    expect(result.error).toBeUndefined();
+    expect(result.status).toBe(0);
   });
 });

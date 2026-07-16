@@ -83,7 +83,24 @@ Write-Output ("OS caption: {0}" -f $operatingSystem.Caption)
 Write-Output ("OS version: {0}" -f $operatingSystem.Version)
 Write-Output ("OS build: {0}" -f $operatingSystem.BuildNumber)
 
-$listeners = @(Get-NetTCPConnection -State Listen -LocalPort 17843 -ErrorAction SilentlyContinue)
+$portQueryErrors = @()
+$listeners = @(
+    Get-NetTCPConnection -State Listen -LocalPort 17843 -ErrorAction SilentlyContinue -ErrorVariable portQueryErrors
+)
+$portQueryFailures = @(
+    foreach ($portQueryError in $portQueryErrors) {
+        $isNoListenerResult =
+            $portQueryError.FullyQualifiedErrorId -eq 'CmdletizationQuery_NotFound,Get-NetTCPConnection' -and
+            $portQueryError.CategoryInfo.Category -eq [System.Management.Automation.ErrorCategory]::ObjectNotFound -and
+            $portQueryError.CategoryInfo.TargetName -eq 'MSFT_NetTCPConnection'
+        if (-not $isNoListenerResult) {
+            $portQueryError
+        }
+    }
+)
+if ($portQueryFailures.Count -gt 0) {
+    throw 'TCP listener query failed.'
+}
 if ($listeners.Count -gt 0) {
     throw 'TCP port 17843 is already occupied.'
 }
