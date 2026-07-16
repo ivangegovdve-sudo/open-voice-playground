@@ -22,7 +22,36 @@ const FORBIDDEN_INITIAL_MODULE_PATTERNS = [
   /(?:^|[\\/])runtime[\\/](?:workers|supertonic|inference)(?:[\\/]|$)/i,
   /(?:^|[\\/])[^\\/]*\.worker\.(?:[cm]?[jt]s|[jt]sx)(?:$|[?&])/i,
 ];
-const SCRIPT_ELEMENT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+
+function isHtmlTagBoundary(character: string | undefined): boolean {
+  return character !== undefined && /[\t\n\f\r />]/.test(character);
+}
+
+function findHtmlTagStart(html: string, tag: string, offset: number): number {
+  const normalizedHtml = html.toLowerCase();
+  const normalizedTag = tag.toLowerCase();
+  let candidate = normalizedHtml.indexOf(normalizedTag, offset);
+  while (candidate !== -1) {
+    if (isHtmlTagBoundary(html[candidate + normalizedTag.length])) return candidate;
+    candidate = normalizedHtml.indexOf(normalizedTag, candidate + normalizedTag.length);
+  }
+  return -1;
+}
+
+function findHtmlTagEnd(html: string, offset: number): number | null {
+  let quote: '"' | "'" | null = null;
+  for (let cursor = offset; cursor < html.length; cursor += 1) {
+    const character = html[cursor]!;
+    if (quote !== null) {
+      if (character === quote) quote = null;
+    } else if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '>') {
+      return cursor;
+    }
+  }
+  return null;
+}
 
 function htmlAttributeValue(attributes: string, name: string): string | null {
   const expectedName = name.toLowerCase();
@@ -60,29 +89,31 @@ function htmlAttributeValue(attributes: string, name: string): string | null {
   return null;
 }
 
-function isExecutableScriptType(type: string | null): boolean {
-  if (type === null || type.trim() === '') return true;
-  const normalized = type.trim().toLowerCase();
-  return (
-    normalized === 'module' ||
-    /^(?:text|application)\/(?:x-)?(?:java|ecma)script$/.test(normalized) ||
-    normalized === 'text/jscript'
-  );
-}
-
 function assertNoInlineExecutableScripts(html: string): void {
-  for (const match of html.matchAll(SCRIPT_ELEMENT_PATTERN)) {
-    const attributes = match[1]!;
-    const body = match[2]!;
+  let offset = 0;
+  while (offset < html.length) {
+    const openingStart = findHtmlTagStart(html, '<script', offset);
+    if (openingStart === -1) return;
+    const openingEnd = findHtmlTagEnd(html, openingStart + '<script'.length);
+    if (openingEnd === null) return;
+
+    const attributes = html.slice(openingStart + '<script'.length, openingEnd);
+    const closingStart = findHtmlTagStart(html, '</script', openingEnd + 1);
+    const bodyEnd = closingStart === -1 ? html.length : closingStart;
+    const body = html.slice(openingEnd + 1, bodyEnd);
     if (
       body.trim() !== '' &&
       htmlAttributeValue(attributes, 'src') === null &&
-      isExecutableScriptType(htmlAttributeValue(attributes, 'type'))
+      htmlAttributeValue(attributes, 'type') !== 'application/json'
     ) {
       throw new Error(
-        'The production shell contains an inline executable script; executable JavaScript must be emitted as a budgeted module.',
+        'The production shell contains an inline executable script or non-reviewed inline script data; executable JavaScript must be emitted as a budgeted module and only the exact raw type application/json is allowed for inline data.',
       );
     }
+
+    if (closingStart === -1) return;
+    const closingEnd = findHtmlTagEnd(html, closingStart + '</script'.length);
+    offset = closingEnd === null ? html.length : closingEnd + 1;
   }
 }
 

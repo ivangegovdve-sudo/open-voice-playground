@@ -507,11 +507,90 @@ test.each([
   },
 );
 
+test.each([
+  'text/javascript1.0',
+  'text/javascript1.1',
+  'text/javascript1.2',
+  'text/javascript1.3',
+  'text/javascript1.4',
+  'text/javascript1.5',
+  'text/livescript',
+] as const)('rejects Chromium-executed legacy inline script type %s', async (type) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body><script type="${type}">globalThis.__legacyInlineBypass = true;</script><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+});
+
+test.each([
+  ['hexadecimal slash', 'text&#x2f;javascript'],
+  ['decimal slash', 'text&#47;javascript'],
+  ['named slash', 'text&sol;javascript'],
+  ['hexadecimal module letter', 'mod&#x75;le'],
+] as const)(
+  'rejects a Chromium-executed inline script type with a %s character reference',
+  async (_label, type) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'index.html'),
+      `<!doctype html><html><head><title>Fixture</title></head><body><script type="${type}">globalThis.__encodedInlineBypass = true;</script><script type="module" src="/main.js"></script></body></html>`,
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+  },
+);
+
+test.each([
+  ['a bogus end-tag attribute', '</script x>'],
+  ['a self-closing flag', '</script/>'],
+] as const)(
+  'rejects an inline script using browser-valid closing syntax with %s',
+  async (_label, closingTag) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'index.html'),
+      `<!doctype html><html><head><title>Fixture</title></head><body><script type="module" src="/main.js"></script><script>globalThis.__closingTagBypass = true;${closingTag}</body></html>`,
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+  },
+);
+
+test.each([
+  ['another data type', 'application/ld+json'],
+  ['an encoded reviewed type', 'application&#x2f;json'],
+  ['an unknown type', 'application/x-open-voice-data'],
+] as const)(
+  'rejects nonempty inline script data with %s under the fail-closed policy',
+  async (_label, type) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'index.html'),
+      `<!doctype html><html><head><script type="${type}">{"fixture":true}</script></head><body><script type="module" src="/main.js"></script></body></html>`,
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(/inline executable script/i);
+  },
+);
+
+test('permits an ordinary external module when another attribute contains greater-than', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title></head><body><script data-note=">" type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
 test('permits non-executable inline JSON data', async () => {
   const root = await createBuildFixture();
   await writeFile(
     join(root, 'index.html'),
-    '<!doctype html><html><head><script type="application/json">{"fixture":true}</script></head><body><script type="module" src="/main.js"></script></body></html>',
+    '<!doctype html><html><head><script data-note=">" type="application/json">{"fixture":true}</script></head><body><script type="module" src="/main.js"></script></body></html>',
   );
 
   await expect(buildMetadata(root)).resolves.toBeDefined();
