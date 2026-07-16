@@ -733,6 +733,83 @@ describe('direct dependency policy', () => {
     }
   });
 
+  it.each([
+    {
+      pattern: 'apps/**/.hidden',
+      workspacePaths: ['apps/.hidden', 'apps/visible/.hidden'],
+      expected: [],
+    },
+    {
+      pattern: 'apps/**/.*',
+      workspacePaths: ['apps/.hidden', 'apps/visible/.hidden'],
+      expected: [],
+    },
+    {
+      pattern: '**/.hidden',
+      workspacePaths: ['.hidden', 'apps/.hidden', 'apps/visible/.hidden'],
+      expected: [],
+    },
+    {
+      pattern: 'apps/**/.hidden/deep',
+      workspacePaths: ['apps/.hidden/deep', 'apps/visible/.hidden/deep'],
+      expected: [],
+    },
+    {
+      pattern: 'apps/.hidden',
+      workspacePaths: ['apps/.hidden'],
+      expected: ['apps/.hidden'],
+    },
+    {
+      pattern: 'apps/.*',
+      workspacePaths: ['apps/.hidden'],
+      expected: ['apps/.hidden'],
+    },
+    {
+      pattern: 'apps/*/.hidden',
+      workspacePaths: ['apps/.hidden', 'apps/visible/.hidden'],
+      expected: ['apps/visible/.hidden'],
+    },
+    {
+      pattern: 'apps/.hidden/**',
+      workspacePaths: ['apps/.hidden', 'apps/.hidden/deep'],
+      expected: ['apps/.hidden', 'apps/.hidden/deep'],
+    },
+    {
+      pattern: 'apps/**/.hidden/**',
+      workspacePaths: [
+        'apps/.hidden',
+        'apps/.hidden/deep',
+        'apps/visible/.hidden',
+        'apps/visible/.hidden/deep',
+      ],
+      expected: [
+        'apps/.hidden',
+        'apps/.hidden/deep',
+        'apps/visible/.hidden',
+        'apps/visible/.hidden/deep',
+      ],
+    },
+    {
+      pattern: 'apps/**/deep/.hidden',
+      workspacePaths: ['apps/deep/.hidden', 'apps/visible/deep/.hidden'],
+      expected: ['apps/deep/.hidden', 'apps/visible/deep/.hidden'],
+    },
+  ])(
+    'matches npm 11.16 globstar dot semantics for $pattern',
+    ({ pattern, workspacePaths, expected }) => {
+      expect(POLICY.npmVersion).toBe('11.16.0');
+      const fixture = createWorkspaceDiscoveryFixture([pattern], workspacePaths);
+      try {
+        expect(discoverNpmWorkspaceManifests(fixture)).toEqual([
+          'package.json',
+          ...expected.map((workspacePath) => `${workspacePath}/package.json`).sort(),
+        ]);
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+  );
+
   it('never descends into excluded directories or directory symlinks', () => {
     const fixture = createWorkspaceDiscoveryFixture(['**'], ['apps/kept']);
     const external = mkdtempSync(resolve(tmpdir(), 'open-voice-c10-symlink-target-'));

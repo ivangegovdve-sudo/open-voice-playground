@@ -130,8 +130,12 @@ function workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex = 0, pa
   if (patternIndex === patternSegments.length) return pathIndex === pathSegments.length;
   const pattern = patternSegments[patternIndex];
   if (pattern === '**') {
+    const handsOffToHiddenSegment =
+      patternSegments.lastIndexOf('**') === patternIndex &&
+      patternSegments[patternIndex + 1]?.startsWith('.');
     return (
-      workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex, patternIndex + 1) ||
+      (!handsOffToHiddenSegment &&
+        workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex, patternIndex + 1)) ||
       (pathIndex < pathSegments.length &&
         !pathSegments[pathIndex].startsWith('.') &&
         workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex + 1, patternIndex))
