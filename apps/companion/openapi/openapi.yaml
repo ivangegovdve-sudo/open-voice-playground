@@ -1,0 +1,678 @@
+openapi: 3.1.2
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Open Voice Playground Companion API
+  version: 1.0.0
+  description: Fail-closed local protocol for the optional Windows companion.
+x-protocol-major: 1
+servers:
+  - url: http://127.0.0.1:17843
+tags:
+  - name: health
+  - name: pairing
+  - name: catalog
+  - name: jobs
+  - name: packs
+paths:
+  /v1/health:
+    get:
+      operationId: getHealth
+      tags: [health]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Minimal listener health.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HealthResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/pairings/challenges:
+    post:
+      operationId: createPairingChallenge
+      tags: [pairing]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PairingChallengeRequest' }
+      responses:
+        '201':
+          description: Pending native approval challenge.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Location: { $ref: '#/components/headers/Location' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PairingChallengeResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/pairings/challenges/{id}/redeem:
+    parameters:
+      - $ref: '#/components/parameters/ChallengeId'
+    post:
+      operationId: redeemPairingChallenge
+      tags: [pairing]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedeemRequest' }
+      responses:
+        '200':
+          description: One-time bearer delivery.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedeemResponse' }
+        '202': { $ref: '#/components/responses/ProblemResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '410': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/pairings/current:
+    get:
+      operationId: getCurrentPairing
+      tags: [pairing]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Current bearer-owned pairing metadata.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PairingResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+    delete:
+      operationId: revokeCurrentPairing
+      tags: [pairing]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '204':
+          description: Pairing revoked; no bearer is returned.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/runtime:
+    get:
+      operationId: getRuntime
+      tags: [catalog]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Fail-closed runtime state.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuntimeResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/engines:
+    get:
+      operationId: listEngines
+      tags: [catalog]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Catalog-owned engine state.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EngineListResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/voices:
+    get:
+      operationId: listVoices
+      tags: [catalog]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Exact Pocket preset list.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VoiceListResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/packs:
+    get:
+      operationId: listPacks
+      tags: [packs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Pack verification state.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackListResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/jobs:
+    post:
+      operationId: createJob
+      tags: [jobs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobCreateRequest' }
+      responses:
+        '202':
+          description: Bounded queued job.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Location: { $ref: '#/components/headers/Location' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/jobs/{id}:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      operationId: getJob
+      tags: [jobs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Bearer-owned job metadata.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+    delete:
+      operationId: cancelJob
+      tags: [jobs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '202':
+          description: Idempotent cancellation accepted.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/jobs/{id}/audio:
+    parameters:
+      - $ref: '#/components/parameters/JobId'
+    get:
+      operationId: getJobAudio
+      tags: [jobs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      responses:
+        '200':
+          description: Bearer-owned bounded WAV data.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            ETag: { $ref: '#/components/headers/ETag' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            audio/wav:
+              schema:
+                type: string
+                contentEncoding: binary
+                maxLength: 67108864
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '410': { $ref: '#/components/responses/ProblemResponse' }
+  /v1/packs/{id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/PackId'
+    post:
+      operationId: requestPackAction
+      tags: [packs]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/ClientVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PackActionRequest' }
+      responses:
+        '202':
+          description: Pending native decision only; no action executes synchronously.
+          headers:
+            Cache-Control: { $ref: '#/components/headers/CacheControl' }
+            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+            Location: { $ref: '#/components/headers/Location' }
+            X-Request-Id: { $ref: '#/components/headers/RequestId' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PackActionResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/ProblemResponse' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: OVP-43
+  parameters:
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 256 }
+    ClientVersion:
+      name: X-OVP-Client-Version
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
+        maxLength: 32
+    ChallengeId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PackId:
+      name: id
+      in: path
+      required: true
+      schema: { $ref: '#/components/schemas/PackId' }
+  headers:
+    CacheControl:
+      required: true
+      schema: { type: string, const: no-store }
+    NoSniff:
+      required: true
+      schema: { type: string, const: nosniff }
+    RequestId:
+      required: true
+      schema: { type: string, format: uuid }
+    Location:
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 256 }
+    ETag:
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 128 }
+    RetryAfter:
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 3600 }
+  responses:
+    ProblemResponse:
+      description: Safe RFC 9457 problem response.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+  schemas:
+    Scope:
+      type: string
+      enum: [health:read, runtime:read, synthesis:create, jobs:read, jobs:cancel, audio:read, packs:request]
+    ScopeList:
+      type: array
+      minItems: 7
+      maxItems: 7
+      uniqueItems: true
+      items: { $ref: '#/components/schemas/Scope' }
+    OpaqueSecret:
+      type: string
+      pattern: '^[A-Za-z0-9_-]{43}$'
+      minLength: 43
+      maxLength: 43
+    VoiceId:
+      type: string
+      enum:
+        - pocket:alba
+        - pocket:estelle
+        - pocket:anna
+        - pocket:vera
+        - pocket:fantine
+        - pocket:charles
+        - pocket:paul
+        - pocket:eponine
+        - pocket:azelma
+        - pocket:george
+        - pocket:mary
+        - pocket:jane
+        - pocket:michael
+        - pocket:eve
+        - pocket:bill_boerst
+        - pocket:caro_davy
+        - pocket:peter_yearsley
+        - pocket:stuart_bell
+        - pocket:marius
+        - pocket:javert
+    PackId:
+      type: string
+      const: pocket-companion-pack
+    OperationalState:
+      type: string
+      enum: [companion-not-installed, pack-unverified, ready, busy, degraded]
+    ProblemCode:
+      type: string
+      enum:
+        - host-invalid
+        - origin-missing
+        - origin-denied
+        - version-missing
+        - version-unsupported
+        - auth-missing
+        - auth-invalid
+        - auth-origin-mismatch
+        - scope-denied
+        - rate-limited
+        - request-line-too-large
+        - headers-too-large
+        - body-too-large
+        - body-timeout
+        - header-timeout
+        - schema-invalid
+        - queue-full
+        - ownership-denied
+        - resource-not-found
+        - conflict
+        - handler-timeout
+        - listener-conflict
+        - pairing-not-found
+        - pairing-pending
+        - pairing-denied
+        - pairing-expired
+        - pairing-consumed
+        - pairing-attempts-exhausted
+        - pack-unverified
+        - runtime-unavailable
+        - method-not-allowed
+        - content-type-unsupported
+        - transfer-encoding-invalid
+        - duplicate-header
+        - text-invalid
+        - action-invalid
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, instance, code, requestId]
+      properties:
+        type: { type: string, pattern: '^urn:ovp:problem:[a-z0-9-]+$', maxLength: 96 }
+        title: { type: string, minLength: 1, maxLength: 96 }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string, minLength: 1, maxLength: 160 }
+        instance: { type: string, pattern: '^urn:uuid:[0-9a-f-]{36}$', maxLength: 45 }
+        code: { $ref: '#/components/schemas/ProblemCode' }
+        requestId: { type: string, format: uuid }
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [app, protocolMajor, listenerState]
+      properties:
+        app: { type: string, const: open-voice-companion }
+        protocolMajor: { type: integer, const: 1 }
+        listenerState: { type: string, enum: [listening, listener-conflict] }
+    DeepLinkChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [state, verifierHash, clientLabel, scopes]
+      properties:
+        state: { $ref: '#/components/schemas/OpaqueSecret' }
+        verifierHash: { $ref: '#/components/schemas/OpaqueSecret' }
+        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { $ref: '#/components/schemas/ScopeList' }
+    ManualChallengeRequest:
+      type: object
+      additionalProperties: false
+      required: [code, verifierHash, clientLabel, scopes]
+      properties:
+        code: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{12}$', minLength: 12, maxLength: 12 }
+        verifierHash: { $ref: '#/components/schemas/OpaqueSecret' }
+        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { $ref: '#/components/schemas/ScopeList' }
+    PairingChallengeRequest:
+      oneOf:
+        - $ref: '#/components/schemas/DeepLinkChallengeRequest'
+        - $ref: '#/components/schemas/ManualChallengeRequest'
+    PairingChallengeResponse:
+      type: object
+      additionalProperties: false
+      required: [id, state, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        state: { type: string, const: pending }
+        expiresAt: { type: string, format: date-time }
+    RedeemRequest:
+      type: object
+      additionalProperties: false
+      required: [verifier]
+      properties:
+        verifier: { $ref: '#/components/schemas/OpaqueSecret' }
+    RedeemResponse:
+      type: object
+      additionalProperties: false
+      required: [token, pairing]
+      properties:
+        token: { $ref: '#/components/schemas/OpaqueSecret' }
+        pairing: { $ref: '#/components/schemas/PairingResponse' }
+    PairingResponse:
+      type: object
+      additionalProperties: false
+      required: [id, clientLabel, scopes, createdAt, lastUsedAt]
+      properties:
+        id: { type: string, format: uuid }
+        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        scopes: { $ref: '#/components/schemas/ScopeList' }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+    RuntimeResponse:
+      type: object
+      additionalProperties: false
+      required: [engineId, state, operational, reason]
+      properties:
+        engineId: { type: string, const: pocket }
+        state: { $ref: '#/components/schemas/OperationalState' }
+        operational: { type: boolean, const: false }
+        reason: { type: string, const: pack-unverified }
+    EngineResponse:
+      type: object
+      additionalProperties: false
+      required: [id, state, operational, synthesisControls]
+      properties:
+        id: { type: string, const: pocket }
+        state: { type: string, const: pack-unverified }
+        operational: { type: boolean, const: false }
+        synthesisControls:
+          type: array
+          maxItems: 0
+          items: { type: string }
+    EngineListResponse:
+      type: object
+      additionalProperties: false
+      required: [engines]
+      properties:
+        engines:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { $ref: '#/components/schemas/EngineResponse' }
+    VoiceResponse:
+      type: object
+      additionalProperties: false
+      required: [id, engineId, availableInPack, operational]
+      properties:
+        id: { $ref: '#/components/schemas/VoiceId' }
+        engineId: { type: string, const: pocket }
+        availableInPack: { type: boolean, const: true }
+        operational: { type: boolean, const: false }
+    VoiceListResponse:
+      type: object
+      additionalProperties: false
+      required: [voices]
+      properties:
+        voices:
+          type: array
+          minItems: 20
+          maxItems: 20
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/VoiceResponse' }
+    PackResponse:
+      type: object
+      additionalProperties: false
+      required: [id, state, verified, operational]
+      properties:
+        id: { $ref: '#/components/schemas/PackId' }
+        state: { type: string, const: pack-unverified }
+        verified: { type: boolean, const: false }
+        operational: { type: boolean, const: false }
+    PackListResponse:
+      type: object
+      additionalProperties: false
+      required: [packs]
+      properties:
+        packs:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { $ref: '#/components/schemas/PackResponse' }
+    JobCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [voiceId, text]
+      properties:
+        voiceId: { $ref: '#/components/schemas/VoiceId' }
+        text: { type: string, minLength: 1, maxLength: 2000 }
+    JobResponse:
+      type: object
+      additionalProperties: false
+      required: [id, voiceId, state, audioAvailable, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        voiceId: { $ref: '#/components/schemas/VoiceId' }
+        state: { type: string, enum: [queued, starting, synthesizing, completed, cancelling, cancelled, failed, expired] }
+        audioAvailable: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    PackActionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { type: string, enum: [install, update, repair, remove] }
+    PackActionResponse:
+      type: object
+      additionalProperties: false
+      required: [id, packId, action, state]
+      properties:
+        id: { type: string, format: uuid }
+        packId: { $ref: '#/components/schemas/PackId' }
+        action: { type: string, enum: [install, update, repair, remove] }
+        state: { type: string, const: pending-native-decision }

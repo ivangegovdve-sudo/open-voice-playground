@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Open Voice Playground Companion",
+  "version": "0.1.0",
+  "identifier": "org.openvoice.playground.companion",
+  "build": {
+    "beforeDevCommand": "npm.cmd run dev:web --prefix ../../..",
+    "beforeBuildCommand": "npm.cmd run build:web --prefix ../../..",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Open Voice Playground Companion",
+        "width": 720,
+        "height": 520,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "capabilities": ["main-window"],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": []
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["ovp-companion"]
+      }
+    }
+  }
+}

@@ -5,6 +5,14 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "openapi:check": "node ./scripts/generate-openapi.mjs --check",
+    "openapi:generate": "node ./scripts/generate-openapi.mjs --write",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "ajv": "8.20.0",
+    "yaml": "2.9.0"
   }
 }

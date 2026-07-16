@@ -1,0 +1,54 @@
+[package]
+name = "open-voice-companion"
+version = "0.1.0"
+description = "Fail-closed Open Voice Playground Windows companion"
+authors = ["Open Voice Playground"]
+edition = "2024"
+rust-version = "1.97"
+publish = false
+
+[lib]
+name = "open_voice_companion"
+path = "src/lib.rs"
+
+[[bin]]
+name = "open-voice-companion"
+path = "src/main.rs"
+
+[dependencies]
+async-trait = { version = "=0.1.89" }
+base64 = { version = "=0.22.1" }
+getrandom = { version = "=0.4.3" }
+httparse = { version = "=1.10.1" }
+jsonschema = { version = "=0.47.0", default-features = false }
+rusqlite = { version = "=0.40.1", default-features = false, features = ["bundled"] }
+semver = { version = "=1.0.28" }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.150" }
+sha2 = { version = "=0.11.0" }
+subtle = { version = "=2.6.1" }
+tauri = { version = "=2.11.5" }
+tauri-plugin-deep-link = { version = "=2.4.9" }
+tauri-plugin-single-instance = { version = "=2.4.3", features = ["deep-link"] }
+thiserror = { version = "=2.0.18" }
+time = { version = "=0.3.53", features = ["formatting", "serde"] }
+tokio = { version = "=1.52.3", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "test-util", "time"] }
+url = { version = "=2.5.8" }
+uuid = { version = "=1.24.0", features = ["serde", "v4"] }
+yaml_serde = { version = "=0.10.4" }
+zeroize = { version = "=1.9.0" }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Controls", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3" }
+
+[dev-dependencies]
+tempfile = { version = "=3.27.0" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true

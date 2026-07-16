@@ -1,0 +1,20 @@
+[
+  {
+    "voiceId": "pocket:cosette",
+    "text": "Excluded preset."
+  },
+  {
+    "voiceId": "alba",
+    "text": "Raw upstream name."
+  },
+  {
+    "voiceId": "pocket:alba",
+    "text": "Unknown controls.",
+    "controls": {}
+  },
+  {
+    "voiceId": "pocket:alba",
+    "text": "No paths.",
+    "path": "C:\\temp\\result.wav"
+  }
+]
