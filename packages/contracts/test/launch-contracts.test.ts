@@ -961,3 +961,471 @@ describe('gallery and generated-media provenance contracts', () => {
     ).toBe(false);
   });
 });
+
+const pocketSelectors = [
+  ['english', 'en'],
+  ['english_2026-01', 'en'],
+  ['english_2026-04', 'en'],
+  ['french_24l', 'fr'],
+  ['german', 'de'],
+  ['german_24l', 'de'],
+  ['italian', 'it'],
+  ['italian_24l', 'it'],
+  ['portuguese', 'pt'],
+  ['portuguese_24l', 'pt'],
+  ['spanish', 'es'],
+  ['spanish_24l', 'es'],
+] as const;
+
+const pocketLabels = [
+  'alba',
+  'anna',
+  'azelma',
+  'bill_boerst',
+  'caro_davy',
+  'charles',
+  'cosette',
+  'eponine',
+  'estelle',
+  'eve',
+  'fantine',
+  'george',
+  'giovanni',
+  'jane',
+  'javert',
+  'jean',
+  'juergen',
+  'lola',
+  'marius',
+  'mary',
+  'michael',
+  'paul',
+  'peter_yearsley',
+  'rafael',
+  'stuart_bell',
+  'vera',
+] as const;
+
+const pocketVctkLabels = new Set([
+  'anna',
+  'vera',
+  'fantine',
+  'charles',
+  'paul',
+  'eponine',
+  'azelma',
+  'george',
+  'mary',
+  'jane',
+  'michael',
+  'eve',
+]);
+const pocketVoiceZeroLabels = new Set([
+  'bill_boerst',
+  'caro_davy',
+  'peter_yearsley',
+  'stuart_bell',
+]);
+const pocketDonationLabels = new Set(['marius', 'javert']);
+const pocketProvenancePendingLabels = new Set(['giovanni', 'lola', 'juergen', 'rafael']);
+
+function pocketRightsFor(label: (typeof pocketLabels)[number]) {
+  if (label === 'alba') {
+    return {
+      rightsFamily: 'alba-mackenna',
+      listingPolicy: 'catalog-only-runtime-candidate',
+      runtimeExclusionReason: 'assets-not-release-pinned',
+      licenseIds: ['pocket-alba-mackenna-dataset-license'],
+    };
+  }
+  if (label === 'estelle') {
+    return {
+      rightsFamily: 'unmute-estelle',
+      listingPolicy: 'catalog-only-runtime-candidate',
+      runtimeExclusionReason: 'assets-not-release-pinned',
+      licenseIds: ['pocket-unmute-prod-dataset-license'],
+    };
+  }
+  if (pocketVctkLabels.has(label)) {
+    return {
+      rightsFamily: 'vctk',
+      listingPolicy: 'catalog-only-runtime-candidate',
+      runtimeExclusionReason: 'assets-not-release-pinned',
+      licenseIds: ['pocket-vctk-dataset-license'],
+    };
+  }
+  if (pocketVoiceZeroLabels.has(label)) {
+    return {
+      rightsFamily: 'voice-zero',
+      listingPolicy: 'catalog-only-runtime-candidate',
+      runtimeExclusionReason: 'assets-not-release-pinned',
+      licenseIds: ['pocket-voice-zero-dataset-license'],
+    };
+  }
+  if (pocketDonationLabels.has(label)) {
+    return {
+      rightsFamily: 'voice-donation',
+      listingPolicy: 'catalog-only-runtime-candidate',
+      runtimeExclusionReason: 'assets-not-release-pinned',
+      licenseIds: ['pocket-donations-dataset-license'],
+    };
+  }
+  if (label === 'cosette') {
+    return {
+      rightsFamily: 'expresso',
+      listingPolicy: 'link-only-noncommercial',
+      runtimeExclusionReason: 'noncommercial-source-terms',
+      licenseIds: ['pocket-expresso-dataset-license'],
+    };
+  }
+  if (label === 'jean') {
+    return {
+      rightsFamily: 'ears',
+      listingPolicy: 'link-only-noncommercial',
+      runtimeExclusionReason: 'noncommercial-source-terms',
+      licenseIds: ['pocket-ears-dataset-license'],
+    };
+  }
+  if (pocketProvenancePendingLabels.has(label)) {
+    return {
+      rightsFamily: 'repository-level-unclear',
+      listingPolicy: 'link-only-provenance-pending',
+      runtimeExclusionReason: 'per-clip-provenance-unresolved',
+      licenseIds: ['pocket-unresolved-per-clip-provenance'],
+    };
+  }
+  throw new Error(`Missing Pocket rights fixture for ${label}`);
+}
+
+const pocketVariants = pocketSelectors.flatMap(([selectorId, languageTag]) =>
+  pocketLabels.map((label) => ({
+    id: `pocket:${selectorId}.${label}`,
+    engineId: 'pocket',
+    upstreamId: `${selectorId}.${label}`,
+    selectorId,
+    label,
+    upstreamPath: `languages/${selectorId}/embeddings/${label}.safetensors`,
+    languageTag,
+    countryCode: null,
+    gender: 'unspecified',
+    ...pocketRightsFor(label),
+    sourceIds: ['pocket-code-source', 'pocket-weights-source', 'pocket-voice-source'],
+    officialDemoId: 'pocket-official-live-demo',
+  })),
+);
+
+const pocketVariant = pocketVariants.find(
+  ({ selectorId, label }) => selectorId === 'german_24l' && label === 'alba',
+)!;
+
+const pocketOfficialLiveDemo = {
+  id: 'pocket-official-live-demo',
+  engineId: 'pocket',
+  pageUrl: 'https://kyutai.org/tts',
+  sourceIds: ['pocket-official-live-demo-source'],
+  outputClipStatus: 'no-stable-official-generated-output-found',
+  audioPublished: false,
+  offlineAvailable: false,
+  rightsBasis:
+    'External live-generation page only; no conditioning audio or output is copied, proxied, cached, or redistributed.',
+  reviewedAt: '2026-07-16T00:00:00.000Z',
+};
+
+const pocketCoverageManifest = {
+  id: 'pocket-multilingual-coverage',
+  engineId: 'pocket',
+  revisionPins: {
+    stableCode: '058886528d0b6f2f2d4022de2e244a5260729e6e',
+    currentCodeAudit: 'd108410d23eef7e01db282f9442891162dbc3db6',
+    fullModel: '4c8ad48f8a003909bc4f1122cbe88a4252124621',
+    noCloningModel: 'e041936c75475d350b405bc870bcf7c22da4e9e6',
+    voiceRepository: '323332d33f997de8394f24a193e1a76df720e01a',
+    historicalPromptSnapshot: '64ab7d24c479d736a83b8cc666c4a776fca30fda',
+  },
+  inventorySha256: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  selectorCount: 12,
+  labelCount: 26,
+  totalEmbeddings: 312,
+  languageCounts: { en: 78, fr: 26, de: 52, it: 52, pt: 52, es: 52 },
+  rightsCounts: {
+    catalogOnlyRuntimeCandidate: 240,
+    linkOnlyNonCommercial: 24,
+    linkOnlyProvenancePending: 48,
+  },
+  publishedOutputClipCount: 0,
+  auditSourceIds: [
+    'pocket-code-source',
+    'pocket-current-code-audit-source',
+    'pocket-full-model-source',
+    'pocket-weights-source',
+    'pocket-voice-source',
+    'pocket-historical-prompt-source',
+    'pocket-multilingual-announcement-source',
+    'pocket-official-live-demo-source',
+  ],
+  variants: pocketVariants,
+  officialDemo: pocketOfficialLiveDemo,
+};
+
+describe('Pocket multilingual coverage contracts', () => {
+  it('exports the exact closed selector, rights-family, and listing-policy domains', () => {
+    expect(api.POCKET_SELECTOR_IDS).toEqual(pocketSelectors.map(([selectorId]) => selectorId));
+    expect(api.POCKET_RIGHTS_FAMILIES).toEqual([
+      'alba-mackenna',
+      'unmute-estelle',
+      'vctk',
+      'voice-zero',
+      'voice-donation',
+      'expresso',
+      'ears',
+      'repository-level-unclear',
+    ]);
+    expect(api.POCKET_LISTING_POLICIES).toEqual([
+      'catalog-only-runtime-candidate',
+      'link-only-noncommercial',
+      'link-only-provenance-pending',
+    ]);
+  });
+
+  it('accepts a closed catalog-only variant with exact derived identity and evidence', () => {
+    expect(schema('PocketPresetVariantSchema').safeParse(pocketVariant).success).toBe(true);
+  });
+
+  it.each([
+    ['ID', { id: 'pocket:german.alba' }],
+    ['upstream ID', { upstreamId: 'german.alba' }],
+    ['selector', { selectorId: 'german' }],
+    ['label', { label: 'estelle' }],
+    ['upstream path', { upstreamPath: 'languages/german/embeddings/alba.safetensors' }],
+    ['engine', { engineId: 'supertonic' }],
+    ['language domain', { languageTag: 'bg' }],
+    ['selector language', { languageTag: 'fr' }],
+    ['country inference', { countryCode: 'DE' }],
+    ['gender inference', { gender: 'female' }],
+    ['license evidence', { licenseIds: [] }],
+    ['source evidence', { sourceIds: [] }],
+    [
+      'duplicate license evidence',
+      {
+        licenseIds: [
+          'pocket-alba-mackenna-dataset-license',
+          'pocket-alba-mackenna-dataset-license',
+        ],
+      },
+    ],
+    ['duplicate source evidence', { sourceIds: ['pocket-code-source', 'pocket-code-source'] }],
+    ['official-demo join', { officialDemoId: 'another-demo' }],
+    ['policy/reason pair', { runtimeExclusionReason: 'noncommercial-source-terms' }],
+  ])('rejects a mismatched or unsupported %s', (_label, mutation) => {
+    expect(
+      schema('PocketPresetVariantSchema').safeParse({ ...pocketVariant, ...mutation }).success,
+    ).toBe(false);
+  });
+
+  it('accepts only the exact exclusion reason paired with each listing policy', () => {
+    const variantSchema = schema('PocketPresetVariantSchema');
+    const cosette = pocketVariants.find(
+      ({ selectorId, label }) => selectorId === 'french_24l' && label === 'cosette',
+    )!;
+    const giovanni = pocketVariants.find(
+      ({ selectorId, label }) => selectorId === 'italian' && label === 'giovanni',
+    )!;
+
+    expect(variantSchema.safeParse(cosette).success).toBe(true);
+    expect(variantSchema.safeParse(giovanni).success).toBe(true);
+    expect(
+      variantSchema.safeParse({
+        ...cosette,
+        runtimeExclusionReason: 'per-clip-provenance-unresolved',
+      }).success,
+    ).toBe(false);
+    expect(
+      variantSchema.safeParse({
+        ...giovanni,
+        runtimeExclusionReason: 'assets-not-release-pinned',
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ['runtime mode', { runtimeModes: ['companion'] }],
+    ['asset ID', { assetSetId: 'pocket-companion-pack' }],
+    ['asset bytes', { bytes: 123 }],
+    ['audio URL', { audioUrl: 'https://example.com/output.wav' }],
+    ['transcript', { transcript: 'Not a generated sample.' }],
+    ['reference audio', { referenceAudio: 'prompt.wav' }],
+    ['cloning', { cloneFrom: 'speaker.wav' }],
+    ['upload', { upload: 'speaker.wav' }],
+    ['arbitrary URL', { modelUrl: 'https://example.com/model.safetensors' }],
+    ['filesystem path', { modelPath: 'C:\\models\\pocket.safetensors' }],
+    ['command', { commandLine: 'run pocket' }],
+    ['inference', { inferenceEnabled: true }],
+    ['unknown field', { unexpected: true }],
+  ])('rejects forbidden %s fields from catalog-only variants', (_label, extra) => {
+    expect(
+      schema('PocketPresetVariantSchema').safeParse({ ...pocketVariant, ...extra }).success,
+    ).toBe(false);
+  });
+
+  it('accepts the exact external live-demo record without claiming published audio or offline use', () => {
+    expect(schema('PocketOfficialLiveDemoSchema').safeParse(pocketOfficialLiveDemo).success).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['changed ID', { id: 'another-demo' }],
+    ['changed engine', { engineId: 'supertonic' }],
+    ['changed page', { pageUrl: 'https://example.com/tts' }],
+    ['published audio', { audioPublished: true }],
+    ['offline use', { offlineAvailable: true }],
+    ['audio URL', { audioUrl: 'https://example.com/output.wav' }],
+    ['transcript', { transcript: 'Generated speech.' }],
+    ['audio hash', { audioSha256: `sha256:${'a'.repeat(64)}` }],
+    ['non-HTTP page', { pageUrl: 'file:///tmp/demo.html' }],
+    ['missing source evidence', { sourceIds: [] }],
+    ['changed source evidence', { sourceIds: ['another-source'] }],
+    ['changed rights basis', { rightsBasis: 'No audio is included.' }],
+    ['invalid reviewed timestamp', { reviewedAt: '2026-07-16' }],
+    ['unknown field', { unexpected: true }],
+  ])('rejects live-demo %s', (_label, mutation) => {
+    expect(
+      schema('PocketOfficialLiveDemoSchema').safeParse({
+        ...pocketOfficialLiveDemo,
+        ...mutation,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts the exact 312-variant manifest closure and one official demo', () => {
+    expect(schema('PocketCoverageManifestSchema').safeParse(pocketCoverageManifest).success).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ['stable code', { stableCode: 'a'.repeat(40) }],
+    ['current code audit', { currentCodeAudit: 'a'.repeat(40) }],
+    ['full model', { fullModel: 'a'.repeat(40) }],
+    ['no-cloning model', { noCloningModel: 'a'.repeat(40) }],
+    ['voice repository', { voiceRepository: 'a'.repeat(40) }],
+    ['historical prompt snapshot', { historicalPromptSnapshot: 'a'.repeat(40) }],
+  ])('rejects a changed %s pin', (_label, mutation) => {
+    expect(
+      schema('PocketCoverageManifestSchema').safeParse({
+        ...pocketCoverageManifest,
+        revisionPins: { ...pocketCoverageManifest.revisionPins, ...mutation },
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    ['coverage ID', { id: 'another-coverage' }],
+    ['coverage engine', { engineId: 'supertonic' }],
+    ['selector count', { selectorCount: 11 }],
+    ['label count', { labelCount: 25 }],
+    ['embedding count', { totalEmbeddings: 311 }],
+    ['language count', { languageCounts: { ...pocketCoverageManifest.languageCounts, en: 77 } }],
+    [
+      'rights count',
+      {
+        rightsCounts: {
+          ...pocketCoverageManifest.rightsCounts,
+          catalogOnlyRuntimeCandidate: 239,
+        },
+      },
+    ],
+    ['published output count', { publishedOutputClipCount: 1 }],
+  ])('rejects a changed %s', (_label, mutation) => {
+    expect(
+      schema('PocketCoverageManifestSchema').safeParse({
+        ...pocketCoverageManifest,
+        ...mutation,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects malformed inventory hashes and changed or reordered audit evidence', () => {
+    const manifestSchema = schema('PocketCoverageManifestSchema');
+
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        inventorySha256: `sha256:${'A'.repeat(64)}`,
+      }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        auditSourceIds: [...pocketCoverageManifest.auditSourceIds].reverse(),
+      }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        auditSourceIds: pocketCoverageManifest.auditSourceIds.slice(1),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects missing variants and duplicate stable IDs or upstream paths', () => {
+    const manifestSchema = schema('PocketCoverageManifestSchema');
+    const duplicateVariant = pocketVariants.map((variant, index) =>
+      index === 1 ? { ...pocketVariants[0]! } : variant,
+    );
+
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        variants: pocketVariants.slice(0, -1),
+      }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({ ...pocketCoverageManifest, variants: duplicateVariant }).success,
+    ).toBe(false);
+  });
+
+  it('rejects variant records whose actual language or rights totals contradict the closure', () => {
+    const manifestSchema = schema('PocketCoverageManifestSchema');
+    const wrongLanguage = pocketVariants.map((variant, index) =>
+      index === 0 ? { ...variant, languageTag: 'de' } : variant,
+    );
+    const wrongRights = pocketVariants.map((variant, index) =>
+      index === 0
+        ? {
+            ...variant,
+            rightsFamily: 'expresso',
+            listingPolicy: 'link-only-noncommercial',
+            runtimeExclusionReason: 'noncommercial-source-terms',
+          }
+        : variant,
+    );
+
+    expect(
+      manifestSchema.safeParse({ ...pocketCoverageManifest, variants: wrongLanguage }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({ ...pocketCoverageManifest, variants: wrongRights }).success,
+    ).toBe(false);
+  });
+
+  it('rejects unknown manifest fields and unknown nested fields', () => {
+    const manifestSchema = schema('PocketCoverageManifestSchema');
+
+    expect(
+      manifestSchema.safeParse({ ...pocketCoverageManifest, runtimeModes: ['companion'] }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        revisionPins: { ...pocketCoverageManifest.revisionPins, branch: 'main' },
+      }).success,
+    ).toBe(false);
+    expect(
+      manifestSchema.safeParse({
+        ...pocketCoverageManifest,
+        languageCounts: { ...pocketCoverageManifest.languageCounts, bg: 0 },
+      }).success,
+    ).toBe(false);
+  });
+});

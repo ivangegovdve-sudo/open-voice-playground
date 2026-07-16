@@ -201,6 +201,293 @@ export const VoicePresetSchema = z
     }
   });
 
+export const POCKET_SELECTOR_IDS = [
+  'english',
+  'english_2026-01',
+  'english_2026-04',
+  'french_24l',
+  'german',
+  'german_24l',
+  'italian',
+  'italian_24l',
+  'portuguese',
+  'portuguese_24l',
+  'spanish',
+  'spanish_24l',
+] as const;
+
+export const POCKET_RIGHTS_FAMILIES = [
+  'alba-mackenna',
+  'unmute-estelle',
+  'vctk',
+  'voice-zero',
+  'voice-donation',
+  'expresso',
+  'ears',
+  'repository-level-unclear',
+] as const;
+
+export const POCKET_LISTING_POLICIES = [
+  'catalog-only-runtime-candidate',
+  'link-only-noncommercial',
+  'link-only-provenance-pending',
+] as const;
+
+const PocketSelectorIdSchema = z.enum(POCKET_SELECTOR_IDS);
+const PocketRightsFamilySchema = z.enum(POCKET_RIGHTS_FAMILIES);
+const PocketListingPolicySchema = z.enum(POCKET_LISTING_POLICIES);
+const PocketLanguageTagSchema = z.enum(['en', 'fr', 'de', 'it', 'pt', 'es']);
+const PocketRuntimeExclusionReasonSchema = z.enum([
+  'assets-not-release-pinned',
+  'noncommercial-source-terms',
+  'per-clip-provenance-unresolved',
+]);
+
+const pocketSelectorLanguages = {
+  english: 'en',
+  'english_2026-01': 'en',
+  'english_2026-04': 'en',
+  french_24l: 'fr',
+  german: 'de',
+  german_24l: 'de',
+  italian: 'it',
+  italian_24l: 'it',
+  portuguese: 'pt',
+  portuguese_24l: 'pt',
+  spanish: 'es',
+  spanish_24l: 'es',
+} as const;
+
+const pocketPolicyReasons = {
+  'catalog-only-runtime-candidate': 'assets-not-release-pinned',
+  'link-only-noncommercial': 'noncommercial-source-terms',
+  'link-only-provenance-pending': 'per-clip-provenance-unresolved',
+} as const;
+
+export const PocketPresetVariantSchema = z
+  .object({
+    id: StableIdSchema,
+    engineId: z.literal('pocket'),
+    upstreamId: UpstreamIdSchema,
+    selectorId: PocketSelectorIdSchema,
+    label: UpstreamIdSchema,
+    upstreamPath: z.string().min(1),
+    languageTag: PocketLanguageTagSchema,
+    countryCode: z.null(),
+    gender: z.literal('unspecified'),
+    rightsFamily: PocketRightsFamilySchema,
+    listingPolicy: PocketListingPolicySchema,
+    runtimeExclusionReason: PocketRuntimeExclusionReasonSchema,
+    licenseIds: RecordIdsSchema,
+    sourceIds: RecordIdsSchema,
+    officialDemoId: z.literal('pocket-official-live-demo'),
+  })
+  .strict()
+  .superRefine((variant, context) => {
+    const expectedUpstreamId = `${variant.selectorId}.${variant.label}`;
+    if (variant.id !== `pocket:${expectedUpstreamId}`) {
+      context.addIssue({
+        code: 'custom',
+        path: ['id'],
+        message: 'Pocket variant ID must be derived from its selector and label',
+      });
+    }
+    if (variant.upstreamId !== expectedUpstreamId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['upstreamId'],
+        message: 'Pocket upstream ID must be derived from its selector and label',
+      });
+    }
+    if (
+      variant.upstreamPath !==
+      `languages/${variant.selectorId}/embeddings/${variant.label}.safetensors`
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['upstreamPath'],
+        message: 'Pocket upstream path must be derived from its selector and label',
+      });
+    }
+    if (variant.languageTag !== pocketSelectorLanguages[variant.selectorId]) {
+      context.addIssue({
+        code: 'custom',
+        path: ['languageTag'],
+        message: 'Pocket language tag must match its selector',
+      });
+    }
+    if (variant.runtimeExclusionReason !== pocketPolicyReasons[variant.listingPolicy]) {
+      context.addIssue({
+        code: 'custom',
+        path: ['runtimeExclusionReason'],
+        message: 'Pocket listing policy must use its exact runtime exclusion reason',
+      });
+    }
+  });
+
+const POCKET_OFFICIAL_LIVE_DEMO_RIGHTS_BASIS =
+  'External live-generation page only; no conditioning audio or output is copied, proxied, cached, or redistributed.';
+
+export const PocketOfficialLiveDemoSchema = z
+  .object({
+    id: z.literal('pocket-official-live-demo'),
+    engineId: z.literal('pocket'),
+    pageUrl: z.literal('https://kyutai.org/tts'),
+    sourceIds: z.tuple([z.literal('pocket-official-live-demo-source')]),
+    outputClipStatus: z.literal('no-stable-official-generated-output-found'),
+    audioPublished: z.literal(false),
+    offlineAvailable: z.literal(false),
+    rightsBasis: z.literal(POCKET_OFFICIAL_LIVE_DEMO_RIGHTS_BASIS),
+    reviewedAt: IsoDateTimeSchema,
+  })
+  .strict();
+
+const PocketRevisionPinsSchema = z
+  .object({
+    stableCode: z.literal('058886528d0b6f2f2d4022de2e244a5260729e6e'),
+    currentCodeAudit: z.literal('d108410d23eef7e01db282f9442891162dbc3db6'),
+    fullModel: z.literal('4c8ad48f8a003909bc4f1122cbe88a4252124621'),
+    noCloningModel: z.literal('e041936c75475d350b405bc870bcf7c22da4e9e6'),
+    voiceRepository: z.literal('323332d33f997de8394f24a193e1a76df720e01a'),
+    historicalPromptSnapshot: z.literal('64ab7d24c479d736a83b8cc666c4a776fca30fda'),
+  })
+  .strict();
+
+const PocketLanguageCountsSchema = z
+  .object({
+    en: z.literal(78),
+    fr: z.literal(26),
+    de: z.literal(52),
+    it: z.literal(52),
+    pt: z.literal(52),
+    es: z.literal(52),
+  })
+  .strict();
+
+const PocketRightsCountsSchema = z
+  .object({
+    catalogOnlyRuntimeCandidate: z.literal(240),
+    linkOnlyNonCommercial: z.literal(24),
+    linkOnlyProvenancePending: z.literal(48),
+  })
+  .strict();
+
+const PocketAuditSourceIdsSchema = z.tuple([
+  z.literal('pocket-code-source'),
+  z.literal('pocket-current-code-audit-source'),
+  z.literal('pocket-full-model-source'),
+  z.literal('pocket-weights-source'),
+  z.literal('pocket-voice-source'),
+  z.literal('pocket-historical-prompt-source'),
+  z.literal('pocket-multilingual-announcement-source'),
+  z.literal('pocket-official-live-demo-source'),
+]);
+
+const POCKET_LANGUAGE_COUNTS = {
+  en: 78,
+  fr: 26,
+  de: 52,
+  it: 52,
+  pt: 52,
+  es: 52,
+} as const;
+
+const POCKET_RIGHTS_COUNTS = {
+  'catalog-only-runtime-candidate': 240,
+  'link-only-noncommercial': 24,
+  'link-only-provenance-pending': 48,
+} as const;
+
+export const PocketCoverageManifestSchema = z
+  .object({
+    id: z.literal('pocket-multilingual-coverage'),
+    engineId: z.literal('pocket'),
+    revisionPins: PocketRevisionPinsSchema,
+    inventorySha256: Sha256Schema,
+    selectorCount: z.literal(12),
+    labelCount: z.literal(26),
+    totalEmbeddings: z.literal(312),
+    languageCounts: PocketLanguageCountsSchema,
+    rightsCounts: PocketRightsCountsSchema,
+    publishedOutputClipCount: z.literal(0),
+    auditSourceIds: PocketAuditSourceIdsSchema,
+    variants: z.array(PocketPresetVariantSchema).length(312),
+    officialDemo: PocketOfficialLiveDemoSchema,
+  })
+  .strict()
+  .superRefine((manifest, context) => {
+    const variantIds = manifest.variants.map(({ id }) => id);
+    if (!hasUniqueValues(variantIds)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message: 'Pocket variant IDs must be unique',
+      });
+    }
+
+    const upstreamPaths = manifest.variants.map(({ upstreamPath }) => upstreamPath);
+    if (!hasUniqueValues(upstreamPaths)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message: 'Pocket variant upstream paths must be unique',
+      });
+    }
+
+    const selectorIds = new Set(manifest.variants.map(({ selectorId }) => selectorId));
+    const labels = new Set(manifest.variants.map(({ label }) => label));
+    if (selectorIds.size !== manifest.selectorCount || labels.size !== manifest.labelCount) {
+      context.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message: 'Pocket variants must close over exactly 12 selectors and 26 labels',
+      });
+    }
+
+    const languageCounts = Object.fromEntries(
+      Object.keys(POCKET_LANGUAGE_COUNTS).map((languageTag) => [languageTag, 0]),
+    ) as Record<keyof typeof POCKET_LANGUAGE_COUNTS, number>;
+    const rightsCounts = Object.fromEntries(
+      Object.keys(POCKET_RIGHTS_COUNTS).map((listingPolicy) => [listingPolicy, 0]),
+    ) as Record<keyof typeof POCKET_RIGHTS_COUNTS, number>;
+    for (const variant of manifest.variants) {
+      languageCounts[variant.languageTag] += 1;
+      rightsCounts[variant.listingPolicy] += 1;
+      if (variant.officialDemoId !== manifest.officialDemo.id) {
+        context.addIssue({
+          code: 'custom',
+          path: ['variants'],
+          message: 'Pocket variants must join the exact official live demo',
+        });
+      }
+    }
+
+    if (
+      Object.entries(POCKET_LANGUAGE_COUNTS).some(
+        ([languageTag, expected]) =>
+          languageCounts[languageTag as keyof typeof POCKET_LANGUAGE_COUNTS] !== expected,
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message: 'Pocket variant language totals must match the exact coverage closure',
+      });
+    }
+    if (
+      Object.entries(POCKET_RIGHTS_COUNTS).some(
+        ([listingPolicy, expected]) =>
+          rightsCounts[listingPolicy as keyof typeof POCKET_RIGHTS_COUNTS] !== expected,
+      )
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['variants'],
+        message: 'Pocket variant rights totals must match the exact coverage closure',
+      });
+    }
+  });
+
 export const RELEASE_GATE_REASONS = [
   'terms-not-cleared',
   'asset-unavailable',
@@ -1285,6 +1572,9 @@ export type RuntimeMode = z.infer<typeof RuntimeModeSchema>;
 export type Gender = z.infer<typeof GenderSchema>;
 export type EngineManifest = z.infer<typeof EngineManifestSchema>;
 export type VoicePreset = z.infer<typeof VoicePresetSchema>;
+export type PocketPresetVariant = z.infer<typeof PocketPresetVariantSchema>;
+export type PocketOfficialLiveDemo = z.infer<typeof PocketOfficialLiveDemoSchema>;
+export type PocketCoverageManifest = z.infer<typeof PocketCoverageManifestSchema>;
 export type SampleManifest = z.infer<typeof SampleManifestSchema>;
 export type LicenseRecord = z.infer<typeof LicenseRecordSchema>;
 export type SourceRecord = z.infer<typeof SourceRecordSchema>;
