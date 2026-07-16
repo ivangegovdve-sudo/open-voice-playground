@@ -1,4 +1,5 @@
 import { assertProtocolNamePolicy } from './protocol-name-policy.mjs';
+import { buildHttpContract } from './http-contract.mjs';
 
 const supportedSchemaKeywords = new Set([
   '$ref',
@@ -469,7 +470,7 @@ function collectRoutes(document) {
   for (const [path, item] of sortedEntries(document.paths)) {
     if (!isPlainObject(item)) fail(`path ${path} is invalid.`);
     for (const [method, operation] of sortedEntries(item)) {
-      if (!methods.has(method)) continue;
+      if (!methods.has(method) || method === 'options') continue;
       if (!isPlainObject(operation) || typeof operation.operationId !== 'string') {
         fail(`${method.toUpperCase()} ${path} has no operationId.`);
       }
@@ -837,6 +838,7 @@ export function generateProtocol(document) {
     validateSchema(schema, `components.schemas.${name}`, schemas);
   }
   assertAcyclicReferences(schemas);
+  const httpContract = buildHttpContract(document);
   const routes = collectRoutes(document);
   const server = document.servers?.[0]?.url;
   const version = document.info?.version;
@@ -858,6 +860,7 @@ export function generateProtocol(document) {
     `export const COMPANION_API_ORIGIN = ${JSON.stringify(server)} as const;`,
     `export const CLIENT_VERSION = ${JSON.stringify(version)} as const;`,
     `export const PROTOCOL_MAJOR = ${JSON.stringify(protocolMajor)} as const;`,
+    `export const HTTP_CONTRACT = ${JSON.stringify(httpContract, null, 2)} as const;`,
     `export const ROUTES = ${JSON.stringify(routes, null, 2)} as const;`,
     '',
     'declare const protocolBrand: unique symbol;',

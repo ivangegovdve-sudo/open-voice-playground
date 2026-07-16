@@ -486,6 +486,597 @@ export type SyntheticTypeContract = readonly [
     expect(() => generator.generateProtocol(document)).toThrow(/forbidden.*name/iu);
   });
 
+  it('permits only the exact standard preflight parameter components in OPTIONS operations', async () => {
+    const document = await sourceDocument();
+    expect(() => generator.generateProtocol(document)).not.toThrow();
+
+    const wrongComponent = await sourceDocument();
+    const components = wrongComponent.components as unknown as {
+      parameters: Record<string, unknown>;
+    };
+    components.parameters.OtherMethod = {
+      name: 'Access-Control-Request-Method',
+      in: 'header',
+      required: true,
+      schema: { type: 'string', enum: ['GET', 'OPTIONS'] },
+    };
+    const options = wrongComponent.paths['/v1/health']!.options as Record<string, unknown>;
+    options.parameters = [
+      ...(options.parameters as unknown[]),
+      { $ref: '#/components/parameters/OtherMethod' },
+    ];
+    expect(() => generator.generateProtocol(wrongComponent)).toThrow(/forbidden.*name/iu);
+
+    const concreteUse = await sourceDocument();
+    const get = concreteUse.paths['/v1/health']!.get as Record<string, unknown>;
+    get.parameters = [
+      ...(get.parameters as unknown[]),
+      { $ref: '#/components/parameters/PreflightGetMethod' },
+    ];
+    expect(() => generator.generateProtocol(concreteUse)).toThrow(/forbidden.*name/iu);
+
+    const hiddenUse = await sourceDocument();
+    hiddenUse['x-non-owned-reference'] = {
+      $ref: '#/components/parameters/PreflightGetMethod',
+    };
+    expect(() => generator.generateProtocol(hiddenUse)).toThrow(/forbidden.*name/iu);
+  });
+
+  it.each([
+    [
+      'added operation',
+      (document: OpenApiDocument) => {
+        document.paths['/v1/health']!.options = {
+          operationId: 'unexpectedOptions',
+          security: [],
+          responses: { '204': { description: 'unexpected' } },
+        };
+      },
+    ],
+    ['removed operation', (document: OpenApiDocument) => delete document.paths['/v1/health']!.get],
+    [
+      'added path operation',
+      (document: OpenApiDocument) => {
+        document.paths['/v1/unexpected'] = {
+          get: {
+            operationId: 'unexpectedRoute',
+            security: [],
+            parameters: [],
+            responses: {},
+          },
+        };
+      },
+    ],
+    [
+      'removed OPTIONS operation',
+      (document: OpenApiDocument) => delete document.paths['/v1/health']!.options,
+    ],
+    [
+      'semantic preflight method-component swap',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          parameters: Record<string, unknown>;
+        };
+        [components.parameters.PreflightGetMethod, components.parameters.PreflightPostMethod] = [
+          components.parameters.PreflightPostMethod,
+          components.parameters.PreflightGetMethod,
+        ];
+        for (const pathItem of Object.values(document.paths)) {
+          const options = pathItem.options as Record<string, unknown>;
+          options.parameters = (options.parameters as { $ref: string }[]).map((parameter) => ({
+            $ref:
+              parameter.$ref === '#/components/parameters/PreflightGetMethod'
+                ? '#/components/parameters/PreflightPostMethod'
+                : parameter.$ref === '#/components/parameters/PreflightPostMethod'
+                  ? '#/components/parameters/PreflightGetMethod'
+                  : parameter.$ref,
+          }));
+        }
+      },
+    ],
+    [
+      'added response status',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['299'] = { description: 'unexpected' };
+      },
+    ],
+    [
+      'removed response status',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        delete (operation.responses as Record<string, unknown>)['200'];
+      },
+    ],
+    [
+      'added response header',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, Record<string, unknown>>;
+          }
+        ).responses.HealthOkResponse!;
+        (response.headers as Record<string, unknown>)['X-Extra'] = {
+          required: true,
+          schema: { type: 'string', const: 'extra' },
+        };
+      },
+    ],
+    [
+      'removed response header',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, Record<string, unknown>>;
+          }
+        ).responses.HealthOkResponse!;
+        delete (response.headers as Record<string, unknown>)['Cache-Control'];
+      },
+    ],
+    [
+      'added request header',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        operation.parameters = [
+          ...(operation.parameters as unknown[]),
+          {
+            name: 'X-Extra',
+            in: 'header',
+            required: true,
+            schema: { type: 'string', minLength: 1, maxLength: 8 },
+          },
+        ];
+      },
+    ],
+    [
+      'removed request header',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        operation.parameters = (operation.parameters as { $ref: string }[]).filter(
+          (parameter) => !parameter.$ref.endsWith('/ClientVersion'),
+        );
+      },
+    ],
+    [
+      'changed access security',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/pairings/current']!.get as Record<string, unknown>;
+        operation.security = [];
+      },
+    ],
+    [
+      'changed access scope',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          accessByOperation: Record<string, { scope: string | null }>;
+        };
+        policy.accessByOperation.getJob!.scope = 'jobs:cancel';
+      },
+    ],
+    [
+      'changed access ownership',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          accessByOperation: Record<string, { ownership: string }>;
+        };
+        policy.accessByOperation.getJob!.ownership = 'none';
+      },
+    ],
+    [
+      'extra access entry',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          accessByOperation: Record<string, unknown>;
+        };
+        policy.accessByOperation.extra = { auth: 'origin-only', scope: null, ownership: 'none' };
+      },
+    ],
+    [
+      'missing access entry',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          accessByOperation: Record<string, unknown>;
+        };
+        delete policy.accessByOperation.getHealth;
+      },
+    ],
+    [
+      'changed request body schema',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/jobs']!.post as Record<string, unknown>;
+        const body = operation.requestBody as {
+          content: Record<string, { schema: Record<string, unknown> }>;
+        };
+        body.content['application/json']!.schema.$ref = '#/components/schemas/PairingResponse';
+      },
+    ],
+    [
+      'changed request body media type',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/jobs']!.post as Record<string, unknown>;
+        const body = operation.requestBody as { content: Record<string, unknown> };
+        body.content['application/problem+json'] = body.content['application/json'];
+        delete body.content['application/json'];
+      },
+    ],
+    [
+      'changed response body media type',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, { content: Record<string, unknown> }>;
+          }
+        ).responses.HealthOkResponse!;
+        response.content['application/problem+json'] = response.content['application/json'];
+        delete response.content['application/json'];
+      },
+    ],
+    [
+      'changed route Allow value',
+      (document: OpenApiDocument) => {
+        const header = (
+          document.components as unknown as {
+            headers: Record<string, { schema: { const: string } }>;
+          }
+        ).headers.AllowGet!;
+        header.schema.const = 'GET, POST, OPTIONS';
+      },
+    ],
+    [
+      'changed response Header condition',
+      (document: OpenApiDocument) => {
+        const header = (
+          document.components as unknown as {
+            headers: Record<string, Record<string, unknown>>;
+          }
+        ).headers.ActualAllowOrigin!;
+        header['x-ovp-condition'] = 'legacy-private-network-requested';
+      },
+    ],
+    [
+      'optional response Header without condition',
+      (document: OpenApiDocument) => {
+        const header = (
+          document.components as unknown as {
+            headers: Record<string, Record<string, unknown>>;
+          }
+        ).headers.ActualAllowOrigin!;
+        delete header['x-ovp-condition'];
+      },
+    ],
+    [
+      'required response Header with condition',
+      (document: OpenApiDocument) => {
+        const header = (
+          document.components as unknown as {
+            headers: Record<string, Record<string, unknown>>;
+          }
+        ).headers.ActualAllowOrigin!;
+        header.required = true;
+      },
+    ],
+    [
+      'misplaced response condition marker',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        operation['x-ovp-condition'] = 'validated-origin';
+      },
+    ],
+    [
+      'reordered policy array',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          preflight: { allowMethods: string[] };
+        };
+        policy.preflight.allowMethods.reverse();
+      },
+    ],
+    [
+      'overlapping problem-code partition',
+      (document: OpenApiDocument) => {
+        const policy = document['x-ovp-http-policy'] as {
+          problemCodes: { http: string[] };
+        };
+        policy.problemCodes.http.push('listener-conflict');
+      },
+    ],
+    [
+      'default response',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>).default = {
+          $ref: '#/components/responses/ProblemResponse',
+        };
+      },
+    ],
+    [
+      'range response',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['4XX'] = {
+          $ref: '#/components/responses/ProblemResponse',
+        };
+      },
+    ],
+    [
+      'duplicate inherited parameter',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/jobs/{id}']!.get as Record<string, unknown>;
+        operation.parameters = [
+          ...(operation.parameters as unknown[]),
+          { $ref: '#/components/parameters/JobId' },
+        ];
+      },
+    ],
+    [
+      'wrong-kind response reference',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['400'] = {
+          $ref: '#/components/headers/CacheControl',
+        };
+      },
+    ],
+    [
+      'response reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          responses: Record<string, unknown>;
+        };
+        components.responses.CycleA = { $ref: '#/components/responses/CycleB' };
+        components.responses.CycleB = { $ref: '#/components/responses/CycleA' };
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['400'] = {
+          $ref: '#/components/responses/CycleA',
+        };
+      },
+    ],
+    [
+      'dangling response reference',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['400'] = {
+          $ref: '#/components/responses/MissingResponse',
+        };
+      },
+    ],
+    [
+      'response reference sibling',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['400'] = {
+          $ref: '#/components/responses/ProblemResponse',
+          description: 'sibling',
+        };
+      },
+    ],
+    [
+      'over-depth response reference',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          responses: Record<string, unknown>;
+        };
+        for (let index = 0; index < 17; index += 1) {
+          components.responses[`Depth${index}`] = {
+            $ref: `#/components/responses/${index === 16 ? 'ProblemResponse' : `Depth${index + 1}`}`,
+          };
+        }
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.responses as Record<string, unknown>)['400'] = {
+          $ref: '#/components/responses/Depth0',
+        };
+      },
+    ],
+    [
+      'wrong-kind Header reference',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, { headers: Record<string, unknown> }>;
+          }
+        ).responses.HealthOkResponse!;
+        response.headers['Cache-Control'] = { $ref: '#/components/parameters/Origin' };
+      },
+    ],
+    [
+      'dangling Header reference',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, { headers: Record<string, unknown> }>;
+          }
+        ).responses.HealthOkResponse!;
+        response.headers['Cache-Control'] = { $ref: '#/components/headers/MissingHeader' };
+      },
+    ],
+    [
+      'Header reference sibling',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<string, { headers: Record<string, unknown> }>;
+          }
+        ).responses.HealthOkResponse!;
+        response.headers['Cache-Control'] = {
+          $ref: '#/components/headers/CacheControl',
+          required: true,
+        };
+      },
+    ],
+    [
+      'Header reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          headers: Record<string, unknown>;
+          responses: Record<string, { headers: Record<string, unknown> }>;
+        };
+        components.headers.CycleHeaderA = { $ref: '#/components/headers/CycleHeaderB' };
+        components.headers.CycleHeaderB = { $ref: '#/components/headers/CycleHeaderA' };
+        components.responses.HealthOkResponse!.headers['Cache-Control'] = {
+          $ref: '#/components/headers/CycleHeaderA',
+        };
+      },
+    ],
+    [
+      'wrong-kind Parameter reference',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.parameters as Record<string, unknown>[])[0] = {
+          $ref: '#/components/headers/CacheControl',
+        };
+      },
+    ],
+    [
+      'dangling Parameter reference',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.parameters as Record<string, unknown>[])[0] = {
+          $ref: '#/components/parameters/MissingParameter',
+        };
+      },
+    ],
+    [
+      'Parameter reference sibling',
+      (document: OpenApiDocument) => {
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.parameters as Record<string, unknown>[])[0] = {
+          $ref: '#/components/parameters/Origin',
+          required: true,
+        };
+      },
+    ],
+    [
+      'Parameter reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          parameters: Record<string, unknown>;
+        };
+        components.parameters.CycleParameterA = {
+          $ref: '#/components/parameters/CycleParameterB',
+        };
+        components.parameters.CycleParameterB = {
+          $ref: '#/components/parameters/CycleParameterA',
+        };
+        const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+        (operation.parameters as Record<string, unknown>[])[0] = {
+          $ref: '#/components/parameters/CycleParameterA',
+        };
+      },
+    ],
+    [
+      'wrong-kind response schema reference',
+      (document: OpenApiDocument) => {
+        const response = (
+          document.components as unknown as {
+            responses: Record<
+              string,
+              { content: Record<string, { schema: Record<string, unknown> }> }
+            >;
+          }
+        ).responses.HealthOkResponse!;
+        response.content['application/json']!.schema.$ref = '#/components/parameters/Origin';
+      },
+    ],
+    [
+      'unused Header with invalid condition',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          headers: Record<string, unknown>;
+        };
+        components.headers.UnusedInvalidCondition = {
+          required: false,
+          'x-ovp-condition': 'bogus',
+          schema: { type: 'string', const: 'unused' },
+        };
+      },
+    ],
+    [
+      'unused Header reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          headers: Record<string, unknown>;
+        };
+        components.headers.UnusedHeaderA = { $ref: '#/components/headers/UnusedHeaderB' };
+        components.headers.UnusedHeaderB = { $ref: '#/components/headers/UnusedHeaderA' };
+      },
+    ],
+    [
+      'unused Parameter reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          parameters: Record<string, unknown>;
+        };
+        components.parameters.UnusedParameterA = {
+          $ref: '#/components/parameters/UnusedParameterB',
+        };
+        components.parameters.UnusedParameterB = {
+          $ref: '#/components/parameters/UnusedParameterA',
+        };
+      },
+    ],
+    [
+      'unused response reference cycle',
+      (document: OpenApiDocument) => {
+        const components = document.components as unknown as {
+          responses: Record<string, unknown>;
+        };
+        components.responses.UnusedResponseA = {
+          $ref: '#/components/responses/UnusedResponseB',
+        };
+        components.responses.UnusedResponseB = {
+          $ref: '#/components/responses/UnusedResponseA',
+        };
+      },
+    ],
+  ])('rejects an HTTP contract with a %s', async (_name, mutate) => {
+    const document = await sourceDocument();
+    mutate(document);
+    expect(() => generator.generateProtocol(document)).toThrow(/HTTP contract/iu);
+  });
+
+  it.each(['Access-Control-Allow-Credentials', 'X-Reference-Audio', 'X-Voice-Control'])(
+    'rejects forbidden response header map wire name %s',
+    async (name) => {
+      const document = await sourceDocument();
+      const response = (
+        document.components as unknown as {
+          responses: Record<string, Record<string, unknown>>;
+        }
+      ).responses.HealthOkResponse!;
+      (response.headers as Record<string, unknown>)[name] = {
+        required: true,
+        schema: { type: 'string', const: 'true' },
+      };
+      expect(() => generator.generateProtocol(document)).toThrow(/forbidden.*name/iu);
+    },
+  );
+
+  it('permits Cache-Control only as the exact standard response-map wire key', async () => {
+    const valid = await sourceDocument();
+    expect(() => generator.generateProtocol(valid)).not.toThrow();
+
+    const nonOwned = await sourceDocument();
+    const operation = nonOwned.paths['/v1/health']!.get as Record<string, unknown>;
+    operation.parameters = [
+      ...(operation.parameters as unknown[]),
+      { name: 'Cache-Control', in: 'query', required: false, schema: { type: 'string' } },
+    ];
+    expect(() => generator.generateProtocol(nonOwned)).toThrow(/forbidden.*name/iu);
+  });
+
+  it.each(['Access-Control-Allow-Origin', 'Access-Control-Expose-Headers', 'Cache-Control'])(
+    'rejects standard response wire name %s in a non-response location',
+    async (name) => {
+      const document = await sourceDocument();
+      const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
+      operation.parameters = [
+        ...(operation.parameters as unknown[]),
+        { name, in: 'query', required: false, schema: { type: 'string' } },
+      ];
+      expect(() => generator.generateProtocol(document)).toThrow(/forbidden.*name/iu);
+    },
+  );
+
   it('rejects unresolvable/non-component references and reference cycles', async () => {
     const externalShape = await sourceDocument();
     externalShape.components.schemas.BadRef = { $ref: '#/components/parameters/Origin' };

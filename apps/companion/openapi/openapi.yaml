@@ -33,6 +33,101 @@ x-forbidden-name-policy:
   forbiddenPhrases:
     - [reference, audio]
     - [output, name]
+x-ovp-http-policy:
+  version: 1
+  allowedOriginSource: compiled-exact-allowlist
+  credentials: prohibited
+  actual:
+    allowOrigin: validated-origin
+    exposeHeaders: [ETag, Location, Retry-After, X-Request-Id]
+    vary: [Origin]
+  preflight:
+    allowMethods: [GET, POST, DELETE, OPTIONS]
+    allowHeaders: [Authorization, Content-Type, X-OVP-Client-Version]
+    maxAgeSeconds: 600
+    requestedHeaderComparison: ascii-case-insensitive-exact-set
+    requiresDeclaredConcreteTarget: true
+    rejectsBody: true
+    rejectsCredentials: true
+    rejectsOptionsTarget: true
+    failureMap:
+      admission-overload: { status: 503, code: queue-full }
+      denied-origin: { status: 403, code: origin-denied }
+      duplicate-preflight-header: { status: 400, code: duplicate-header }
+      header-timeout: { status: 408, code: header-timeout }
+      headers-too-large: { status: 431, code: headers-too-large }
+      invalid-preflight-shape: { status: 400, code: schema-invalid }
+      missing-origin: { status: 400, code: origin-missing }
+      oversize-body: { status: 413, code: body-too-large }
+      request-line-too-large: { status: 414, code: request-line-too-large }
+      unsupported-route-method: { status: 405, code: method-not-allowed }
+    legacyPrivateNetwork:
+      requestHeader: Access-Control-Request-Private-Network
+      requestValue: 'true'
+      responseHeader: Access-Control-Allow-Private-Network
+      responseValue: 'true'
+      varyToken: Access-Control-Request-Private-Network
+      emitIffRequested: true
+  unknownRoute: { status: 404, code: resource-not-found }
+  retryAfter:
+    kind: delay-seconds
+    minimum: 1
+    maximum: 3600
+    httpDateAllowed: false
+    queueFullProblemCode: queue-full
+    queueFullResponseCondition: queue-full-problem
+  problemCodes:
+    http:
+      - host-invalid
+      - origin-missing
+      - origin-denied
+      - version-missing
+      - version-unsupported
+      - auth-missing
+      - auth-invalid
+      - auth-origin-mismatch
+      - scope-denied
+      - rate-limited
+      - request-line-too-large
+      - headers-too-large
+      - body-too-large
+      - body-timeout
+      - header-timeout
+      - schema-invalid
+      - queue-full
+      - ownership-denied
+      - resource-not-found
+      - conflict
+      - handler-timeout
+      - pairing-not-found
+      - pairing-denied
+      - pairing-expired
+      - pairing-consumed
+      - pairing-attempts-exhausted
+      - pack-unverified
+      - runtime-unavailable
+      - method-not-allowed
+      - content-type-unsupported
+      - transfer-encoding-invalid
+      - duplicate-header
+      - text-invalid
+      - action-invalid
+    nonHttp: [listener-conflict]
+  accessByOperation:
+    getHealth: { auth: origin-only, scope: null, ownership: none }
+    createPairingChallenge: { auth: origin-only, scope: null, ownership: none }
+    redeemPairingChallenge: { auth: origin-only, scope: null, ownership: none }
+    getCurrentPairing: { auth: bearer, scope: null, ownership: token-self }
+    revokeCurrentPairing: { auth: bearer, scope: null, ownership: token-self }
+    getRuntime: { auth: bearer, scope: 'runtime:read', ownership: none }
+    listEngines: { auth: bearer, scope: 'runtime:read', ownership: none }
+    listVoices: { auth: bearer, scope: 'runtime:read', ownership: none }
+    listPacks: { auth: bearer, scope: 'runtime:read', ownership: none }
+    createJob: { auth: bearer, scope: 'synthesis:create', ownership: none }
+    getJob: { auth: bearer, scope: 'jobs:read', ownership: job-owner }
+    cancelJob: { auth: bearer, scope: 'jobs:cancel', ownership: job-owner }
+    getJobAudio: { auth: bearer, scope: 'audio:read', ownership: job-owner }
+    requestPackAction: { auth: bearer, scope: 'packs:request', ownership: none }
 servers:
   - url: http://127.0.0.1:17843
 tags:
@@ -46,28 +141,47 @@ paths:
     get:
       operationId: getHealth
       tags: [health]
+      security: []
       parameters:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Minimal listener health.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/HealthResponse' }
+        '200': { $ref: '#/components/responses/HealthOkResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
         '426': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
-        '503': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightHealth
+      tags: [health]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/pairings/challenges:
     post:
       operationId: createPairingChallenge
       tags: [pairing]
+      security: []
       parameters:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
@@ -77,28 +191,47 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/PairingChallengeRequest' }
       responses:
-        '201':
-          description: Pending native approval challenge.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            Location: { $ref: '#/components/headers/Location' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PairingChallengeResponse' }
+        '201': { $ref: '#/components/responses/PairingChallengeCreatedResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
         '409': { $ref: '#/components/responses/ProblemResponse' }
         '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '415': { $ref: '#/components/responses/ProblemResponse' }
         '426': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightPairingChallenges
+      tags: [pairing]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightPostMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/pairings/challenges/{id}/redeem:
     parameters:
       - $ref: '#/components/parameters/ChallengeId'
     post:
       operationId: redeemPairingChallenge
       tags: [pairing]
+      security: []
       parameters:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
@@ -108,26 +241,42 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RedeemRequest' }
       responses:
-        '200':
-          description: One-time bearer delivery.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/RedeemResponse' }
-        '202':
-          description: Native pairing decision is still pending.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/RedeemPendingResponse' }
+        '200': { $ref: '#/components/responses/RedeemOkResponse' }
+        '202': { $ref: '#/components/responses/RedeemPendingResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
         '409': { $ref: '#/components/responses/ProblemResponse' }
         '410': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '415': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightPairingChallengeRedeem
+      tags: [pairing]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightPostMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/pairings/current:
     get:
       operationId: getCurrentPairing
@@ -137,18 +286,20 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Current bearer-owned pairing metadata.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PairingResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/CurrentPairingResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
     delete:
       operationId: revokeCurrentPairing
       tags: [pairing]
@@ -157,14 +308,37 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '204':
-          description: Pairing revoked; no bearer is returned.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '204': { $ref: '#/components/responses/PairingRevokedResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightCurrentPairing
+      tags: [pairing]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetDeleteMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/runtime:
     get:
       operationId: getRuntime
@@ -174,19 +348,38 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Fail-closed runtime state.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            ETag: { $ref: '#/components/headers/ETag' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/RuntimeResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/RuntimeOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightRuntime
+      tags: [catalog]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/engines:
     get:
       operationId: listEngines
@@ -196,18 +389,38 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Catalog-owned engine state.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            ETag: { $ref: '#/components/headers/ETag' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/EngineListResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/EngineListOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightEngines
+      tags: [catalog]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/voices:
     get:
       operationId: listVoices
@@ -217,18 +430,38 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Exact Pocket preset list.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            ETag: { $ref: '#/components/headers/ETag' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/VoiceListResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/VoiceListOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightVoices
+      tags: [catalog]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/packs:
     get:
       operationId: listPacks
@@ -238,18 +471,38 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Pack verification state.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            ETag: { $ref: '#/components/headers/ETag' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PackListResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/PackListOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightPacks
+      tags: [packs]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/jobs:
     post:
       operationId: createJob
@@ -264,23 +517,39 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/JobCreateRequest' }
       responses:
-        '202':
-          description: Bounded queued job.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            Location: { $ref: '#/components/headers/Location' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/JobResponse' }
+        '202': { $ref: '#/components/responses/JobAcceptedResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
-        '409': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
         '413': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
-        '503': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '415': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightJobs
+      tags: [jobs]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightPostMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/jobs/{id}:
     parameters:
       - $ref: '#/components/parameters/JobId'
@@ -292,18 +561,20 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Bearer-owned job metadata.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/JobResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/JobOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
     delete:
       operationId: cancelJob
       tags: [jobs]
@@ -312,18 +583,38 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '202':
-          description: Idempotent cancellation accepted.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/JobResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '202': { $ref: '#/components/responses/JobCancellationAcceptedResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightJob
+      tags: [jobs]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetDeleteMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetDeleteResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/jobs/{id}/audio:
     parameters:
       - $ref: '#/components/parameters/JobId'
@@ -335,21 +626,41 @@ paths:
         - $ref: '#/components/parameters/Origin'
         - $ref: '#/components/parameters/ClientVersion'
       responses:
-        '200':
-          description: Bearer-owned bounded WAV data.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            ETag: { $ref: '#/components/headers/ETag' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            audio/wav:
-              x-maxBodyBytes: 67108864
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '200': { $ref: '#/components/responses/AudioOkResponse' }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
         '409': { $ref: '#/components/responses/ProblemResponse' }
         '410': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightJobAudio
+      tags: [jobs]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightGetMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedGetResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
   /v1/packs/{id}/actions:
     parameters:
       - $ref: '#/components/parameters/PackId'
@@ -366,22 +677,41 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/PackActionRequest' }
       responses:
-        '202':
-          description: Pending native decision only; no action executes synchronously.
-          headers:
-            Cache-Control: { $ref: '#/components/headers/CacheControl' }
-            X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-            Location: { $ref: '#/components/headers/Location' }
-            X-Request-Id: { $ref: '#/components/headers/RequestId' }
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/PackActionResponse' }
+        '202': { $ref: '#/components/responses/PackActionAcceptedResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
-        '401': { $ref: '#/components/responses/ProblemResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
+        '405': { $ref: '#/components/responses/MethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/ProblemResponse' }
         '409': { $ref: '#/components/responses/ProblemResponse' }
-        '429': { $ref: '#/components/responses/ProblemResponse' }
+        '413': { $ref: '#/components/responses/ProblemResponse' }
+        '414': { $ref: '#/components/responses/ProblemResponse' }
+        '415': { $ref: '#/components/responses/ProblemResponse' }
+        '426': { $ref: '#/components/responses/ProblemResponse' }
+        '429': { $ref: '#/components/responses/RateLimitedResponse' }
+        '431': { $ref: '#/components/responses/ProblemResponse' }
+        '503': { $ref: '#/components/responses/ServiceUnavailableResponse' }
+        '504': { $ref: '#/components/responses/ProblemResponse' }
+    options:
+      operationId: preflightPackActions
+      tags: [packs]
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/PreflightPostMethod'
+        - $ref: '#/components/parameters/PreflightHeaders'
+        - $ref: '#/components/parameters/PreflightPrivateNetwork'
+      responses:
+        '204': { $ref: '#/components/responses/PreflightNoContentResponse' }
+        '400': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '403': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '405': { $ref: '#/components/responses/PreflightMethodNotAllowedPostResponse' }
+        '408': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '413': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '414': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '431': { $ref: '#/components/responses/PreflightProblemResponse' }
+        '503': { $ref: '#/components/responses/PreflightOverloadResponse' }
 components:
   securitySchemes:
     bearerAuth:
@@ -414,6 +744,31 @@ components:
       in: path
       required: true
       schema: { $ref: '#/components/schemas/PackId' }
+    PreflightGetMethod:
+      name: Access-Control-Request-Method
+      in: header
+      required: true
+      schema: { type: string, enum: [GET, OPTIONS] }
+    PreflightPostMethod:
+      name: Access-Control-Request-Method
+      in: header
+      required: true
+      schema: { type: string, enum: [POST, OPTIONS] }
+    PreflightGetDeleteMethod:
+      name: Access-Control-Request-Method
+      in: header
+      required: true
+      schema: { type: string, enum: [GET, DELETE, OPTIONS] }
+    PreflightHeaders:
+      name: Access-Control-Request-Headers
+      in: header
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 256 }
+    PreflightPrivateNetwork:
+      name: Access-Control-Request-Private-Network
+      in: header
+      required: false
+      schema: { type: string, const: 'true' }
   headers:
     CacheControl:
       required: true
@@ -430,20 +785,409 @@ components:
     ETag:
       required: true
       schema: { type: string, minLength: 3, maxLength: 128 }
-    RetryAfter:
+    ActualAllowOrigin:
       required: false
+      x-ovp-condition: validated-origin
+      schema: { type: string, minLength: 1, maxLength: 256 }
+    ActualExpose:
+      required: false
+      x-ovp-condition: validated-origin
+      schema: { type: string, const: 'ETag, Location, Retry-After, X-Request-Id' }
+    ActualVary:
+      required: false
+      x-ovp-condition: validated-origin
+      schema: { type: string, const: Origin }
+    PreflightAllowOrigin:
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 256 }
+    PreflightAllowMethods:
+      required: true
+      schema: { type: string, const: 'GET, POST, DELETE, OPTIONS' }
+    PreflightAllowHeaders:
+      required: true
+      schema: { type: string, const: 'Authorization, Content-Type, X-OVP-Client-Version' }
+    PreflightMaxAge:
+      required: true
+      schema: { type: integer, const: 600 }
+    PreflightAllowPrivateNetwork:
+      required: false
+      x-ovp-condition: legacy-private-network-requested
+      schema: { type: string, const: 'true' }
+    PreflightVary:
+      required: true
+      schema:
+        type: string
+        enum:
+          - 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
+          - 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network'
+    FailedPreflightVary:
+      required: true
+      schema:
+        type: string
+        const: 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
+    WWWAuthenticate:
+      required: true
+      schema: { type: string, const: 'Bearer realm="open-voice-companion"' }
+    AllowGet:
+      required: true
+      schema: { type: string, const: 'GET, OPTIONS' }
+    AllowPost:
+      required: true
+      schema: { type: string, const: 'POST, OPTIONS' }
+    AllowGetDelete:
+      required: true
+      schema: { type: string, const: 'GET, DELETE, OPTIONS' }
+    RetryAfter:
+      required: true
+      schema: { type: integer, minimum: 1, maximum: 3600 }
+    ConditionalRetryAfter:
+      required: false
+      x-ovp-condition: queue-full-problem
       schema: { type: integer, minimum: 1, maximum: 3600 }
   responses:
     ProblemResponse:
       description: Safe RFC 9457 problem response.
       headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
         Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
-        Retry-After: { $ref: '#/components/headers/RetryAfter' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
+    UnauthorizedResponse:
+      description: Safe bearer authentication problem.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        WWW-Authenticate: { $ref: '#/components/headers/WWWAuthenticate' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    MethodNotAllowedGetResponse:
+      description: Safe method problem for a GET-only route.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Allow: { $ref: '#/components/headers/AllowGet' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    MethodNotAllowedPostResponse:
+      description: Safe method problem for a POST-only route.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Allow: { $ref: '#/components/headers/AllowPost' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    MethodNotAllowedGetDeleteResponse:
+      description: Safe method problem for a GET and DELETE route.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Allow: { $ref: '#/components/headers/AllowGetDelete' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    RateLimitedResponse:
+      description: Safe rate-limit problem with delay seconds.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ServiceUnavailableResponse:
+      description: Safe unavailable problem with queue-conditioned delay seconds.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Retry-After: { $ref: '#/components/headers/ConditionalRetryAfter' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightProblemResponse:
+      description: Safe preflight problem without allow headers.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/FailedPreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightMethodNotAllowedGetResponse:
+      description: Safe preflight method problem for a GET-only route.
+      headers:
+        Allow: { $ref: '#/components/headers/AllowGet' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/FailedPreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightMethodNotAllowedPostResponse:
+      description: Safe preflight method problem for a POST-only route.
+      headers:
+        Allow: { $ref: '#/components/headers/AllowPost' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/FailedPreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightMethodNotAllowedGetDeleteResponse:
+      description: Safe preflight method problem for a GET and DELETE route.
+      headers:
+        Allow: { $ref: '#/components/headers/AllowGetDelete' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/FailedPreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightOverloadResponse:
+      description: Safe preflight admission-overload problem.
+      headers:
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        Vary: { $ref: '#/components/headers/FailedPreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    PreflightNoContentResponse:
+      description: Valid route-aware preflight with no response body.
+      headers:
+        Access-Control-Allow-Headers: { $ref: '#/components/headers/PreflightAllowHeaders' }
+        Access-Control-Allow-Methods: { $ref: '#/components/headers/PreflightAllowMethods' }
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/PreflightAllowOrigin' }
+        Access-Control-Allow-Private-Network:
+          { $ref: '#/components/headers/PreflightAllowPrivateNetwork' }
+        Access-Control-Max-Age: { $ref: '#/components/headers/PreflightMaxAge' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/PreflightVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+    HealthOkResponse:
+      description: Minimal listener health.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/HealthResponse' }
+    PairingChallengeCreatedResponse:
+      description: Pending native approval challenge.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Location: { $ref: '#/components/headers/Location' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PairingChallengeResponse' }
+    RedeemOkResponse:
+      description: One-time bearer delivery.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RedeemResponse' }
+    RedeemPendingResponse:
+      description: Native pairing decision is still pending.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RedeemPendingResponse' }
+    CurrentPairingResponse:
+      description: Current bearer-owned pairing metadata.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PairingResponse' }
+    PairingRevokedResponse:
+      description: Pairing revoked with no response body.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+    RuntimeOkResponse:
+      description: Fail-closed runtime state.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        ETag: { $ref: '#/components/headers/ETag' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RuntimeResponse' }
+    EngineListOkResponse:
+      description: Catalog-owned engine state.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        ETag: { $ref: '#/components/headers/ETag' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/EngineListResponse' }
+    VoiceListOkResponse:
+      description: Exact Pocket preset list.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        ETag: { $ref: '#/components/headers/ETag' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VoiceListResponse' }
+    PackListOkResponse:
+      description: Pack verification state.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        ETag: { $ref: '#/components/headers/ETag' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PackListResponse' }
+    JobAcceptedResponse:
+      description: Bounded queued job.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Location: { $ref: '#/components/headers/Location' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JobResponse' }
+    JobOkResponse:
+      description: Bearer-owned job metadata.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JobResponse' }
+    JobCancellationAcceptedResponse:
+      description: Idempotent cancellation accepted.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JobResponse' }
+    AudioOkResponse:
+      description: Bearer-owned bounded WAV data.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        ETag: { $ref: '#/components/headers/ETag' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        audio/wav:
+          x-maxBodyBytes: 67108864
+    PackActionAcceptedResponse:
+      description: Pending native decision only; no action executes synchronously.
+      headers:
+        Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
+        Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
+        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Location: { $ref: '#/components/headers/Location' }
+        Vary: { $ref: '#/components/headers/ActualVary' }
+        X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
+        X-Request-Id: { $ref: '#/components/headers/RequestId' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PackActionResponse' }
   schemas:
     CanonicalUuid:
       type: string

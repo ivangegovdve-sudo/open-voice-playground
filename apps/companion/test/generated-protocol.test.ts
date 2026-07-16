@@ -187,6 +187,32 @@ const validValues = {
 } satisfies Record<(typeof schemaNames)[number], unknown>;
 
 describe('generated companion protocol validators', () => {
+  it('exports the complete normalized HTTP contract alongside concrete client routes', () => {
+    expect(runtime.HTTP_CONTRACT).toBeTypeOf('object');
+    expect(Object.keys(runtime.HTTP_CONTRACT as object)).toEqual([
+      'version',
+      'policy',
+      'paths',
+      'operations',
+    ]);
+    expect(protocol.ROUTES).toEqual({
+      cancelJob: 'DELETE /v1/jobs/{id}',
+      createJob: 'POST /v1/jobs',
+      createPairingChallenge: 'POST /v1/pairings/challenges',
+      getCurrentPairing: 'GET /v1/pairings/current',
+      getHealth: 'GET /v1/health',
+      getJob: 'GET /v1/jobs/{id}',
+      getJobAudio: 'GET /v1/jobs/{id}/audio',
+      getRuntime: 'GET /v1/runtime',
+      listEngines: 'GET /v1/engines',
+      listPacks: 'GET /v1/packs',
+      listVoices: 'GET /v1/voices',
+      redeemPairingChallenge: 'POST /v1/pairings/challenges/{id}/redeem',
+      requestPackAction: 'POST /v1/packs/{id}/actions',
+      revokeCurrentPairing: 'DELETE /v1/pairings/current',
+    });
+  });
+
   it('generates a strict guard and parser for every owned schema', () => {
     expect(runtime.ProtocolValidationError).toBeTypeOf('function');
     for (const name of schemaNames) {

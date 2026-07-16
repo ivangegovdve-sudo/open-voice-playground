@@ -66,8 +66,8 @@ export function hasForbiddenName(name, policy) {
 
 export function collectProtocolNameEntries(document) {
   const entries = [];
-  const add = (kind, location, name) => {
-    if (typeof name === 'string') entries.push({ kind, location, name });
+  const add = (kind, location, name, metadata = {}) => {
+    if (typeof name === 'string') entries.push({ kind, location, name, ...metadata });
   };
   const components = isRecord(document) && isRecord(document.components) ? document.components : {};
   const schemas = isRecord(components.schemas) ? components.schemas : {};
@@ -97,9 +97,23 @@ export function collectProtocolNameEntries(document) {
   for (const [key, parameter] of Object.entries(componentParameters)) {
     add('component-parameter', `components.parameters.${key}`, key);
     if (isRecord(parameter)) {
-      add('wire-parameter', `components.parameters.${key}.name`, parameter.name);
+      add('wire-parameter', `components.parameters.${key}.name`, parameter.name, {
+        componentKey: key,
+        parameterIn: parameter.in,
+      });
     }
   }
+
+  const addResponseHeaders = (responses, location) => {
+    if (!isRecord(responses)) return;
+    for (const [status, response] of Object.entries(responses)) {
+      if (!isRecord(response) || !isRecord(response.headers)) continue;
+      for (const name of Object.keys(response.headers)) {
+        add('response-header', `${location}.${status}.headers.${name}`, name);
+      }
+    }
+  };
+  addResponseHeaders(components.responses, 'components.responses');
 
   const addInlineParameters = (parameters, location, kind) => {
     if (!Array.isArray(parameters)) return;
@@ -121,19 +135,78 @@ export function collectProtocolNameEntries(document) {
         `paths.${path}.${method}.parameters`,
         'operation-parameter',
       );
+      addResponseHeaders(operation.responses, `paths.${path}.${method}.responses`);
     }
   }
   return entries;
 }
 
+function parameterComponentUsage(document, componentKey) {
+  const reference = `#/components/parameters/${componentKey}`;
+  const paths = isRecord(document) && isRecord(document.paths) ? document.paths : {};
+  const allowedReferences = new Set();
+  for (const pathItem of Object.values(paths)) {
+    if (!isRecord(pathItem)) continue;
+    const options = pathItem.options;
+    if (!isRecord(options) || !Array.isArray(options.parameters)) continue;
+    for (const parameter of options.parameters) {
+      if (isRecord(parameter) && parameter.$ref === reference) allowedReferences.add(parameter);
+    }
+  }
+  const usages = [];
+  const seen = new Set();
+  const visit = (value) => {
+    if (value === null || typeof value !== 'object' || seen.has(value)) return;
+    seen.add(value);
+    if (isRecord(value) && value.$ref === reference) {
+      usages.push(allowedReferences.has(value) ? 'options' : 'other');
+    }
+    for (const child of Array.isArray(value) ? value : Object.values(value)) visit(child);
+  };
+  visit(document);
+  return usages;
+}
+
+function isStandardWireExemption(document, entry) {
+  if (entry.kind === 'response-header') {
+    return new Set([
+      'Cache-Control',
+      'Access-Control-Allow-Origin',
+      'Access-Control-Expose-Headers',
+      'Access-Control-Allow-Methods',
+      'Access-Control-Allow-Headers',
+      'Access-Control-Max-Age',
+      'Access-Control-Allow-Private-Network',
+    ]).has(entry.name);
+  }
+  if (entry.kind !== 'wire-parameter' || entry.parameterIn !== 'header') return false;
+  const expectedKeys =
+    entry.name === 'Access-Control-Request-Method'
+      ? new Set(['PreflightGetMethod', 'PreflightPostMethod', 'PreflightGetDeleteMethod'])
+      : entry.name === 'Access-Control-Request-Headers'
+        ? new Set(['PreflightHeaders'])
+        : entry.name === 'Access-Control-Request-Private-Network'
+          ? new Set(['PreflightPrivateNetwork'])
+          : new Set();
+  if (!expectedKeys.has(entry.componentKey)) return false;
+  const usages = parameterComponentUsage(document, entry.componentKey);
+  return usages.length > 0 && usages.every((method) => method === 'options');
+}
+
 export function collectProtocolNames(document) {
-  return [...new Set(collectProtocolNameEntries(document).map((entry) => entry.name))];
+  return [
+    ...new Set(
+      collectProtocolNameEntries(document)
+        .filter((entry) => !isStandardWireExemption(document, entry))
+        .map((entry) => entry.name),
+    ),
+  ];
 }
 
 export function assertProtocolNamePolicy(document) {
   const policy = readPolicy(document);
-  const violation = collectProtocolNameEntries(document).find((entry) =>
-    hasForbiddenName(entry.name, policy),
+  const violation = collectProtocolNameEntries(document).find(
+    (entry) => hasForbiddenName(entry.name, policy) && !isStandardWireExemption(document, entry),
   );
   if (violation !== undefined) {
     throw new Error(

@@ -40,6 +40,7 @@ type OpenApiDocument = Record<string, unknown> & {
   paths: Record<string, Record<string, unknown>>;
   components: {
     parameters: Record<string, { name: string }>;
+    responses: Record<string, Record<string, unknown>>;
     schemas: Record<string, SchemaObject>;
   };
 };
@@ -52,6 +53,15 @@ const runtime = generated as Record<string, unknown>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function resolveResponse(
+  document: OpenApiDocument,
+  response: Record<string, unknown>,
+): Record<string, unknown> {
+  if (typeof response.$ref !== 'string') return response;
+  const name = response.$ref.replace('#/components/responses/', '');
+  return document.components.responses[name]!;
 }
 
 function createAjv(): Ajv2020 {
@@ -637,12 +647,12 @@ describe('canonical companion protocol corpus', () => {
       unknown
     >;
     const responses = redeem.responses as Record<string, Record<string, unknown>>;
-    expect(responses['202']?.content).toEqual({
+    expect(resolveResponse(document, responses['202']!).content).toEqual({
       'application/json': { schema: { $ref: '#/components/schemas/RedeemPendingResponse' } },
     });
     const audio = document.paths['/v1/jobs/{id}/audio']?.get as Record<string, unknown>;
     const audioResponses = audio.responses as Record<string, Record<string, unknown>>;
-    expect(audioResponses['200']?.content).toEqual({
+    expect(resolveResponse(document, audioResponses['200']!).content).toEqual({
       'audio/wav': { 'x-maxBodyBytes': 67_108_864 },
     });
   });

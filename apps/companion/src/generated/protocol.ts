@@ -2,6 +2,22034 @@
 export const COMPANION_API_ORIGIN = "http://127.0.0.1:17843" as const;
 export const CLIENT_VERSION = "1.0.0" as const;
 export const PROTOCOL_MAJOR = 1 as const;
+export const HTTP_CONTRACT = {
+  "version": 1,
+  "policy": {
+    "version": 1,
+    "allowedOriginSource": "compiled-exact-allowlist",
+    "credentials": "prohibited",
+    "actual": {
+      "allowOrigin": "validated-origin",
+      "exposeHeaders": [
+        "ETag",
+        "Location",
+        "Retry-After",
+        "X-Request-Id"
+      ],
+      "vary": [
+        "Origin"
+      ]
+    },
+    "preflight": {
+      "allowMethods": [
+        "GET",
+        "POST",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "allowHeaders": [
+        "Authorization",
+        "Content-Type",
+        "X-OVP-Client-Version"
+      ],
+      "maxAgeSeconds": 600,
+      "requestedHeaderComparison": "ascii-case-insensitive-exact-set",
+      "requiresDeclaredConcreteTarget": true,
+      "rejectsBody": true,
+      "rejectsCredentials": true,
+      "rejectsOptionsTarget": true,
+      "failureMap": {
+        "admission-overload": {
+          "status": 503,
+          "code": "queue-full"
+        },
+        "denied-origin": {
+          "status": 403,
+          "code": "origin-denied"
+        },
+        "duplicate-preflight-header": {
+          "status": 400,
+          "code": "duplicate-header"
+        },
+        "header-timeout": {
+          "status": 408,
+          "code": "header-timeout"
+        },
+        "headers-too-large": {
+          "status": 431,
+          "code": "headers-too-large"
+        },
+        "invalid-preflight-shape": {
+          "status": 400,
+          "code": "schema-invalid"
+        },
+        "missing-origin": {
+          "status": 400,
+          "code": "origin-missing"
+        },
+        "oversize-body": {
+          "status": 413,
+          "code": "body-too-large"
+        },
+        "request-line-too-large": {
+          "status": 414,
+          "code": "request-line-too-large"
+        },
+        "unsupported-route-method": {
+          "status": 405,
+          "code": "method-not-allowed"
+        }
+      },
+      "legacyPrivateNetwork": {
+        "requestHeader": "Access-Control-Request-Private-Network",
+        "requestValue": "true",
+        "responseHeader": "Access-Control-Allow-Private-Network",
+        "responseValue": "true",
+        "varyToken": "Access-Control-Request-Private-Network",
+        "emitIffRequested": true
+      }
+    },
+    "unknownRoute": {
+      "status": 404,
+      "code": "resource-not-found"
+    },
+    "retryAfter": {
+      "kind": "delay-seconds",
+      "minimum": 1,
+      "maximum": 3600,
+      "httpDateAllowed": false,
+      "queueFullProblemCode": "queue-full",
+      "queueFullResponseCondition": "queue-full-problem"
+    },
+    "problemCodes": {
+      "http": [
+        "host-invalid",
+        "origin-missing",
+        "origin-denied",
+        "version-missing",
+        "version-unsupported",
+        "auth-missing",
+        "auth-invalid",
+        "auth-origin-mismatch",
+        "scope-denied",
+        "rate-limited",
+        "request-line-too-large",
+        "headers-too-large",
+        "body-too-large",
+        "body-timeout",
+        "header-timeout",
+        "schema-invalid",
+        "queue-full",
+        "ownership-denied",
+        "resource-not-found",
+        "conflict",
+        "handler-timeout",
+        "pairing-not-found",
+        "pairing-denied",
+        "pairing-expired",
+        "pairing-consumed",
+        "pairing-attempts-exhausted",
+        "pack-unverified",
+        "runtime-unavailable",
+        "method-not-allowed",
+        "content-type-unsupported",
+        "transfer-encoding-invalid",
+        "duplicate-header",
+        "text-invalid",
+        "action-invalid"
+      ],
+      "nonHttp": [
+        "listener-conflict"
+      ]
+    }
+  },
+  "paths": {
+    "/v1/engines": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "listEngines"
+      ],
+      "preflightOperationId": "preflightEngines"
+    },
+    "/v1/health": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "getHealth"
+      ],
+      "preflightOperationId": "preflightHealth"
+    },
+    "/v1/jobs": {
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "createJob"
+      ],
+      "preflightOperationId": "preflightJobs"
+    },
+    "/v1/jobs/{id}": {
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "getJob",
+        "cancelJob"
+      ],
+      "preflightOperationId": "preflightJob"
+    },
+    "/v1/jobs/{id}/audio": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "getJobAudio"
+      ],
+      "preflightOperationId": "preflightJobAudio"
+    },
+    "/v1/packs": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "listPacks"
+      ],
+      "preflightOperationId": "preflightPacks"
+    },
+    "/v1/packs/{id}/actions": {
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "requestPackAction"
+      ],
+      "preflightOperationId": "preflightPackActions"
+    },
+    "/v1/pairings/challenges": {
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "createPairingChallenge"
+      ],
+      "preflightOperationId": "preflightPairingChallenges"
+    },
+    "/v1/pairings/challenges/{id}/redeem": {
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "redeemPairingChallenge"
+      ],
+      "preflightOperationId": "preflightPairingChallengeRedeem"
+    },
+    "/v1/pairings/current": {
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "getCurrentPairing",
+        "revokeCurrentPairing"
+      ],
+      "preflightOperationId": "preflightCurrentPairing"
+    },
+    "/v1/runtime": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "getRuntime"
+      ],
+      "preflightOperationId": "preflightRuntime"
+    },
+    "/v1/voices": {
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "concreteOperationIds": [
+        "listVoices"
+      ],
+      "preflightOperationId": "preflightVoices"
+    }
+  },
+  "operations": {
+    "cancelJob": {
+      "path": "/v1/jobs/{id}",
+      "method": "DELETE",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "jobs:cancel",
+        "ownership": "job-owner"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 202,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "JobResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "createJob": {
+      "path": "/v1/jobs",
+      "method": "POST",
+      "clientCallable": true,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "synthesis:create",
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "json",
+          "required": true,
+          "mediaType": "application/json",
+          "schemaRef": "JobCreateRequest"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 202,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "JobResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Location",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 415,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "createPairingChallenge": {
+      "path": "/v1/pairings/challenges",
+      "method": "POST",
+      "clientCallable": true,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "origin-only",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "json",
+          "required": true,
+          "mediaType": "application/json",
+          "schemaRef": "PairingChallengeRequest"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 201,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "PairingChallengeResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Location",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 409,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 415,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "getCurrentPairing": {
+      "path": "/v1/pairings/current",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": null,
+        "ownership": "token-self"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "PairingResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "getHealth": {
+      "path": "/v1/health",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "origin-only",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "HealthResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "getJob": {
+      "path": "/v1/jobs/{id}",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "jobs:read",
+        "ownership": "job-owner"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "JobResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "getJobAudio": {
+      "path": "/v1/jobs/{id}/audio",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "audio:read",
+        "ownership": "job-owner"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "audio",
+            "mediaType": "audio/wav",
+            "maxBytes": 67108864
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "ETag",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 409,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 410,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "getRuntime": {
+      "path": "/v1/runtime",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "runtime:read",
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "RuntimeResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "ETag",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "listEngines": {
+      "path": "/v1/engines",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "runtime:read",
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "EngineListResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "ETag",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "listPacks": {
+      "path": "/v1/packs",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "runtime:read",
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "PackListResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "ETag",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "listVoices": {
+      "path": "/v1/voices",
+      "method": "GET",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "runtime:read",
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "VoiceListResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "ETag",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 3,
+                "maxLength": 128
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightCurrentPairing": {
+      "path": "/v1/pairings/current",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "DELETE",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET",
+          "DELETE"
+        ],
+        "requestedHeadersByMethod": {
+          "DELETE": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ],
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightEngines": {
+      "path": "/v1/engines",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightHealth": {
+      "path": "/v1/health",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightJob": {
+      "path": "/v1/jobs/{id}",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "DELETE",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET",
+          "DELETE"
+        ],
+        "requestedHeadersByMethod": {
+          "DELETE": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ],
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightJobAudio": {
+      "path": "/v1/jobs/{id}/audio",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightJobs": {
+      "path": "/v1/jobs",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "POST",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "POST"
+        ],
+        "requestedHeadersByMethod": {
+          "POST": [
+            "Authorization",
+            "Content-Type",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightPackActions": {
+      "path": "/v1/packs/{id}/actions",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "PackId"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "POST",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "POST"
+        ],
+        "requestedHeadersByMethod": {
+          "POST": [
+            "Authorization",
+            "Content-Type",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightPacks": {
+      "path": "/v1/packs",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightPairingChallengeRedeem": {
+      "path": "/v1/pairings/challenges/{id}/redeem",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "POST",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "POST"
+        ],
+        "requestedHeadersByMethod": {
+          "POST": [
+            "Content-Type",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightPairingChallenges": {
+      "path": "/v1/pairings/challenges",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "POST",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "POST"
+        ],
+        "requestedHeadersByMethod": {
+          "POST": [
+            "Content-Type",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightRuntime": {
+      "path": "/v1/runtime",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "preflightVoices": {
+      "path": "/v1/voices",
+      "method": "OPTIONS",
+      "clientCallable": false,
+      "allow": [
+        "GET",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "preflight",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Access-Control-Request-Headers",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "Access-Control-Request-Method",
+            "required": true,
+            "schema": {
+              "kind": "enum",
+              "type": "string",
+              "values": [
+                "GET",
+                "OPTIONS"
+              ]
+            }
+          },
+          {
+            "name": "Access-Control-Request-Private-Network",
+            "required": false,
+            "schema": {
+              "kind": "const",
+              "type": "string",
+              "value": "true"
+            }
+          },
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": {
+        "concreteMethods": [
+          "GET"
+        ],
+        "requestedHeadersByMethod": {
+          "GET": [
+            "Authorization",
+            "X-OVP-Client-Version"
+          ]
+        }
+      },
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Headers",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Authorization, Content-Type, X-OVP-Client-Version"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Methods",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, POST, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Access-Control-Allow-Private-Network",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "true"
+              },
+              "condition": "legacy-private-network-requested"
+            },
+            {
+              "name": "Access-Control-Max-Age",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "integer",
+                "value": 600
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "enum",
+                "type": "string",
+                "values": [
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers",
+                  "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+                ]
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "redeemPairingChallenge": {
+      "path": "/v1/pairings/challenges/{id}/redeem",
+      "method": "POST",
+      "clientCallable": true,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "origin-only",
+        "scope": null,
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "CanonicalUuid"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "json",
+          "required": true,
+          "mediaType": "application/json",
+          "schemaRef": "RedeemRequest"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 200,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "RedeemResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 202,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "RedeemPendingResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 409,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 410,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 415,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "requestPackAction": {
+      "path": "/v1/packs/{id}/actions",
+      "method": "POST",
+      "clientCallable": true,
+      "allow": [
+        "POST",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": "packs:request",
+        "ownership": "none"
+      },
+      "pathParameters": [
+        {
+          "name": "id",
+          "required": true,
+          "schemaRef": "PackId"
+        }
+      ],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "json",
+          "required": true,
+          "mediaType": "application/json",
+          "schemaRef": "PackActionRequest"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 202,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/json",
+            "schemaRef": "PackActionResponse"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Location",
+              "required": true,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 404,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "POST, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 409,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 415,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 429,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": true,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    },
+    "revokeCurrentPairing": {
+      "path": "/v1/pairings/current",
+      "method": "DELETE",
+      "clientCallable": true,
+      "allow": [
+        "GET",
+        "DELETE",
+        "OPTIONS"
+      ],
+      "access": {
+        "auth": "bearer",
+        "scope": null,
+        "ownership": "token-self"
+      },
+      "pathParameters": [],
+      "request": {
+        "headers": [
+          {
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "kind": "bounded-string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "X-OVP-Client-Version",
+            "required": true,
+            "schema": {
+              "kind": "schema-ref",
+              "schemaRef": "ClientVersion"
+            }
+          }
+        ],
+        "body": {
+          "kind": "none"
+        }
+      },
+      "preflight": null,
+      "responses": [
+        {
+          "status": 204,
+          "body": {
+            "kind": "empty"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 400,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 401,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "WWW-Authenticate",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Bearer realm=\"open-voice-companion\""
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 403,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 405,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Allow",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "GET, DELETE, OPTIONS"
+              },
+              "condition": null
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 408,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 413,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 414,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 426,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 431,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 503,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Retry-After",
+              "required": false,
+              "schema": {
+                "kind": "bounded-integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "condition": "queue-full-problem"
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        },
+        {
+          "status": 504,
+          "body": {
+            "kind": "json",
+            "mediaType": "application/problem+json",
+            "schemaRef": "Problem"
+          },
+          "headers": [
+            {
+              "name": "Access-Control-Allow-Origin",
+              "required": false,
+              "schema": {
+                "kind": "bounded-string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Access-Control-Expose-Headers",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "ETag, Location, Retry-After, X-Request-Id"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "Cache-Control",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "no-store"
+              },
+              "condition": null
+            },
+            {
+              "name": "Vary",
+              "required": false,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "Origin"
+              },
+              "condition": "validated-origin"
+            },
+            {
+              "name": "X-Content-Type-Options",
+              "required": true,
+              "schema": {
+                "kind": "const",
+                "type": "string",
+                "value": "nosniff"
+              },
+              "condition": null
+            },
+            {
+              "name": "X-Request-Id",
+              "required": true,
+              "schema": {
+                "kind": "schema-ref",
+                "schemaRef": "CanonicalUuid"
+              },
+              "condition": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+} as const;
 export const ROUTES = {
   "cancelJob": "DELETE /v1/jobs/{id}",
   "createJob": "POST /v1/jobs",
