@@ -15921,11 +15921,14 @@
     {
       "id": "kitten-browser-assets",
       "engineId": "kitten",
-      "manifestDigest": "sha256:f1ddafbfa9d135457f8fedaa41aa8709779df19206ab6895ef79f675e71bef10",
+      "manifestDigest": "sha256:d86cc8e418d7793deb743ff0afcada75696ab29d4b1f1818592791a3618f521f",
       "assets": [
         {
           "id": "kitten-tts-micro-v0-8-onnx",
           "url": "https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/kitten_tts_micro_v0_8.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1ccf72b2c2048fd17efac7de2fab32d10e225084",
           "sha256": "sha256:95481626fee1ba70ce683e69c534fc7cb38433c46ce42d3abbeafb4b9f1a4123",
           "bytes": 41384970,
@@ -15942,6 +15945,9 @@
         {
           "id": "voices-npz",
           "url": "https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/voices.npz?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1ccf72b2c2048fd17efac7de2fab32d10e225084",
           "sha256": "sha256:112710c1be8ad0e967c190fb0fd95cbe5848ec4791b93209f20b28b7da20dac1",
           "bytes": 3278902,
@@ -15967,11 +15973,14 @@
     {
       "id": "kokoro-af-alloy",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:97d69218046dafcfad58efccac52842e465ced1fcf730d8c70851f3c7b69e852",
+      "manifestDigest": "sha256:e1e04118c1fa93bdfa67af75d1b0064e491bdd17736141e48cae248fffa610bb",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -15988,6 +15997,9 @@
         {
           "id": "voices-af-alloy-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_alloy.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c4a6b876047fd7fb472edf4ebd63cfac7c3b958a7cae7c106e8f038ca6308c45",
           "bytes": 522240,
@@ -16013,11 +16025,14 @@
     {
       "id": "kokoro-af-aoede",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:ebee1fec490a040c82c888e8c802f66992b253d822a4f33a32c657df262278d8",
+      "manifestDigest": "sha256:34c3abf76355816490b559ce15113e5fe0b4332b3a49309415737b15c7a403b5",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16034,6 +16049,9 @@
         {
           "id": "voices-af-aoede-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_aoede.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4a004c33430762e2461eedb2013fad808ef4ab3121f5300f554476caf58d8361",
           "bytes": 522240,
@@ -16059,11 +16077,14 @@
     {
       "id": "kokoro-af-bella",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:2946c95e4eace3799a4e59ab935d565f928663b689f92ecdf1eddad8eaaab23e",
+      "manifestDigest": "sha256:2e7cc211ed8e6efd860c42d00ad1b11374ce952a4954ef7f37739c01e3422f16",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16080,6 +16101,9 @@
         {
           "id": "voices-af-bella-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_bella.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
           "bytes": 522240,
@@ -16105,11 +16129,14 @@
     {
       "id": "kokoro-af-heart",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:d603d5aa9bbe9470d4d37ecc21759a185a1e568aaf2e86e3d2227bca3f2378ec",
+      "manifestDigest": "sha256:c1d0251e7004765c7de8a5e7d0aaf2ab105580192dae9ac2a54638b2cac7b383",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16126,6 +16153,9 @@
         {
           "id": "voices-af-heart-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_heart.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
           "bytes": 522240,
@@ -16151,11 +16181,14 @@
     {
       "id": "kokoro-af-jessica",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c65fa7dd33e4d539c430e576f662b7ce28a2e91e65309090a2f98f9dd7728e34",
+      "manifestDigest": "sha256:4c23cd38468746cf4076abaf24b0cc01668dc6f96e55e24df37edf6746bfce28",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16172,6 +16205,9 @@
         {
           "id": "voices-af-jessica-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_jessica.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:a240a5e3c15b43563d6e923bdca8ef5613a23471d9b77653694012435df23bd8",
           "bytes": 522240,
@@ -16197,11 +16233,14 @@
     {
       "id": "kokoro-af-kore",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:390fac7e6f6b7bfa7b73e376a75f467800b6b10642f169ce3eb611a81fcfdfa0",
+      "manifestDigest": "sha256:b0c395552ade328cdf994d6491b6b1532dea8f18ad8e81f49a5f8cf16e4dcb4c",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16218,6 +16257,9 @@
         {
           "id": "voices-af-kore-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_kore.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:9be5221b6a941c04b561959b8ff0b06e809444dcc4ab7e75a7b23606f691819e",
           "bytes": 522240,
@@ -16243,11 +16285,14 @@
     {
       "id": "kokoro-af-nicole",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:dc6de8a01decaad94c9c7dc37add2dcdd2054a73cb12b8f6a7a7c02cdc259dc3",
+      "manifestDigest": "sha256:a91454c9446473d4ecd866ed27bfff868095028812a09550aae020bfc7e15cf2",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16264,6 +16309,9 @@
         {
           "id": "voices-af-nicole-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_nicole.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:cd2191ab31b914ed7b318416b0e4440fdf392ddad9106a060819aa600a64f59a",
           "bytes": 522240,
@@ -16289,11 +16337,14 @@
     {
       "id": "kokoro-af-nova",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:749381df2e7541fa9f445807f962e6bdea712be698fc0182d61fd808f206c48d",
+      "manifestDigest": "sha256:5baf25913b669bf6b5c5ea0bcc970f6a4e91d2de21db88d2e57715636a08d91c",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16310,6 +16361,9 @@
         {
           "id": "voices-af-nova-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_nova.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:18778272caa0d0eebaea251c35fd635f038434f9eee5e691d02a174bd328414f",
           "bytes": 522240,
@@ -16335,11 +16389,14 @@
     {
       "id": "kokoro-af-river",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:f068008c28ef45f7e90f263e52c73f1925ded44eb6f17a5fb824aaa44c59f5dd",
+      "manifestDigest": "sha256:64e7c18b7d74ea98069d6b9b96381643256e001e4be3e4ef632515276844201c",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16356,6 +16413,9 @@
         {
           "id": "voices-af-river-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_river.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:00a2bcf82b1d86e8f19902ede58c65ccf6c0e43b44b7d74fad54e5d8933c9c30",
           "bytes": 522240,
@@ -16381,11 +16441,14 @@
     {
       "id": "kokoro-af-sarah",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:5a7a17829766657c66cbb36ab481b3218208ead013de4dfa906bd2f303e51fb7",
+      "manifestDigest": "sha256:dd3c83498297f5f8ecc00b38d93d1426d1f7f2e57ba661f621e64124087db172",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16402,6 +16465,9 @@
         {
           "id": "voices-af-sarah-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_sarah.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4409fbc125afabacc615d94db5398d847006a737b0247d6892b7a9a0007a2f0a",
           "bytes": 522240,
@@ -16427,11 +16493,14 @@
     {
       "id": "kokoro-af-sky",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b64f28f1ac003243c9cecd117a5a25e6b534f74ad7ece35265409592bcf0098a",
+      "manifestDigest": "sha256:dcc0e72b498a414f11ab9da3778da39cf5a4edd15f78afa4993064598957731e",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16448,6 +16517,9 @@
         {
           "id": "voices-af-sky-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/af_sky.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:4435255c9744f3f31659e0d714ab7689bf65d9e77ec1cce060f083912614f0b9",
           "bytes": 522240,
@@ -16473,11 +16545,14 @@
     {
       "id": "kokoro-am-adam",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:26ce779c1d3820a35df7a45b938df3670e3d37d52b25111df4cadab3c205ead8",
+      "manifestDigest": "sha256:d79a3aa697738e51fd5bd8f1a501caa9845b3fd86eb87c40612c0d05a61edff9",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16494,6 +16569,9 @@
         {
           "id": "voices-am-adam-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_adam.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:162b035ed91cfc48b6046982184c645f72edcdd1b82843347f605d7bf7b15716",
           "bytes": 522240,
@@ -16519,11 +16597,14 @@
     {
       "id": "kokoro-am-echo",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:de1e4d2fc8e1a87e1df8a75637d040aee632f06c0e9601734972b002c163edbf",
+      "manifestDigest": "sha256:ca47b6fc7e034719f20db34cf4e267456d81aca6ce927c9b05b018e6e67ac8d8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16540,6 +16621,9 @@
         {
           "id": "voices-am-echo-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_echo.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3968b92c3c4cd1c4416dbded36c13eaa388a90d5788d02a13e4d781f5f8cf3c3",
           "bytes": 522240,
@@ -16565,11 +16649,14 @@
     {
       "id": "kokoro-am-eric",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c0701e7954f4d8da73a58d430919eee08327cea83c1dc2f847d4f668cdc73af7",
+      "manifestDigest": "sha256:ffad26589bdad91751124d557bbe0a4a9c30949484f8d14510f6f8858a930a1d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16586,6 +16673,9 @@
         {
           "id": "voices-am-eric-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_eric.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:e8b5be17edd1e3636901ce7598baafe2dc8dd8ff707a0c23bf9e461add7e2832",
           "bytes": 522240,
@@ -16611,11 +16701,14 @@
     {
       "id": "kokoro-am-fenrir",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:67efa4ebc23e18b9c81733ac4f84f204361d5202ddc4d490f953aa4d702df73f",
+      "manifestDigest": "sha256:6ce2bc1773fbe8e218a37e678ba6468b58929f454c8149800deb498b2fc15b9d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16632,6 +16725,9 @@
         {
           "id": "voices-am-fenrir-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_fenrir.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c27989f741f7ee34d273a39d8a595cc0837d35f5ced9a29b7cc162614616df43",
           "bytes": 522240,
@@ -16657,11 +16753,14 @@
     {
       "id": "kokoro-am-liam",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:7e5766b9168267e4c3e40467d315545e84d446e7263876d0474bc0dd936386ba",
+      "manifestDigest": "sha256:2de91dfa51cdbb35434113109c3f2e9ceb95839f74c21a90e71177795fec0578",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16678,6 +16777,9 @@
         {
           "id": "voices-am-liam-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_liam.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:52403be32fd047c6a44517cb0bcd6b134f2a18baa73e70ef41651e0eab921ade",
           "bytes": 522240,
@@ -16703,11 +16805,14 @@
     {
       "id": "kokoro-am-michael",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:92b27396ccfa7c1df780bb0e103507d5bd777f0326f3da288af083fec5878c98",
+      "manifestDigest": "sha256:f0eb47d9392d7566a6a944857f27aa0490215043cb7a9d395951b74af2649c0b",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16724,6 +16829,9 @@
         {
           "id": "voices-am-michael-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_michael.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1",
           "bytes": 522240,
@@ -16749,11 +16857,14 @@
     {
       "id": "kokoro-am-onyx",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:445e7572d650f03a14145a568f12710fd25b309bcb2ca9b5776d296eb5e32912",
+      "manifestDigest": "sha256:04989b5799b30787086399c41bbda38f71e7d4b21d5bb8894c31885d14a2fb98",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16770,6 +16881,9 @@
         {
           "id": "voices-am-onyx-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_onyx.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:da5d135b424164916d75a68ffb4c2abce3d7d5ccc82dd1ee6cf447ce286145e6",
           "bytes": 522240,
@@ -16795,11 +16909,14 @@
     {
       "id": "kokoro-am-puck",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:9c02bf6c97de1ed2c44359e7fa6e21a5e2ec87201616e8d76015106c3d01de37",
+      "manifestDigest": "sha256:10187356d0d5c640c34bdd1e444b101f32da0eea4fd53381e7d1b8a6ea0a8784",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16816,6 +16933,9 @@
         {
           "id": "voices-am-puck-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_puck.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:fcf73c989033e9233e0b98713eca600c8c74dcc1614b37009d5450ff4a2274a0",
           "bytes": 522240,
@@ -16841,11 +16961,14 @@
     {
       "id": "kokoro-am-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:293c1c09ce9adc31a1175785232894a1fd5f29555c06f313553132b770a31121",
+      "manifestDigest": "sha256:997312cc22a1c16cce8f9c3da8f4d1babd7af1f5fee021d203aa2a9088a8ac1f",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16862,6 +16985,9 @@
         {
           "id": "voices-am-santa-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/am_santa.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:61150cf726ab6c5ed7a99f90a304f91f5a72c00c592e89ec94e5df11c319227a",
           "bytes": 522240,
@@ -16887,11 +17013,14 @@
     {
       "id": "kokoro-bf-alice",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b8e64424e522350e174d075a4c092bc42701baf18b72be03843d2f46c1a0eecc",
+      "manifestDigest": "sha256:a30416d871b33852a178d260ca46d12aeb899a5e2f542f00e59ae69fc2bddc8e",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16908,6 +17037,9 @@
         {
           "id": "voices-bf-alice-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bf_alice.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:08afa6ba24da61ea5e8efa139e5aadc938d83f0a6da5a900adaf763ac1da5573",
           "bytes": 522240,
@@ -16933,11 +17065,14 @@
     {
       "id": "kokoro-bf-emma",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:ff1028be1bbc5188702539867fe314394b50473a36c3266708c1ad446c7244c6",
+      "manifestDigest": "sha256:5193e4e378042450a72372ac230e0d67d3fa168f2669955e41df6cd43c45b2e8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -16954,6 +17089,9 @@
         {
           "id": "voices-bf-emma-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bf_emma.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73",
           "bytes": 522240,
@@ -16979,11 +17117,14 @@
     {
       "id": "kokoro-bf-isabella",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:7810ffe99dd0643332d1db8f49613e1470e619d870f94caf8ed28cbc8af4a071",
+      "manifestDigest": "sha256:76d876de99bcee39d53ab22abfe10d4001bacebf2a28108248d3e5e0a51df8b5",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17000,6 +17141,9 @@
         {
           "id": "voices-bf-isabella-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bf_isabella.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3754352c4aaa46d17f27654ab7518d65b62ad6163a0f55a5f4330c2da2c4e94f",
           "bytes": 522240,
@@ -17025,11 +17169,14 @@
     {
       "id": "kokoro-bf-lily",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:585b15708c688c0e68656ade064cbc1192a495fce4f5e0bf374449800383dd94",
+      "manifestDigest": "sha256:f47973c73b420c35b3231692d380ee88238743da9d9ae9073b92d84ae82e99a8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17046,6 +17193,9 @@
         {
           "id": "voices-bf-lily-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bf_lily.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:5e0ee32ebe64a467124976b14e69590746f1c4ce41a12b587a50c862edfea335",
           "bytes": 522240,
@@ -17071,11 +17221,14 @@
     {
       "id": "kokoro-bm-daniel",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b3051019295d2e817164b44dafc462e9bbf78011bf2aa3122c32093e57d8f6ae",
+      "manifestDigest": "sha256:017670337eca7e6d81f244e69f6ab9fda9ab02ccf64ac10dc56ba4d14075e7e4",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17092,6 +17245,9 @@
         {
           "id": "voices-bm-daniel-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bm_daniel.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:6b3194bbceffb746733cbc22c8f593dd44e401a71d53895a2dca891bc595a1e8",
           "bytes": 522240,
@@ -17117,11 +17273,14 @@
     {
       "id": "kokoro-bm-fable",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:abb092cf0775a3ceebc4ca4522d18b3b6cad3e86725de9cdb74fcdf240bfbb94",
+      "manifestDigest": "sha256:1e16c9de3c66b3f3ce368dabd44db8ff9fdca6b2b9f6374d38c4a0b1bd841c68",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17138,6 +17297,9 @@
         {
           "id": "voices-bm-fable-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bm_fable.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f889083196807b4adb15e9204252165f503b8d33d3982e681c52443c49d798f1",
           "bytes": 522240,
@@ -17163,11 +17325,14 @@
     {
       "id": "kokoro-bm-george",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:3b16f10fa6ed9dbc2892e1139e962b7f8d8f3e196db06813ccb16bd86edb9f7b",
+      "manifestDigest": "sha256:4fca1a2944a3f63501baa48f7fba6fa840510b8d7a3e737744c58fc03c973e59",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17184,6 +17349,9 @@
         {
           "id": "voices-bm-george-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bm_george.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc",
           "bytes": 522240,
@@ -17209,11 +17377,14 @@
     {
       "id": "kokoro-bm-lewis",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:00e4650403327ded8ef8c64da6277e4616abc327dc3e8074c3005c18455f6bb4",
+      "manifestDigest": "sha256:8816799481fc0b64f2101124cfb09730d1f7b850048b5f8cbafa43af4218ade8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17230,6 +17401,9 @@
         {
           "id": "voices-bm-lewis-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/bm_lewis.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:b8f671cef828c30e66fdf0b0756a76bba58f6bb3398cbbf27058642acbcedb97",
           "bytes": 522240,
@@ -17255,11 +17429,14 @@
     {
       "id": "kokoro-ef-dora",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:a4da5da6c1ed0a08f6f99fd8eb06acf3fd107255f07f8fcbeaf14928b15e1e11",
+      "manifestDigest": "sha256:16980bc930643026e1d023fbb7051775b6c98625bf7095f2d4c2bc932fd19406",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17276,6 +17453,9 @@
         {
           "id": "voices-ef-dora-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/ef_dora.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:f66ec66bd295acb18372e37008533a9a3228483ccd294e7538d5d9294ac9a532",
           "bytes": 522240,
@@ -17301,11 +17481,14 @@
     {
       "id": "kokoro-em-alex",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b4b91eeeed2277a3fc23359903a234d448411c83be5ed663c2a3345d93707258",
+      "manifestDigest": "sha256:447ba4b6e84a7c8ff38137ae244152fb6d477def48399599af1ced2247003626",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17322,6 +17505,9 @@
         {
           "id": "voices-em-alex-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/em_alex.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:27809e9eafdcbcfff90a3016c697568676531de2a2c39cee29c96c7bd6b83e95",
           "bytes": 522240,
@@ -17347,11 +17533,14 @@
     {
       "id": "kokoro-em-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b91b9fd3e13f755eefdc3a486651523885ac9b586a9df9fa89ecb95ceb49cf39",
+      "manifestDigest": "sha256:fa0775def93ae3b4522f50ce9d8e7da4d4260d4095437982722a33ef1a0a0f3d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17368,6 +17557,9 @@
         {
           "id": "voices-em-santa-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/em_santa.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:ad43b774e1ca24d05c6161297d8aeb770ac3d29bb95daf516727af5f7d543683",
           "bytes": 522240,
@@ -17393,11 +17585,14 @@
     {
       "id": "kokoro-ff-siwis",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:38a14c1397dad779a95a0d9f3ad4a8bfddd715376396dc037925d088b8a296fe",
+      "manifestDigest": "sha256:89d9a1b6d6aff7dfb252dcaff4d808cf92b0d40373ad56d07b09501b6cacc1c2",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17414,6 +17609,9 @@
         {
           "id": "voices-ff-siwis-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/ff_siwis.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:a35f5675ad08948e326ae75fd0ea16ba5d0042e4f76b5f3d1df77d0a48c54861",
           "bytes": 522240,
@@ -17439,11 +17637,14 @@
     {
       "id": "kokoro-hf-alpha",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:9d02136e9d6f4fb7601e78994778ca7be11abfcef3b388dba763169d28d75c6a",
+      "manifestDigest": "sha256:2dd2d2678abf679ad0ae75060d51fc38b5098de358d00a8cebc2bab491579ecb",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17460,6 +17661,9 @@
         {
           "id": "voices-hf-alpha-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/hf_alpha.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:040be6a4425411cc01fda5fd06693c76bfa78572632852bc8cda9c99232ffb56",
           "bytes": 522240,
@@ -17485,11 +17689,14 @@
     {
       "id": "kokoro-hf-beta",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:6f92b8761fd0a89dbbf82ceaa2058ab0633164d24532e26e3184105035a0d1e8",
+      "manifestDigest": "sha256:f6d1f733dabb78a017d1cf8fd2f8df08245605ad98aad7470b3b546ae795e3a7",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17506,6 +17713,9 @@
         {
           "id": "voices-hf-beta-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/hf_beta.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:cd83ae0bb9b2e4e4fb92b4973bd8d1822ca0036d3c498bf4fc89aa8e33917cc7",
           "bytes": 522240,
@@ -17531,11 +17741,14 @@
     {
       "id": "kokoro-hm-omega",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:f227b0b9fb292cdb5818884c411a4bc7a1d3ccdbb311e9dcd65f805d8f40b3f0",
+      "manifestDigest": "sha256:de2afc848c7844c0cb7a3ed1a2ac778ab8d8f9c425a6582e2c1afad4e48c312e",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17552,6 +17765,9 @@
         {
           "id": "voices-hm-omega-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/hm_omega.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:b02d9222d9ed00ce26b302173a862c2c93f96cc40b5c422b8d14910b9ff34137",
           "bytes": 522240,
@@ -17577,11 +17793,14 @@
     {
       "id": "kokoro-hm-psi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:afb333653791eff5a76b957848660f0396b6730dc9a30c4f90c797588e2a7fd5",
+      "manifestDigest": "sha256:19257a7a5cf7f73769bdd933dad6b4b14b452c959f21b0b13c1cf35fcbe56e46",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17598,6 +17817,9 @@
         {
           "id": "voices-hm-psi-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/hm_psi.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:644daf88ba8aeb7bd08950bbdcd4453bb280864e49dc4df93fabc6be32e03f37",
           "bytes": 522240,
@@ -17623,11 +17845,14 @@
     {
       "id": "kokoro-if-sara",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:144dab417116c30513d0d3d5f820a97f54efb3b5dc06a40fb42d4bdde0fc0e0d",
+      "manifestDigest": "sha256:1340ab8cb7ae11c2273b58f3286569f1c064ebe4fb3f0e91cbb8443a73f85188",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17644,6 +17869,9 @@
         {
           "id": "voices-if-sara-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/if_sara.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:409b69248798fcdc2542330c76953d230710f19b057e59cb82fdc3c4cf71265c",
           "bytes": 522240,
@@ -17669,11 +17897,14 @@
     {
       "id": "kokoro-im-nicola",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:ffe0c5b8fa84a64f2f570349942511301c279a675f6555b39714c29523551e8f",
+      "manifestDigest": "sha256:9496bf29ecb08c271b365374046c090cfd4bbeb1969ee12184e5bba383feb43a",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17690,6 +17921,9 @@
         {
           "id": "voices-im-nicola-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/im_nicola.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:bc578e510d52a96d6940d46f12e96d7b3df00905dbea075113226d100e6e1ab0",
           "bytes": 522240,
@@ -17715,11 +17949,14 @@
     {
       "id": "kokoro-jf-alpha",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:9395a1192814a3dc8849ac7c33e48389eb3cdde9e375a164e1efe60ab684e7e4",
+      "manifestDigest": "sha256:8c7e0c61366ca392ce1dfd36c8098146788bd25afdf98ed99846779b5bb11998",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17736,6 +17973,9 @@
         {
           "id": "voices-jf-alpha-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/jf_alpha.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:56b479360aad9f367aeb8cef908f9201cf48b4555e488c5f4590c9dfcd978bb6",
           "bytes": 522240,
@@ -17761,11 +18001,14 @@
     {
       "id": "kokoro-jf-gongitsune",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:990369dfbdd0f98574e2291473512f6cf5dc9be1008107a8b1b3cb22a11f6ef5",
+      "manifestDigest": "sha256:fefaccad7064d4baa4d468e4b0268daeca85ac4d7b389ae55504716c903030f8",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17782,6 +18025,9 @@
         {
           "id": "voices-jf-gongitsune-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/jf_gongitsune.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:0f1181f3772d27b7c12aaf4bcd71e31b186c4146e330d074a3dc64ee392af396",
           "bytes": 522240,
@@ -17807,11 +18053,14 @@
     {
       "id": "kokoro-jf-nezumi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:810b813ae2d6f22a7656d0de1915cc51e9bd2275edc70ea4104a6fc672628d97",
+      "manifestDigest": "sha256:d16d0d56f2043cff6ae36371d19a47af440a8f9a5e30064842140324ea505036",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17828,6 +18077,9 @@
         {
           "id": "voices-jf-nezumi-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/jf_nezumi.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:13cb71eebb0b48739d444558322aa35a8c9a489b80e1e631f14d2e6aea93026b",
           "bytes": 522240,
@@ -17853,11 +18105,14 @@
     {
       "id": "kokoro-jf-tebukuro",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:3f6598cc7c8923782ee51c50c9de1048dae094c6102346bbed1d38a7b098062b",
+      "manifestDigest": "sha256:abfe6f103fd326c91a7a5c5a78d19f929b8ce3c8f776ae5b5ae9841ad75d8e6b",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17874,6 +18129,9 @@
         {
           "id": "voices-jf-tebukuro-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/jf_tebukuro.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:29c6c0561b4288d59639677bebe7533c919743d5ea68d0d2ae992644beea6696",
           "bytes": 522240,
@@ -17899,11 +18157,14 @@
     {
       "id": "kokoro-jm-kumo",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:91d81d32bd03c4620575b5f2a2072d8c743bdd53ce0d406c0904f79a881ba501",
+      "manifestDigest": "sha256:dfc53c2c7a135ea7561932fc8e512b25942163b8ffb865b84da4a8bd2472c0d3",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17920,6 +18181,9 @@
         {
           "id": "voices-jm-kumo-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/jm_kumo.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:09e959d239724c734d65661f06f14cdabcddfd476bfaaad905a937099ae9e64f",
           "bytes": 522240,
@@ -17945,11 +18209,14 @@
     {
       "id": "kokoro-pf-dora",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:abe675e54b95522d46f6770eae72b2279acfeeab1248c7f9e2f8d98c618a83e9",
+      "manifestDigest": "sha256:f60644f800b21af485181459997cc00e1c72208fd0f3b7559cd1e8113cbd5cae",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -17966,6 +18233,9 @@
         {
           "id": "voices-pf-dora-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/pf_dora.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:3da7b5b2d91847ebf5646f57631af6ececae3c29a89cd300f06edf9aa6cfe9ee",
           "bytes": 522240,
@@ -17991,11 +18261,14 @@
     {
       "id": "kokoro-pm-alex",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:d79d6234a903181b2185ace21513b214dd64e68f9f67a228a205126d76e14874",
+      "manifestDigest": "sha256:ea760fa4dad16fd86c5afdd2df2b6495c0412d78d5515e4ee10e86f1f44ffd85",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18012,6 +18285,9 @@
         {
           "id": "voices-pm-alex-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/pm_alex.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:0175c753f59c54e7fd5a995bedef0c5ff2fb67e0043dd3dcb2ae74ec2acbeb2a",
           "bytes": 522240,
@@ -18037,11 +18313,14 @@
     {
       "id": "kokoro-pm-santa",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:6e2bc5a28d0cd66b5b31472a04e4cfb638570da256a6de544dbb3a0c9d0c88ac",
+      "manifestDigest": "sha256:033bf58ce9ca364933022d408e694d255130fac55597182804c65c885e51ada0",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18058,6 +18337,9 @@
         {
           "id": "voices-pm-santa-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/pm_santa.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:8b012db3185778afe2e45a62cbad69db73021774fe68dda634bcc748a982eede",
           "bytes": 522240,
@@ -18083,11 +18365,14 @@
     {
       "id": "kokoro-zf-xiaobei",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1c7039df5aaa0984d66c318cb5824db04353dea16556ddbd31765c95042b4639",
+      "manifestDigest": "sha256:ee70c745532a36cf0364f29243fa1242933399006958dc9bfa6cb42630264acf",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18104,6 +18389,9 @@
         {
           "id": "voices-zf-xiaobei-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zf_xiaobei.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:5dde6e1c9c4f12c8b327bc29c0cee361a23b52b952c04636858ba637ec66e640",
           "bytes": 522240,
@@ -18129,11 +18417,14 @@
     {
       "id": "kokoro-zf-xiaoni",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:fb14b92978ea45651839197085e352a68ecf2a5111aafd9984522252afb7b3ab",
+      "manifestDigest": "sha256:5d6df9a2533434f06b68d762fc2b29fd894b6555c1c8b756ed3c046d56dfc5b4",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18150,6 +18441,9 @@
         {
           "id": "voices-zf-xiaoni-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zf_xiaoni.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:08892b62a39af0a615cd0581238db7e19e44c578e8fa0bfd0e586e93327d9cba",
           "bytes": 522240,
@@ -18175,11 +18469,14 @@
     {
       "id": "kokoro-zf-xiaoxiao",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:cde76d67c625bd5f6a54dcea385c751045ddc076ad097198c4dffca9c58fadd6",
+      "manifestDigest": "sha256:31e70efb2ca6172e65a668cf745fc26209250cfbfd4ad3ef530b317c869fd57d",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18196,6 +18493,9 @@
         {
           "id": "voices-zf-xiaoxiao-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zf_xiaoxiao.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:03adb5d5e3ddd88b047954e974e651cb0a4b524c985057e5d872e962c7be1169",
           "bytes": 522240,
@@ -18221,11 +18521,14 @@
     {
       "id": "kokoro-zf-xiaoyi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:23f2bf14d5e137e4a8f40f4c22df2a285f3ff97e7eb07d8b19ed9b8ee0fc2b81",
+      "manifestDigest": "sha256:e7f07b70a70055af8c4a4747ee5453416f22243a904b4d9dee893f03a11bb0a9",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18242,6 +18545,9 @@
         {
           "id": "voices-zf-xiaoyi-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zf_xiaoyi.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:bc1555c5c486099196ac254bae5e0bb543c121952a3092f50b7d8724f1bc36b3",
           "bytes": 522240,
@@ -18267,11 +18573,14 @@
     {
       "id": "kokoro-zm-yunjian",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:dc8f3eff6854073d2549fb82445d3c1eee9bafbdfc721502f15174c870365dd5",
+      "manifestDigest": "sha256:44f76efb7adcc716b08a9c3998f21d051b0f5d060fdc7fe9435e1015e0636446",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18288,6 +18597,9 @@
         {
           "id": "voices-zm-yunjian-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zm_yunjian.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:de48a00bdbf3649f07162269a2b6e0513604389bfac8a2e6c75cb34b323ad6fa",
           "bytes": 522240,
@@ -18313,11 +18625,14 @@
     {
       "id": "kokoro-zm-yunxi",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:c92ffff94603170b3a27853f1a79fa54d94bf7103e35eb7a9623aee49f41e6f3",
+      "manifestDigest": "sha256:e55d036c63a6fa3b05126788c017de369cdd0eac63cf90059e447a01de5c389b",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18334,6 +18649,9 @@
         {
           "id": "voices-zm-yunxi-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zm_yunxi.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:7243892fb4e560d47014090ddf010f8b8b790f3c6b029ff82b2ac06aa4e27c8b",
           "bytes": 522240,
@@ -18359,11 +18677,14 @@
     {
       "id": "kokoro-zm-yunxia",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:1f7aa2742181e9fd7ac08315642362d173a2a9d6e4f45f76f8688af294e5a426",
+      "manifestDigest": "sha256:4ef7f7bb377f42228eaf81b6ee4bea645d7d6451936389e70ef9b1ea087580d4",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18380,6 +18701,9 @@
         {
           "id": "voices-zm-yunxia-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zm_yunxia.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:6b2b8fc15b3df19a368daebe5c581c7fabf433ee5b8a17ffd6b3d723cff8936d",
           "bytes": 522240,
@@ -18405,11 +18729,14 @@
     {
       "id": "kokoro-zm-yunyang",
       "engineId": "kokoro",
-      "manifestDigest": "sha256:b20d249a3a48145a628af6ae37ac503fe45038a475dd12125769d57aedc7974d",
+      "manifestDigest": "sha256:9907e64cbf5463f90143623350c2752a7aa7180d8225d6fb1a81dd3285b6eee3",
       "assets": [
         {
           "id": "onnx-model-q8f16-onnx",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
           "bytes": 86033585,
@@ -18426,6 +18753,9 @@
         {
           "id": "voices-zm-yunyang-bin",
           "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/voices/zm_yunyang.bin?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "1939ad2a8e416c0acfeecc08a694d14ef25f2231",
           "sha256": "sha256:261e2c89470534dbbcb8fd98b8fdc495ec94063d9bb6c8277f7be43cccba3f42",
           "bytes": 522240,
@@ -18451,11 +18781,14 @@
     {
       "id": "pocket-companion-pack",
       "engineId": "pocket",
-      "manifestDigest": "sha256:9f0c2aa6fb829a15cda41429bf6136bac69813574ce48fd971d5faea32413e16",
+      "manifestDigest": "sha256:9ab178a23f6e427f9f197062987858cd99fb3fb49fb93810848dad1f965dea28",
       "assets": [
         {
           "id": "tts-b6369a24-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/tts_b6369a24.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:58aa704a88faad35f22c34ea1cb55c4c5629de8b8e035c6e4936e2673dc07617",
           "bytes": 235738732,
@@ -18472,6 +18805,9 @@
         {
           "id": "tokenizer-model",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/tokenizer.model?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:d461765ae179566678c93091c5fa6f2984c31bbe990bf1aa62d92c64d91bc3f6",
           "bytes": 59339,
@@ -18488,6 +18824,9 @@
         {
           "id": "embeddings-v3-alba-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/alba.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:76fcc99b552439f1d2a96d593285113f6afaf628281195a2959b40f5c3610f3f",
           "bytes": 6145272,
@@ -18504,6 +18843,9 @@
         {
           "id": "languages-english-embeddings-estelle-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/languages/english/embeddings/estelle.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:ccebef7f51762c7fc08870f5ecf268e8713551ae2c9f7984ddaec0c1e1c77153",
           "bytes": 8258808,
@@ -18520,6 +18862,9 @@
         {
           "id": "embeddings-v3-anna-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/anna.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:613a0244f538f6916645da06de12f57389a9f95855ec9db04c8be0806ff4ddc5",
           "bytes": 7767288,
@@ -18536,6 +18881,9 @@
         {
           "id": "embeddings-v3-vera-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/vera.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:773e9d338148b2e428a498af3174a0b76d9ba1bfc44eac159e38a2209aa5e4cf",
           "bytes": 6685944,
@@ -18552,6 +18900,9 @@
         {
           "id": "embeddings-v3-fantine-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/fantine.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7c07450f96a0d75b57c44d3b7254d2338b4ba5130016997168f65272dc3c6332",
           "bytes": 6489336,
@@ -18568,6 +18919,9 @@
         {
           "id": "embeddings-v3-charles-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/charles.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:595d60eccc8cd3e2018f03bd8a1e83d6ae075e6c637e38940850e76c98a3f747",
           "bytes": 6145272,
@@ -18584,6 +18938,9 @@
         {
           "id": "embeddings-v3-paul-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/paul.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:a5738f4593c7d2424fdcfc935e9b5fc9cf1bcfe024c4fce204f19f1346d38d2f",
           "bytes": 6931704,
@@ -18600,6 +18957,9 @@
         {
           "id": "embeddings-v3-eponine-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/eponine.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:c2b0ab4c86a946c0bf4a14d6ca586a9f72d9ff6911839bd7c9b3613b3a726dd6",
           "bytes": 6882552,
@@ -18616,6 +18976,9 @@
         {
           "id": "embeddings-v3-azelma-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/azelma.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:90da1c3967ca9505dbe82e3388829b97ade2b9b5d48750be0cedaf6a77355f58",
           "bytes": 7914744,
@@ -18632,6 +18995,9 @@
         {
           "id": "embeddings-v3-george-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/george.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:96f7947468e92920c9d6e5aeda8903e15845f0a811f4471f90fe988ebc38cd71",
           "bytes": 6194424,
@@ -18648,6 +19014,9 @@
         {
           "id": "embeddings-v3-mary-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/mary.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:5180a56946840103b0e53756cb9b53cc18e580ff68fad5a2d741dc6ce03f5da1",
           "bytes": 6145272,
@@ -18664,6 +19033,9 @@
         {
           "id": "embeddings-v3-jane-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/jane.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:f9cd0c17fab9aef3ff274f3e42b3679e39277ad148353c1461b4c0bcb9221bd5",
           "bytes": 7324920,
@@ -18680,6 +19052,9 @@
         {
           "id": "embeddings-v3-michael-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/michael.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7bc77e645e7a530484844454de003fc434c9f2dca08e88ba4bcae1e5f52b1653",
           "bytes": 7226616,
@@ -18696,6 +19071,9 @@
         {
           "id": "embeddings-v3-eve-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/eve.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:2a0501e2a90c56cb83fc5ac20796dab9d5f6189ed2f98d5cb7aa7f55047c76bf",
           "bytes": 6489336,
@@ -18712,6 +19090,9 @@
         {
           "id": "embeddings-v3-bill-boerst-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/bill_boerst.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:7e77da11c6deb8bddf7b6ac1e0c9988dab36874b1432b9fb1d8a985bf7675f6e",
           "bytes": 6685944,
@@ -18728,6 +19109,9 @@
         {
           "id": "embeddings-v3-caro-davy-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/caro_davy.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:9280f8e2141ce45316c2020138641a08895eb05ab53c93f0257c5b71c42f47c4",
           "bytes": 5211384,
@@ -18744,6 +19128,9 @@
         {
           "id": "embeddings-v3-peter-yearsley-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/peter_yearsley.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:619f8a155ab47ac8e3556ccfa9caee0cf94997a343395d3233d7fa35c202a5d9",
           "bytes": 3687664,
@@ -18760,6 +19147,9 @@
         {
           "id": "embeddings-v3-stuart-bell-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/stuart_bell.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:3851de39075693911b41676ab557bc6900fdba801a03e40d140b962ab36cbbeb",
           "bytes": 5211384,
@@ -18776,6 +19166,9 @@
         {
           "id": "embeddings-v3-marius-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/marius.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:2393140a1ff79fefd7ac0b70fdfa71fd7a0034255a9dc44f9931661ad70bb476",
           "bytes": 6145272,
@@ -18792,6 +19185,9 @@
         {
           "id": "embeddings-v3-javert-safetensors",
           "url": "https://huggingface.co/kyutai/pocket-tts-without-voice-cloning/resolve/e041936c75475d350b405bc870bcf7c22da4e9e6/embeddings_v3/javert.safetensors?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "e041936c75475d350b405bc870bcf7c22da4e9e6",
           "sha256": "sha256:fce55ce88a4f8239f336b940b7bd33b97d9795975653aaff074526f0dfbea1e0",
           "bytes": 6145272,
@@ -18817,11 +19213,14 @@
     {
       "id": "supertonic-browser-assets",
       "engineId": "supertonic",
-      "manifestDigest": "sha256:4290469dd169a98489f3a0de61d7dc45ddf46c84e01f7550f1a6294ff8681c18",
+      "manifestDigest": "sha256:897a3bb0d255e135d211c88940290bb8791948df90ad2bd37557048471fbb036",
       "assets": [
         {
           "id": "config-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/config.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2",
           "bytes": 174,
@@ -18841,6 +19240,9 @@
         {
           "id": "onnx-duration-predictor-onnx",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/duration_predictor.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db",
           "bytes": 3700147,
@@ -18860,6 +19262,9 @@
         {
           "id": "onnx-text-encoder-onnx",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/text_encoder.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff",
           "bytes": 36416150,
@@ -18879,6 +19284,9 @@
         {
           "id": "onnx-tts-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/tts.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09",
           "bytes": 8253,
@@ -18898,6 +19306,9 @@
         {
           "id": "onnx-unicode-indexer-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/unicode_indexer.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f",
           "bytes": 277676,
@@ -18917,6 +19328,9 @@
         {
           "id": "onnx-vector-estimator-onnx",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/vector_estimator.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c",
           "bytes": 256534781,
@@ -18936,6 +19350,9 @@
         {
           "id": "onnx-vocoder-onnx",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/vocoder.onnx?download=true",
+          "approvedFinalOrigins": [
+            "https://cas-bridge.xethub.hf.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba",
           "bytes": 101424195,
@@ -18955,6 +19372,9 @@
         {
           "id": "voice-styles-f1-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/F1.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2",
           "bytes": 292046,
@@ -18974,6 +19394,9 @@
         {
           "id": "voice-styles-f2-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/F2.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:7c722c6a72707b1a77f035d67f0d1351ba187738e06f7683e8c72b1df3477fc6",
           "bytes": 292423,
@@ -18993,6 +19416,9 @@
         {
           "id": "voice-styles-f3-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/F3.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab",
           "bytes": 290794,
@@ -19012,6 +19438,9 @@
         {
           "id": "voice-styles-f4-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/F4.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:c2fa764c1225a76dfc3e2c73e8aa4f70d9ee48793860eb34c295fff01c2e032b",
           "bytes": 291808,
@@ -19031,6 +19460,9 @@
         {
           "id": "voice-styles-f5-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/F5.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:45966e73316415626cf41a7d1c6f3b4c70dbc1ba2bee5c1978ef0ce33244fc8d",
           "bytes": 291479,
@@ -19050,6 +19482,9 @@
         {
           "id": "voice-styles-m1-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M1.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b",
           "bytes": 291748,
@@ -19069,6 +19504,9 @@
         {
           "id": "voice-styles-m2-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M2.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50",
           "bytes": 292055,
@@ -19088,6 +19526,9 @@
         {
           "id": "voice-styles-m3-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M3.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b",
           "bytes": 290198,
@@ -19107,6 +19548,9 @@
         {
           "id": "voice-styles-m4-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M4.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303",
           "bytes": 291522,
@@ -19126,6 +19570,9 @@
         {
           "id": "voice-styles-m5-json",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M5.json?download=true",
+          "approvedFinalOrigins": [
+            "https://huggingface.co"
+          ],
           "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
           "sha256": "sha256:dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2",
           "bytes": 291469,

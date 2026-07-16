@@ -167,6 +167,42 @@ async function verifyFile(file: OpfsFileSnapshotPort, identity: CacheIdentity): 
   }
 }
 
+async function readVerifiedFile(
+  file: OpfsFileSnapshotPort,
+  identity: CacheIdentity,
+): Promise<ArrayBuffer | null> {
+  if (file.size !== identity.bytes) return null;
+  const output = new Uint8Array(identity.bytes);
+  const digest = createSha256Digest();
+  const reader = file.stream().getReader();
+  let received = 0;
+  let completed = false;
+  try {
+    while (true) {
+      const result = await reader.read();
+      if (result.done) {
+        completed = true;
+        break;
+      }
+      if (received + result.value.byteLength > identity.bytes) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      output.set(result.value, received);
+      received += result.value.byteLength;
+      digest.update(result.value);
+    }
+    if (received !== identity.bytes || (await digest.digest()) !== identity.sha256) return null;
+    return output.buffer;
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return null;
+  } finally {
+    if (!completed) await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+}
+
 /**
  * Lazy OPFS storage with immutable content generations and an atomic commit
  * pointer. Construction is side-effect free; storage and Web Locks are touched
@@ -234,6 +270,51 @@ export class OpfsAssetStore implements AssetStorePort {
       await ignoreMissing(() => directory.removeEntry(commitName(name))).catch(() => undefined);
       await ignoreMissing(() => directory.removeEntry(commit.dataFile)).catch(() => undefined);
       return false;
+    });
+  }
+
+  async readVerified(cacheKey: string, sha256: string, bytes: number): Promise<ArrayBuffer | null> {
+    const segments = splitSafeKey(cacheKey);
+    const identity = { sha256, bytes };
+    assertIdentity(identity);
+    return await this.withCacheLock(cacheKey, async () => {
+      let directory: OpfsDirectoryPort;
+      let name: string;
+      try {
+        ({ directory, name } = await this.resolveParent(segments, false));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'NotFoundError') return null;
+        throw error;
+      }
+
+      let commit: CommitRecord | null = null;
+      try {
+        const commitFile = await directory.getFileHandle(commitName(name));
+        commit = parseCommitRecord(await (await commitFile.getFile()).text(), cacheKey, name);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      }
+      if (commit === null) {
+        await ignoreMissing(() => directory.removeEntry(commitName(name))).catch(() => undefined);
+        await ignoreMissing(() => directory.removeEntry(generationName(name, identity))).catch(
+          () => undefined,
+        );
+        return null;
+      }
+      if (commit.sha256 !== sha256 || commit.bytes !== bytes) return null;
+
+      let verified: ArrayBuffer | null = null;
+      try {
+        const data = await directory.getFileHandle(commit.dataFile);
+        verified = await readVerifiedFile(await data.getFile(), commit);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'NotFoundError')) throw error;
+      }
+      if (verified !== null) return verified;
+
+      await ignoreMissing(() => directory.removeEntry(commitName(name))).catch(() => undefined);
+      await ignoreMissing(() => directory.removeEntry(commit.dataFile)).catch(() => undefined);
+      return null;
     });
   }
 

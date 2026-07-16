@@ -42,6 +42,7 @@ function assetSet(engineId: string): AssetSetManifest {
       {
         id: `${engineId}-asset`,
         url: `https://example.com/${engineId}/0123456789abcdef0123456789abcdef01234567/model.onnx`,
+        approvedFinalOrigins: ['https://example.com'],
         revision: '0123456789abcdef0123456789abcdef01234567',
         sha256: 'sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a',
         bytes: 4,

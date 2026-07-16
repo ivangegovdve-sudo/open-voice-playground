@@ -1,10 +1,10 @@
-import type { PinnedAssetSource } from './launch-asset-types.js';
+import { withObservedHuggingFaceOrigins } from './launch-asset-types.js';
 
-export const KITTEN_ASSETS: PinnedAssetSource[] = [
+export const KITTEN_ASSETS = withObservedHuggingFaceOrigins([
   {"id":"kitten-tts-micro-v0-8-onnx","path":"kitten_tts_micro_v0_8.onnx","url":"https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/kitten_tts_micro_v0_8.onnx?download=true","revision":"1ccf72b2c2048fd17efac7de2fab32d10e225084","sha256":"sha256:95481626fee1ba70ce683e69c534fc7cb38433c46ce42d3abbeafb4b9f1a4123","bytes":41384970,"mediaType":"application/onnx","sourceId":"kitten-model-source","licenseId":"kitten-weights-license","requiredAcceptance":null},
   {"id":"voices-npz","path":"voices.npz","url":"https://huggingface.co/KittenML/kitten-tts-micro-0.8/resolve/1ccf72b2c2048fd17efac7de2fab32d10e225084/voices.npz?download=true","revision":"1ccf72b2c2048fd17efac7de2fab32d10e225084","sha256":"sha256:112710c1be8ad0e967c190fb0fd95cbe5848ec4791b93209f20b28b7da20dac1","bytes":3278902,"mediaType":"application/octet-stream","sourceId":"kitten-model-source","licenseId":"kitten-weights-license","requiredAcceptance":null},
-];
-export const SUPERTONIC_ASSETS: PinnedAssetSource[] = [
+]);
+export const SUPERTONIC_ASSETS = withObservedHuggingFaceOrigins([
   {"id":"config-json","path":"config.json","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/config.json?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2","bytes":174,"mediaType":"application/json","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
   {"id":"onnx-duration-predictor-onnx","path":"onnx/duration_predictor.onnx","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/duration_predictor.onnx?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db","bytes":3700147,"mediaType":"application/onnx","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
   {"id":"onnx-text-encoder-onnx","path":"onnx/text_encoder.onnx","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/text_encoder.onnx?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff","bytes":36416150,"mediaType":"application/onnx","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
@@ -22,4 +22,18 @@ export const SUPERTONIC_ASSETS: PinnedAssetSource[] = [
   {"id":"voice-styles-m3-json","path":"voice_styles/M3.json","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M3.json?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b","bytes":290198,"mediaType":"application/json","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
   {"id":"voice-styles-m4-json","path":"voice_styles/M4.json","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M4.json?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303","bytes":291522,"mediaType":"application/json","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
   {"id":"voice-styles-m5-json","path":"voice_styles/M5.json","url":"https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/voice_styles/M5.json?download=true","revision":"3cadd1ee6394adea1bd021217a0e650ede09a323","sha256":"sha256:dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2","bytes":291469,"mediaType":"application/json","sourceId":"supertone-model-source","licenseId":"supertone-weights-license","requiredAcceptance":{"licenseId":"supertone-weights-license","termsHash":"sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"}},
-];
+], [
+  'config-json',
+  'onnx-tts-json',
+  'onnx-unicode-indexer-json',
+  'voice-styles-f1-json',
+  'voice-styles-f2-json',
+  'voice-styles-f3-json',
+  'voice-styles-f4-json',
+  'voice-styles-f5-json',
+  'voice-styles-m1-json',
+  'voice-styles-m2-json',
+  'voice-styles-m3-json',
+  'voice-styles-m4-json',
+  'voice-styles-m5-json',
+]);

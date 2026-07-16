@@ -254,6 +254,23 @@ const ImmutableHttpsUrlSchema = SafeHttpsUrlSchema.refine(
   'Expected an immutable HTTPS URL containing a pinned revision',
 );
 
+const ExactHttpsOriginSchema = z
+  .string()
+  .url()
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return (
+        url.protocol === 'https:' &&
+        url.username.length === 0 &&
+        url.password.length === 0 &&
+        url.origin === value
+      );
+    } catch {
+      return false;
+    }
+  }, 'Expected an exact credential-free HTTPS origin without a path, query, or fragment');
+
 export const AssetAcceptanceSchema = z
   .object({
     licenseId: RecordIdSchema,
@@ -261,19 +278,25 @@ export const AssetAcceptanceSchema = z
   })
   .strict();
 
+const CacheKeySchema = z
+  .string()
+  .regex(
+    /^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)+$/,
+    'Expected a safe namespaced cache key',
+  );
+
 export const ImmutableAssetSchema = z
   .object({
     id: RecordIdSchema,
     url: ImmutableHttpsUrlSchema,
+    approvedFinalOrigins: z
+      .array(ExactHttpsOriginSchema)
+      .min(1)
+      .refine(hasUniqueValues, 'Approved final origins must be unique'),
     revision: GitRevisionSchema,
     sha256: Sha256Schema,
     bytes: z.number().int().positive().max(2_147_483_648),
-    cacheKey: z
-      .string()
-      .regex(
-        /^[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)+$/,
-        'Expected a safe namespaced cache key',
-      ),
+    cacheKey: CacheKeySchema,
     mediaType: z.string().regex(/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/),
     sourceIds: RecordIdsSchema,
     licenseIds: RecordIdsSchema,
@@ -421,6 +444,164 @@ export const AssetSetManifestSchema = z
         code: 'custom',
         path: ['totalBytes'],
         message: 'Asset-set byte total must equal the sum of its assets',
+      });
+    }
+  });
+
+const EvidenceByteCountSchema = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const PositiveEvidenceByteCountSchema = EvidenceByteCountSchema.refine(
+  (value) => value > 0,
+  'Expected a positive exact byte count',
+);
+
+const BrowserRuntimeS0ConsentSchema = z
+  .object({
+    assetSetId: RecordIdSchema,
+    manifestDigest: Sha256Schema,
+    acceptedLicenseIds: z
+      .array(RecordIdSchema)
+      .refine(hasUniqueValues, 'Accepted license IDs must be unique'),
+    acceptedTermsHashes: z
+      .array(Sha256Schema)
+      .refine(hasUniqueValues, 'Accepted terms hashes must be unique'),
+  })
+  .strict();
+
+const BrowserRuntimeS0StorageSchema = z
+  .object({
+    selectedBytes: PositiveEvidenceByteCountSchema,
+    largestAssetBytes: PositiveEvidenceByteCountSchema,
+    safetyMarginBytes: EvidenceByteCountSchema.min(8 * 1024 * 1024).max(64 * 1024 * 1024),
+    upperBoundBytes: PositiveEvidenceByteCountSchema,
+    persisted: z.boolean().nullable(),
+    quotaBytes: EvidenceByteCountSchema.nullable(),
+    usageBytes: EvidenceByteCountSchema.nullable(),
+    retainedBytes: EvidenceByteCountSchema,
+    candidateBytes: EvidenceByteCountSchema,
+    largestTemporaryBytes: EvidenceByteCountSchema,
+    additionalRequiredBytes: EvidenceByteCountSchema,
+    requiredCapacityBytes: EvidenceByteCountSchema,
+  })
+  .strict()
+  .superRefine((storage, context) => {
+    const exactSum = (...values: number[]): number | null => {
+      const total = values.reduce((sum, value) => sum + value, 0);
+      return Number.isSafeInteger(total) ? total : null;
+    };
+    const expectedSelected = exactSum(storage.retainedBytes, storage.candidateBytes);
+    const expectedUpperBound = exactSum(
+      storage.selectedBytes,
+      storage.largestAssetBytes,
+      storage.safetyMarginBytes,
+    );
+    const expectedAdditional =
+      storage.candidateBytes === 0
+        ? 0
+        : exactSum(
+            storage.candidateBytes,
+            storage.largestTemporaryBytes,
+            storage.safetyMarginBytes,
+          );
+    const expectedRequired =
+      expectedAdditional === null ? null : exactSum(storage.retainedBytes, expectedAdditional);
+    if (
+      expectedSelected !== storage.selectedBytes ||
+      expectedUpperBound !== storage.upperBoundBytes ||
+      expectedAdditional !== storage.additionalRequiredBytes ||
+      expectedRequired !== storage.requiredCapacityBytes ||
+      storage.largestAssetBytes > storage.selectedBytes ||
+      storage.largestTemporaryBytes > storage.largestAssetBytes ||
+      (storage.candidateBytes === 0 && storage.largestTemporaryBytes !== 0)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'S0 storage evidence arithmetic is inconsistent or unbounded',
+      });
+    }
+  });
+
+const BrowserRuntimeS0AssetEvidenceBase = z.object({
+  assetId: RecordIdSchema,
+  cacheKey: CacheKeySchema,
+  expectedBytes: PositiveEvidenceByteCountSchema,
+  observedBytes: PositiveEvidenceByteCountSchema,
+  expectedSha256: Sha256Schema,
+  observedSha256: Sha256Schema,
+});
+
+const BrowserRuntimeS0CacheHitEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase.extend({
+  disposition: z.literal('cache-hit'),
+  requestUrl: z.null(),
+  finalUrl: z.null(),
+  finalOrigin: z.null(),
+  responseType: z.null(),
+  status: z.null(),
+})
+  .strict()
+  .superRefine((asset, context) => {
+    if (
+      asset.expectedBytes !== asset.observedBytes ||
+      asset.expectedSha256 !== asset.observedSha256
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Cache-hit evidence must preserve exact identity',
+      });
+    }
+  });
+
+const BrowserRuntimeS0DownloadEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase.extend({
+  disposition: z.literal('downloaded'),
+  requestUrl: SafeHttpsUrlSchema,
+  finalUrl: SafeHttpsUrlSchema,
+  finalOrigin: ExactHttpsOriginSchema,
+  responseType: z.literal('cors'),
+  status: z.literal(200),
+})
+  .strict()
+  .superRefine((asset, context) => {
+    if (
+      asset.expectedBytes !== asset.observedBytes ||
+      asset.expectedSha256 !== asset.observedSha256 ||
+      new URL(asset.finalUrl).origin !== asset.finalOrigin
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Downloaded evidence must preserve exact identity and final URL origin',
+      });
+    }
+  });
+
+export const BrowserRuntimeS0EvidenceSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    kind: z.literal('open-voice-browser-runtime-s0'),
+    assetSetId: RecordIdSchema,
+    manifestDigest: Sha256Schema,
+    consent: BrowserRuntimeS0ConsentSchema,
+    storage: BrowserRuntimeS0StorageSchema,
+    assets: z
+      .array(
+        z.discriminatedUnion('disposition', [
+          BrowserRuntimeS0CacheHitEvidenceSchema,
+          BrowserRuntimeS0DownloadEvidenceSchema,
+        ]),
+      )
+      .min(1),
+  })
+  .strict()
+  .superRefine((evidence, context) => {
+    const assetIds = evidence.assets.map(({ assetId }) => assetId);
+    const cacheKeys = evidence.assets.map(({ cacheKey }) => cacheKey);
+    if (
+      evidence.consent.assetSetId !== evidence.assetSetId ||
+      evidence.consent.manifestDigest !== evidence.manifestDigest ||
+      !hasUniqueValues(assetIds) ||
+      !hasUniqueValues(cacheKeys)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'S0 evidence must bind exact consent and unique selected asset identities',
       });
     }
   });
@@ -918,6 +1099,7 @@ export type ImmutableAsset = z.infer<typeof ImmutableAssetSchema>;
 export type PinnedReleaseAssetEvidence = z.infer<typeof PinnedReleaseAssetEvidenceSchema>;
 export type AssetDeliveryEvidence = z.infer<typeof AssetDeliveryEvidenceSchema>;
 export type AssetSetManifest = z.infer<typeof AssetSetManifestSchema>;
+export type BrowserRuntimeS0Evidence = z.infer<typeof BrowserRuntimeS0EvidenceSchema>;
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type WorkerCommand = z.infer<typeof WorkerCommandSchema>;
 export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;

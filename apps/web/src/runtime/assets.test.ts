@@ -5,6 +5,7 @@ import type { AssetSetManifest } from '@open-voice/contracts';
 import {
   AssetPreparationManager,
   AssetPreparationError,
+  createBrowserStorageManagerPort,
   createConsentReceipt,
   createSha256Digest,
   type AssetStorePort,
@@ -24,6 +25,7 @@ function manifest(overrides: Partial<AssetSetManifest> = {}): AssetSetManifest {
       {
         id: 'test-model',
         url: 'https://example.com/model/0123456789abcdef0123456789abcdef01234567/model.onnx',
+        approvedFinalOrigins: ['https://assets.example.com'],
         revision: '0123456789abcdef0123456789abcdef01234567',
         sha256: HASH,
         bytes: BYTES.byteLength,
@@ -92,13 +94,40 @@ class MemoryAssetStore implements AssetStorePort {
     this.events.push(`delete:${key}`);
     this.temporary.delete(key);
   }
+
+  async readVerified(cacheKey: string, sha256: string, bytes: number): Promise<ArrayBuffer | null> {
+    this.events.push(`read:${cacheKey}`);
+    const value = this.final.get(cacheKey);
+    if (value === undefined || value.byteLength !== bytes || sha256 !== HASH) return null;
+    return value.slice().buffer;
+  }
 }
 
-function response(bytes: Uint8Array<ArrayBuffer>, contentLength = bytes.byteLength): Response {
-  return new Response(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), {
-    headers: { 'content-length': String(contentLength) },
-    status: 200,
+function withResponseMetadata(
+  response: Response,
+  url = 'https://assets.example.com/model.onnx',
+  type: ResponseType = 'cors',
+): Response {
+  Object.defineProperties(response, {
+    type: { configurable: true, value: type },
+    url: { configurable: true, value: url },
   });
+  return response;
+}
+
+function response(
+  bytes: Uint8Array<ArrayBuffer>,
+  contentLength = bytes.byteLength,
+  metadata: { url?: string; type?: ResponseType; status?: number } = {},
+): Response {
+  return withResponseMetadata(
+    new Response(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), {
+      headers: { 'content-length': String(contentLength) },
+      status: metadata.status ?? 200,
+    }),
+    metadata.url,
+    metadata.type,
+  );
 }
 
 function streamedResponse(
@@ -116,12 +145,14 @@ function streamedResponse(
     ...(onCancel === undefined ? {} : { cancel: onCancel }),
   };
   const stream = new ReadableStream<Uint8Array<ArrayBuffer>>(source);
-  return new Response(stream, {
-    status: 200,
-    ...(contentLength === undefined
-      ? {}
-      : { headers: { 'content-length': String(contentLength) } }),
-  });
+  return withResponseMetadata(
+    new Response(stream, {
+      status: 200,
+      ...(contentLength === undefined
+        ? {}
+        : { headers: { 'content-length': String(contentLength) } }),
+    }),
+  );
 }
 
 function fixedDigest(value: string): () => StreamingDigest {
@@ -166,6 +197,26 @@ describe('consent-gated immutable asset preparation', () => {
     expect(store.events).toEqual([]);
   });
 
+  it('describes a bounded worst-case storage requirement without touching browser storage', () => {
+    const store = new MemoryAssetStore();
+    const ports = manager(store);
+
+    expect(
+      (
+        ports.instance as AssetPreparationManager & {
+          describeStorage(assetSet: AssetSetManifest): unknown;
+        }
+      ).describeStorage(manifest()),
+    ).toEqual({
+      selectedBytes: 4,
+      largestAssetBytes: 4,
+      safetyMarginBytes: 8 * 1024 * 1024,
+      upperBoundBytes: 8 * 1024 * 1024 + 8,
+    });
+    expect(ports.fetcher).not.toHaveBeenCalled();
+    expect(store.events).toEqual([]);
+  });
+
   it('requires an explicit download confirmation even when no license click-through applies', async () => {
     const store = new MemoryAssetStore();
     const ports = manager(store);
@@ -206,7 +257,9 @@ describe('consent-gated immutable asset preparation', () => {
     });
 
     expect(ports.fetcher).toHaveBeenCalledWith(set.assets[0]!.url, {
+      cache: 'no-store',
       credentials: 'omit',
+      mode: 'cors',
       redirect: 'follow',
       signal: expect.any(AbortSignal),
     });
@@ -214,6 +267,132 @@ describe('consent-gated immutable asset preparation', () => {
     expect(store.final.get('test/model/0123456789ab')).toEqual(BYTES);
     expect(store.temporary.size).toBe(0);
     expect(progress.at(-1)).toBe(100);
+  });
+
+  it.each([
+    [
+      'an unapproved redirect origin',
+      response(BYTES, BYTES.byteLength, { url: 'https://unapproved.example/model.onnx' }),
+      /origin|redirect|approved/i,
+    ],
+    [
+      'an opaque response',
+      response(BYTES, BYTES.byteLength, { type: 'opaque' }),
+      /cors|response type/i,
+    ],
+    ['a response without a final URL', response(BYTES, BYTES.byteLength, { url: '' }), /url/i],
+    [
+      'a non-200 final status',
+      response(BYTES, BYTES.byteLength, { status: 206 }),
+      /status|http 206/i,
+    ],
+  ])('rejects %s before reading or creating temporary storage', async (_name, network, error) => {
+    const store = new MemoryAssetStore();
+    const getReader = vi.spyOn(network.body!, 'getReader');
+    const ports = manager(
+      store,
+      vi.fn(async () => network),
+    );
+    const set = manifest();
+
+    await expect(
+      ports.instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+    ).rejects.toThrow(error);
+    expect(getReader).not.toHaveBeenCalled();
+    expect(store.events).toEqual([`has:${set.assets[0]!.cacheKey}`]);
+    expect(store.temporary.size).toBe(0);
+  });
+
+  it.each(['status', 'type', 'url', 'headers'] as const)(
+    'converts a throwing Response.%s getter into an owned fail-closed error',
+    async (property) => {
+      const store = new MemoryAssetStore();
+      const network = response(BYTES);
+      Object.defineProperty(network, property, {
+        configurable: true,
+        get() {
+          throw new Error(`hostile ${property} getter`);
+        },
+      });
+      const ports = manager(
+        store,
+        vi.fn(async () => network),
+      );
+      const set = manifest();
+
+      await expect(
+        ports.instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+      ).rejects.toMatchObject({
+        name: 'AssetPreparationError',
+        code: 'unapproved-response',
+      });
+      expect(store.events).toEqual([`has:${set.assets[0]!.cacheKey}`]);
+      expect(store.temporary.size).toBe(0);
+    },
+  );
+
+  it.each(['body-getter', 'cancel'] as const)(
+    'does not let a hostile Response %s mask an owned rejection',
+    async (failure) => {
+      const store = new MemoryAssetStore();
+      const network = response(BYTES, BYTES.byteLength, {
+        url: 'https://unapproved.example/model.onnx',
+      });
+      if (failure === 'body-getter') {
+        Object.defineProperty(network, 'body', {
+          configurable: true,
+          get() {
+            throw new Error('hostile body getter');
+          },
+        });
+      } else {
+        Object.defineProperty(network.body!, 'cancel', {
+          configurable: true,
+          value() {
+            throw new Error('hostile synchronous cancel');
+          },
+        });
+      }
+      const ports = manager(
+        store,
+        vi.fn(async () => network),
+      );
+      const set = manifest();
+
+      await expect(
+        ports.instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+      ).rejects.toMatchObject({
+        name: 'AssetPreparationError',
+        code: 'unapproved-response',
+      });
+      expect(store.events).toEqual([`has:${set.assets[0]!.cacheKey}`]);
+      expect(store.temporary.size).toBe(0);
+    },
+  );
+
+  it('converts a throwing approved-response body getter into an owned fail-closed error', async () => {
+    const store = new MemoryAssetStore();
+    const network = response(BYTES);
+    Object.defineProperty(network, 'body', {
+      configurable: true,
+      get() {
+        throw new Error('hostile body getter');
+      },
+    });
+    const ports = manager(
+      store,
+      vi.fn(async () => network),
+    );
+    const set = manifest();
+
+    await expect(
+      ports.instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+    ).rejects.toMatchObject({
+      name: 'AssetPreparationError',
+      code: 'unapproved-response',
+    });
+    expect(store.events).toEqual([`has:${set.assets[0]!.cacheKey}`]);
+    expect(store.temporary.size).toBe(0);
   });
 
   it('uses collision-resistant temporary keys across manager instances', async () => {
@@ -272,6 +451,279 @@ describe('consent-gated immutable asset preparation', () => {
     const quota = manager(quotaStore);
     await expect(quota.instance.prepare(set, receipt)).rejects.toThrow(/storage quota/i);
     expect(quotaStore.temporary.size).toBe(0);
+  });
+
+  it('estimates and requests persistent storage only after consent, before network I/O', async () => {
+    const store = new MemoryAssetStore();
+    const storageEvents: string[] = [];
+    const storage = {
+      estimate: vi.fn(async () => {
+        storageEvents.push('estimate');
+        return { quota: 64 * 1024 * 1024, usage: 1024 };
+      }),
+      persist: vi.fn(async () => {
+        storageEvents.push('persist');
+        return true;
+      }),
+    };
+    const fetcher = vi.fn(async () => {
+      storageEvents.push('fetch');
+      return response(BYTES);
+    });
+    const instance = new AssetPreparationManager({
+      store,
+      fetcher,
+      createDigest: fixedDigest(HASH),
+      storage,
+    } as ConstructorParameters<typeof AssetPreparationManager>[0]);
+    const set = manifest();
+
+    await expect(instance.prepare(set, null)).rejects.toMatchObject({ code: 'consent-required' });
+    expect(storage.estimate).not.toHaveBeenCalled();
+    expect(storage.persist).not.toHaveBeenCalled();
+    expect(store.events).toEqual([]);
+
+    const evidence = await instance.prepare(set, createConsentReceipt(set, ['test-license']));
+    expect(storageEvents).toEqual(['persist', 'estimate', 'fetch']);
+    expect(evidence).toMatchObject({
+      schemaVersion: 1,
+      kind: 'open-voice-browser-runtime-s0',
+      assetSetId: set.id,
+      manifestDigest: set.manifestDigest,
+      storage: {
+        persisted: true,
+        quotaBytes: 64 * 1024 * 1024,
+        usageBytes: 1024,
+        retainedBytes: 0,
+        candidateBytes: 4,
+        largestTemporaryBytes: 4,
+      },
+    });
+  });
+
+  it('keeps the browser storage-manager lookup lazy until exact consent passes', async () => {
+    const browserStorage = {
+      estimate: vi.fn(async () => ({ quota: 64 * 1024 * 1024, usage: 0 })),
+      persist: vi.fn(async () => true),
+    };
+    const getStorage = vi.fn(() => browserStorage);
+    const storage = createBrowserStorageManagerPort(getStorage);
+    const store = new MemoryAssetStore();
+    const set = manifest();
+    const instance = new AssetPreparationManager({
+      store,
+      fetcher: vi.fn(async () => response(BYTES)),
+      createDigest: fixedDigest(HASH),
+      storage,
+    });
+
+    expect(getStorage).not.toHaveBeenCalled();
+    await expect(instance.prepare(set, null)).rejects.toMatchObject({ code: 'consent-required' });
+    expect(getStorage).not.toHaveBeenCalled();
+
+    await instance.prepare(set, createConsentReceipt(set, ['test-license']));
+    expect(getStorage).toHaveBeenCalledOnce();
+    expect(browserStorage.persist).toHaveBeenCalledOnce();
+    expect(browserStorage.estimate).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a known insufficient quota before fetching and treats storage API failures as best effort', async () => {
+    const set = manifest();
+    const receipt = createConsentReceipt(set, ['test-license']);
+    const store = new MemoryAssetStore();
+    const fetcher = vi.fn(async () => response(BYTES));
+    const insufficient = new AssetPreparationManager({
+      store,
+      fetcher,
+      createDigest: fixedDigest(HASH),
+      storage: {
+        persist: vi.fn(async () => false),
+        estimate: vi.fn(async () => ({ quota: 100, usage: 99 })),
+      },
+    } as ConstructorParameters<typeof AssetPreparationManager>[0]);
+
+    await expect(insufficient.prepare(set, receipt)).rejects.toMatchObject({
+      code: 'quota-exceeded',
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+
+    const bestEffortStore = new MemoryAssetStore();
+    const bestEffort = new AssetPreparationManager({
+      store: bestEffortStore,
+      fetcher,
+      createDigest: fixedDigest(HASH),
+      storage: {
+        persist: vi.fn(async () => {
+          throw new Error('persist unavailable');
+        }),
+        estimate: vi.fn(async () => {
+          throw new Error('estimate unavailable');
+        }),
+      },
+    } as ConstructorParameters<typeof AssetPreparationManager>[0]);
+    const evidence = await bestEffort.prepare(set, receipt);
+    expect(evidence).toMatchObject({
+      storage: { persisted: null, quotaBytes: null, usageBytes: null },
+    });
+  });
+
+  it('returns deterministic per-asset provenance and replays a verified cache fully offline', async () => {
+    const set = manifest();
+    const receipt = createConsentReceipt(set, ['test-license']);
+    const store = new MemoryAssetStore();
+    const first = manager(store);
+
+    const downloaded = await first.instance.prepare(set, receipt);
+    expect(downloaded).toMatchObject({
+      consent: {
+        assetSetId: set.id,
+        manifestDigest: set.manifestDigest,
+        acceptedLicenseIds: ['test-license'],
+      },
+      assets: [
+        {
+          assetId: 'test-model',
+          cacheKey: 'test/model/0123456789ab',
+          disposition: 'downloaded',
+          requestUrl: set.assets[0]!.url,
+          finalUrl: 'https://assets.example.com/model.onnx',
+          finalOrigin: 'https://assets.example.com',
+          responseType: 'cors',
+          status: 200,
+          expectedBytes: 4,
+          observedBytes: 4,
+          expectedSha256: HASH,
+          observedSha256: HASH,
+        },
+      ],
+    });
+
+    const offlineFetcher = vi.fn(async () => {
+      throw new TypeError('offline');
+    });
+    const replay = manager(store, offlineFetcher);
+    const cached = await replay.instance.prepare(set, receipt);
+    expect(offlineFetcher).not.toHaveBeenCalled();
+    expect(replay.createDigest).not.toHaveBeenCalled();
+    expect(cached).toMatchObject({
+      assets: [
+        {
+          assetId: 'test-model',
+          disposition: 'cache-hit',
+          requestUrl: null,
+          finalUrl: null,
+          finalOrigin: null,
+          responseType: null,
+          status: null,
+          observedBytes: 4,
+          observedSha256: HASH,
+        },
+      ],
+    });
+  });
+
+  it('requires exact consent before reading fresh verified bytes for transfer to a Worker', async () => {
+    const set = manifest();
+    const receipt = createConsentReceipt(set, ['test-license']);
+    const store = new MemoryAssetStore();
+    const ports = manager(store);
+    await ports.instance.prepare(set, receipt);
+    store.events.length = 0;
+
+    await expect(
+      (
+        ports.instance as AssetPreparationManager & {
+          readPreparedAssets(
+            assetSet: AssetSetManifest,
+            receipt: ReturnType<typeof createConsentReceipt> | null,
+          ): Promise<Array<{ assetId: string; cacheKey: string; bytes: ArrayBuffer }>>;
+        }
+      ).readPreparedAssets(set, null),
+    ).rejects.toMatchObject({ code: 'consent-required' });
+    expect(store.events).toEqual([]);
+
+    const prepared = await (
+      ports.instance as AssetPreparationManager & {
+        readPreparedAssets(
+          assetSet: AssetSetManifest,
+          receipt: ReturnType<typeof createConsentReceipt> | null,
+        ): Promise<Array<{ assetId: string; cacheKey: string; bytes: ArrayBuffer }>>;
+      }
+    ).readPreparedAssets(set, receipt);
+    expect(prepared).toMatchObject([
+      {
+        assetId: 'test-model',
+        cacheKey: 'test/model/0123456789ab',
+        sha256: HASH,
+        byteLength: 4,
+      },
+    ]);
+    expect(new Uint8Array(prepared[0]!.bytes)).toEqual(BYTES);
+    expect(store.events).toEqual(['read:test/model/0123456789ab']);
+  });
+
+  it('recovers a corrupt cache entry, refetches after eviction, and leaves no partials', async () => {
+    const set = manifest();
+    const receipt = createConsentReceipt(set, ['test-license']);
+    const store = new MemoryAssetStore();
+    store.final.set(set.assets[0]!.cacheKey, new Uint8Array([9]));
+    const ports = manager(store);
+
+    await ports.instance.prepare(set, receipt);
+    expect(ports.fetcher).toHaveBeenCalledOnce();
+    expect(store.final.get(set.assets[0]!.cacheKey)).toEqual(BYTES);
+    expect(store.temporary.size).toBe(0);
+
+    store.final.delete(set.assets[0]!.cacheKey);
+    await ports.instance.prepare(set, receipt);
+    expect(ports.fetcher).toHaveBeenCalledTimes(2);
+    expect(store.final.get(set.assets[0]!.cacheKey)).toEqual(BYTES);
+    expect(store.temporary.size).toBe(0);
+  });
+
+  it('touches only the selected asset set and preserves canonical asset order', async () => {
+    const first = manifest();
+    const secondAsset = {
+      ...first.assets[0]!,
+      id: 'second-model',
+      url: 'https://example.com/model/0123456789abcdef0123456789abcdef01234567/second.onnx',
+      cacheKey: 'test/second/0123456789ab',
+    };
+    const selected = manifest({
+      id: 'selected-assets',
+      manifestDigest: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      assets: [first.assets[0]!, secondAsset],
+      totalBytes: 8,
+    });
+    const unselected = manifest({
+      id: 'unselected-assets',
+      manifestDigest: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
+      assets: [
+        {
+          ...first.assets[0]!,
+          id: 'unselected-model',
+          url: 'https://example.com/model/0123456789abcdef0123456789abcdef01234567/unselected.onnx',
+          cacheKey: 'other/model/key',
+        },
+      ],
+    });
+    const requested: string[] = [];
+    const store = new MemoryAssetStore();
+    const instance = new AssetPreparationManager({
+      store,
+      fetcher: vi.fn(async (url) => {
+        requested.push(String(url));
+        return response(BYTES);
+      }),
+      createDigest: fixedDigest(HASH),
+    });
+
+    await instance.prepare(selected, createConsentReceipt(selected, ['test-license']));
+    expect(requested).toEqual(selected.assets.map(({ url }) => url));
+    expect(requested).not.toContain(unselected.assets[0]!.url);
+    expect(store.events.filter((event) => event.startsWith('has:'))).toEqual(
+      selected.assets.map(({ cacheKey }) => `has:${cacheKey}`),
+    );
   });
 
   it('aborts cancellation and never promotes stale work', async () => {
@@ -344,14 +796,16 @@ describe('consent-gated immutable asset preparation', () => {
     const store = new MemoryAssetStore();
     const cancelled = vi.fn();
     let hold!: ReadableStreamDefaultController<Uint8Array>;
-    const network = new Response(
-      new ReadableStream<Uint8Array>({
-        start(controller) {
-          hold = controller;
-          controller.enqueue(new Uint8Array([1, 2]));
-        },
-        cancel: cancelled,
-      }),
+    const network = withResponseMetadata(
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            hold = controller;
+            controller.enqueue(new Uint8Array([1, 2]));
+          },
+          cancel: cancelled,
+        }),
+      ),
     );
     const instance = new AssetPreparationManager({
       store,

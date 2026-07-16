@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { defineConfig, type Plugin } from 'vite';
 
 const BUILD_ASSETS_MARKER = 'const BUILD_ASSETS = []; // __VITE_BUILD_ASSETS__';
@@ -12,6 +13,11 @@ const CATALOG_DIGEST_MARKER = "const CATALOG_DIGEST = 'development'; // __VITE_C
 const CATALOG_BYTES_MARKER = 'const CATALOG_BYTES = 0; // __VITE_CATALOG_BYTES__';
 const SHELL_ASSET_PATTERN = /\.(?:css|js|mjs|woff2?|png|svg|webp|avif|ico)$/i;
 const LAUNCH_CATALOG_ASSET_PATTERN = /^assets\/launch-catalog\.public-[A-Za-z0-9_-]{6,}\.json$/;
+const MAX_INITIAL_JAVASCRIPT_GZIP_BYTES = 250 * 1024;
+const FORBIDDEN_INITIAL_ASSET_PATTERN =
+  /(?:worker|inference|model|tokenizer|\.wasm$|\.onnx$|\.bin$|\.safetensors$|\.npz$)/i;
+const FORBIDDEN_INITIAL_MODULE_PATTERN =
+  /(?:^|[\\/])(?:inference(?:[\\/]|\.|$)|runtime[\\/]workers[\\/])/i;
 
 function assertUniqueInjectionMarker(
   serviceWorker: string,
@@ -104,6 +110,36 @@ function injectServiceWorkerShellAssets(): Plugin {
       const buildAssets = shellOutputs.map((output) => `/${output.fileName}`);
       if (!buildAssets.some((path) => /\.(?:js|mjs)$/.test(path))) {
         throw new Error('The PWA shell build did not emit a JavaScript entry.');
+      }
+      const forbiddenShellAsset = buildAssets.find((path) =>
+        FORBIDDEN_INITIAL_ASSET_PATTERN.test(path),
+      );
+      if (forbiddenShellAsset !== undefined) {
+        throw new Error(
+          `The initial production shell graph contains a forbidden inference/runtime asset: ${forbiddenShellAsset}`,
+        );
+      }
+      for (const output of shellOutputs) {
+        if (
+          output.type === 'chunk' &&
+          output.moduleIds.some((moduleId) => FORBIDDEN_INITIAL_MODULE_PATTERN.test(moduleId))
+        ) {
+          throw new Error(
+            `The initial production module graph contains inference or Worker implementation code: ${output.fileName}`,
+          );
+        }
+      }
+      const initialJavaScriptGzipBytes = shellOutputs.reduce(
+        (total, output) =>
+          output.type === 'chunk'
+            ? total + gzipSync(Buffer.from(output.code, 'utf8'), { level: 9 }).byteLength
+            : total,
+        0,
+      );
+      if (initialJavaScriptGzipBytes >= MAX_INITIAL_JAVASCRIPT_GZIP_BYTES) {
+        throw new Error(
+          `The initial production JavaScript graph is ${initialJavaScriptGzipBytes} bytes gzip; it must stay below 250 KiB gzip.`,
+        );
       }
       const serviceWorker = serviceWorkerBytes.toString('utf8');
       assertUniqueInjectionMarker(serviceWorker, BUILD_ASSETS_MARKER, '__VITE_BUILD_ASSETS__');

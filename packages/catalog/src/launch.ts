@@ -286,6 +286,7 @@ function toAsset(engineId: string, asset: PinnedAssetSource): ImmutableAsset {
   return {
     id: asset.id,
     url: asset.url,
+    approvedFinalOrigins: [...asset.approvedFinalOrigins],
     revision: asset.revision,
     sha256: asset.sha256,
     bytes: asset.bytes,

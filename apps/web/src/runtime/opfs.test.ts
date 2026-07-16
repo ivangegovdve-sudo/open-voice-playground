@@ -192,6 +192,81 @@ describe('lazy content-addressed OPFS asset store', () => {
     expect(directory.files.size).toBe(0);
   });
 
+  it('returns a fresh exact transferable buffer only for a verified committed identity', async () => {
+    const root = new MemoryDirectory();
+    const store = new OpfsAssetStore({ getRoot: async () => root });
+    await writeTemporary(store, 'model.partial-1', [1, 2, 3, 4]);
+    await promote(store, 'model.partial-1');
+
+    const first = await (
+      store as OpfsAssetStore & {
+        readVerified(cacheKey: string, sha256: string, bytes: number): Promise<ArrayBuffer | null>;
+      }
+    ).readVerified('kokoro/model/model', IDENTITY_A.sha256, IDENTITY_A.bytes);
+    expect(first).toBeInstanceOf(ArrayBuffer);
+    expect(first).toHaveProperty('byteLength', 4);
+    expect(new Uint8Array(first!)).toEqual(new Uint8Array([1, 2, 3, 4]));
+    new Uint8Array(first!)[0] = 99;
+
+    const second = await (
+      store as OpfsAssetStore & {
+        readVerified(cacheKey: string, sha256: string, bytes: number): Promise<ArrayBuffer | null>;
+      }
+    ).readVerified('kokoro/model/model', IDENTITY_A.sha256, IDENTITY_A.bytes);
+    expect(second).not.toBe(first);
+    expect(new Uint8Array(second!)).toEqual(new Uint8Array([1, 2, 3, 4]));
+    await expect(
+      (
+        store as OpfsAssetStore & {
+          readVerified(
+            cacheKey: string,
+            sha256: string,
+            bytes: number,
+          ): Promise<ArrayBuffer | null>;
+        }
+      ).readVerified('kokoro/model/model', IDENTITY_B.sha256, IDENTITY_B.bytes),
+    ).resolves.toBeNull();
+  });
+
+  it.each([
+    [
+      'missing committed data',
+      (directory: MemoryDirectory) => directory.files.delete(committedData(directory)[0]),
+    ],
+    [
+      'equal-size corrupt committed data',
+      (directory: MemoryDirectory) => {
+        committedData(directory)[1].bytes = new Uint8Array([8, 8, 8, 8]);
+      },
+    ],
+    [
+      'malformed commit metadata',
+      (directory: MemoryDirectory) => {
+        commitRecord(directory)[1].bytes = new TextEncoder().encode('{bad');
+      },
+    ],
+  ])('returns no bytes and cleans %s during a verified read', async (_label, corrupt) => {
+    const root = new MemoryDirectory();
+    const store = new OpfsAssetStore({ getRoot: async () => root });
+    await writeTemporary(store, 'model.partial-1', [1, 2, 3, 4]);
+    await promote(store, 'model.partial-1');
+    const directory = assetDirectory(root);
+    corrupt(directory);
+
+    await expect(
+      (
+        store as OpfsAssetStore & {
+          readVerified(
+            cacheKey: string,
+            sha256: string,
+            bytes: number,
+          ): Promise<ArrayBuffer | null>;
+        }
+      ).readVerified('kokoro/model/model', IDENTITY_A.sha256, IDENTITY_A.bytes),
+    ).resolves.toBeNull();
+    expect([...directory.files.keys()].some((name) => name.includes('model'))).toBe(false);
+  });
+
   it.each([
     [
       'truncated data',

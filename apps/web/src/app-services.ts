@@ -1,7 +1,7 @@
 import { PreviewController, type AudioPort } from './audio/preview-controller';
 import { seedCatalog, type SeedCatalog } from './catalog/catalog';
 import { loadLaunchCatalog } from './catalog/launch-catalog';
-import { AssetPreparationManager } from './runtime/assets';
+import { AssetPreparationManager, createBrowserStorageManagerPort } from './runtime/assets';
 import { createLaunchRuntimeRegistry } from './runtime/launch-runtime';
 import { OpfsAssetStore } from './runtime/opfs';
 import {
@@ -78,7 +78,11 @@ export async function createLaunchServices(
   fetcher: typeof fetch = globalThis.fetch,
 ): Promise<AppServices> {
   const catalog = await loadLaunchCatalog(fetcher);
-  const assets = new AssetPreparationManager({ store: new OpfsAssetStore(), fetcher });
+  const assets = new AssetPreparationManager({
+    store: new OpfsAssetStore(),
+    fetcher,
+    storage: createBrowserStorageManagerPort(),
+  });
   const runtime = createLaunchRuntimeRegistry({
     voices: catalog.voices,
     assetSets: catalog.assetSets,

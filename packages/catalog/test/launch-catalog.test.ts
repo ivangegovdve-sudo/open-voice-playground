@@ -344,6 +344,47 @@ describe('deterministic launch catalog', () => {
     ).toEqual(['pocket-alba-mackenna-dataset-license']);
   });
 
+  it('binds every asset to the exact observed final origins covered by its manifest digest', () => {
+    const catalog = buildLaunchCatalog();
+    const xetOrigin = 'https://cas-bridge.xethub.hf.co';
+    const hubOrigin = 'https://huggingface.co';
+    const supertonic = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+    const directHubIds = new Set([
+      'config-json',
+      'onnx-tts-json',
+      'onnx-unicode-indexer-json',
+      'voice-styles-f1-json',
+      'voice-styles-f2-json',
+      'voice-styles-f3-json',
+      'voice-styles-f4-json',
+      'voice-styles-f5-json',
+      'voice-styles-m1-json',
+      'voice-styles-m2-json',
+      'voice-styles-m3-json',
+      'voice-styles-m4-json',
+      'voice-styles-m5-json',
+    ]);
+
+    for (const set of catalog.assetSets) {
+      for (const asset of set.assets) {
+        const expected =
+          set.id === 'supertonic-browser-assets' && directHubIds.has(asset.id)
+            ? [hubOrigin]
+            : [xetOrigin];
+        expect(
+          (asset as typeof asset & { approvedFinalOrigins?: string[] }).approvedFinalOrigins,
+          `${set.id}/${asset.id}`,
+        ).toEqual(expected);
+      }
+    }
+
+    const mutatedAssets = structuredClone(supertonic.assets);
+    mutatedAssets[0]!.approvedFinalOrigins = [hubOrigin, xetOrigin];
+    expect(
+      `sha256:${createHash('sha256').update(JSON.stringify(mutatedAssets)).digest('hex')}`,
+    ).not.toBe(supertonic.manifestDigest);
+  });
+
   it('keeps exact acceptance terms bidirectionally attached to asset licenses and sets', () => {
     const catalog = buildLaunchCatalog();
     const supertonic = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;

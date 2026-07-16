@@ -1,4 +1,8 @@
-import type { AssetSetManifest, ImmutableAsset } from '@open-voice/contracts';
+import type {
+  AssetSetManifest,
+  BrowserRuntimeS0Evidence,
+  ImmutableAsset,
+} from '@open-voice/contracts';
 
 export type ConsentReceipt = {
   assetSetId: string;
@@ -26,6 +30,51 @@ export type AssetPreparationDescription = {
   requiredLicenseIds: string[];
 };
 
+export type AssetStorageDescription = {
+  selectedBytes: number;
+  largestAssetBytes: number;
+  safetyMarginBytes: number;
+  upperBoundBytes: number;
+};
+
+export type AssetStorageManagerPort = {
+  estimate(): Promise<{ quota?: number; usage?: number }>;
+  persist?(): Promise<boolean>;
+};
+
+export function createBrowserStorageManagerPort(
+  getStorage: () => Pick<StorageManager, 'estimate' | 'persist'> = () => navigator.storage,
+): AssetStorageManagerPort {
+  let storage: Pick<StorageManager, 'estimate' | 'persist'> | null = null;
+  const resolveStorage = () => {
+    storage ??= getStorage();
+    return storage;
+  };
+  return {
+    async estimate() {
+      return await resolveStorage().estimate();
+    },
+    async persist() {
+      return await resolveStorage().persist();
+    },
+  };
+}
+
+export type AssetStorageEvidence = AssetStorageDescription & {
+  persisted: boolean | null;
+  quotaBytes: number | null;
+  usageBytes: number | null;
+  retainedBytes: number;
+  candidateBytes: number;
+  largestTemporaryBytes: number;
+  additionalRequiredBytes: number;
+  requiredCapacityBytes: number;
+};
+
+export type AssetPreparationAssetEvidence = BrowserRuntimeS0Evidence['assets'][number];
+
+export type AssetPreparationEvidence = BrowserRuntimeS0Evidence;
+
 export type AssetTemporarySink = {
   write(chunk: Uint8Array): Promise<void>;
   close(): Promise<void>;
@@ -34,6 +83,7 @@ export type AssetTemporarySink = {
 
 export type AssetStorePort = {
   has(cacheKey: string, sha256: string, bytes: number): Promise<boolean>;
+  readVerified(cacheKey: string, sha256: string, bytes: number): Promise<ArrayBuffer | null>;
   createTemporary(key: string): Promise<AssetTemporarySink>;
   promote(
     temporaryKey: string,
@@ -41,6 +91,14 @@ export type AssetStorePort = {
     identity: { sha256: string; bytes: number },
   ): Promise<void>;
   deleteTemporary(temporaryKey: string): Promise<void>;
+};
+
+export type PreparedAssetBytes = {
+  assetId: string;
+  cacheKey: string;
+  sha256: string;
+  byteLength: number;
+  bytes: ArrayBuffer;
 };
 
 export type StreamingDigest = {
@@ -54,6 +112,7 @@ export type AssetPreparationErrorCode =
   | 'license-acceptance-required'
   | 'asset-unavailable'
   | 'network-error'
+  | 'unapproved-response'
   | 'unexpected-size'
   | 'hash-mismatch'
   | 'quota-exceeded'
@@ -75,8 +134,42 @@ type AssetPreparationPorts = {
   store: AssetStorePort;
   fetcher?: typeof fetch;
   createDigest?: () => StreamingDigest;
+  storage?: AssetStorageManagerPort | null;
   temporaryNamespace?: string;
 };
+
+const MIN_STORAGE_SAFETY_BYTES = 8 * 1024 * 1024;
+const MAX_STORAGE_SAFETY_BYTES = 64 * 1024 * 1024;
+
+function safeByteSum(...values: number[]): number {
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (!Number.isSafeInteger(total) || total < 0) {
+    throw new AssetPreparationError(
+      'storage-error',
+      'The selected asset storage requirement exceeds safe browser limits.',
+    );
+  }
+  return total;
+}
+
+function storageDescription(assetSet: AssetSetManifest): AssetStorageDescription {
+  const largestAssetBytes = Math.max(...assetSet.assets.map(({ bytes }) => bytes));
+  const proportionalMargin = Math.ceil(assetSet.totalBytes * 0.05);
+  const safetyMarginBytes = Math.min(
+    MAX_STORAGE_SAFETY_BYTES,
+    Math.max(MIN_STORAGE_SAFETY_BYTES, proportionalMargin),
+  );
+  return {
+    selectedBytes: assetSet.totalBytes,
+    largestAssetBytes,
+    safetyMarginBytes,
+    upperBoundBytes: safeByteSum(assetSet.totalBytes, largestAssetBytes, safetyMarginBytes),
+  };
+}
+
+function observedByteValue(value: number | undefined): number | null {
+  return value !== undefined && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
 
 function createTemporaryNamespace(): string {
   if (typeof globalThis.crypto.randomUUID === 'function') {
@@ -290,11 +383,116 @@ function validateConsent(assetSet: AssetSetManifest, receipt: ConsentReceipt | n
   }
 }
 
-function contentLength(response: Response): number | null {
-  const raw = response.headers.get('content-length');
-  if (raw === null) return null;
-  const parsed = Number(raw);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+async function contentLength(response: Response, asset: ImmutableAsset): Promise<number | null> {
+  try {
+    const raw = response.headers.get('content-length');
+    if (raw === null) return null;
+    const parsed = Number(raw);
+    return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
+  } catch {
+    return await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} did not expose readable response headers.`,
+      ),
+    );
+  }
+}
+
+async function cancelResponseBody(response: Response, reason: unknown): Promise<void> {
+  try {
+    const body = response.body;
+    if (body !== null) await body.cancel(reason);
+  } catch {
+    // Cancellation is best effort; the owned validation error remains authoritative.
+  }
+}
+
+async function rejectResponse(response: Response, error: AssetPreparationError): Promise<never> {
+  await cancelResponseBody(response, error);
+  throw error;
+}
+
+async function validateResponseMetadata(
+  asset: ImmutableAsset,
+  response: Response,
+): Promise<{ finalUrl: string; finalOrigin: string; responseType: 'cors'; status: 200 }> {
+  let status: number;
+  try {
+    status = response.status;
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} did not expose a readable final HTTP status.`,
+      ),
+    );
+  }
+  if (status! !== 200) {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} returned an unapproved final HTTP status ${status!}.`,
+      ),
+    );
+  }
+  let responseType: ResponseType;
+  try {
+    responseType = response.type;
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} did not expose a readable response type.`,
+      ),
+    );
+  }
+  if (responseType! !== 'cors') {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} did not return a CORS-readable response type.`,
+      ),
+    );
+  }
+
+  let finalUrl: URL;
+  try {
+    finalUrl = new URL(response.url);
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} did not expose a valid final response URL.`,
+      ),
+    );
+  }
+  if (
+    finalUrl!.protocol !== 'https:' ||
+    finalUrl!.username.length > 0 ||
+    finalUrl!.password.length > 0 ||
+    !asset.approvedFinalOrigins.includes(finalUrl!.origin)
+  ) {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${asset.id} resolved to an unapproved final origin.`,
+      ),
+    );
+  }
+  return {
+    finalUrl: finalUrl!.href,
+    finalOrigin: finalUrl!.origin,
+    responseType: 'cors',
+    status: 200,
+  };
 }
 
 function classifyStorageError(error: unknown): AssetPreparationError {
@@ -320,6 +518,7 @@ export class AssetPreparationManager {
   private readonly store: AssetStorePort;
   private readonly fetcher: typeof fetch;
   private readonly createDigest: () => StreamingDigest;
+  private readonly storage: AssetStorageManagerPort | null;
   private readonly temporaryNamespace: string;
   private operationSequence = 0;
 
@@ -327,11 +526,13 @@ export class AssetPreparationManager {
     store,
     fetcher = globalThis.fetch,
     createDigest = createSha256Digest,
+    storage = null,
     temporaryNamespace = createTemporaryNamespace(),
   }: AssetPreparationPorts) {
     this.store = store;
     this.fetcher = fetcher;
     this.createDigest = createDigest;
+    this.storage = storage;
     this.temporaryNamespace = temporaryNamespace;
   }
 
@@ -344,11 +545,15 @@ export class AssetPreparationManager {
     };
   }
 
+  describeStorage(assetSet: AssetSetManifest): AssetStorageDescription {
+    return storageDescription(assetSet);
+  }
+
   async prepare(
     assetSet: AssetSetManifest,
     receipt: ConsentReceipt | null,
     options: AssetPreparationOptions = {},
-  ): Promise<void> {
+  ): Promise<AssetPreparationEvidence> {
     // This check intentionally precedes even a cache lookup. Consent is tied to
     // the exact manifest, including assets that might already be cached.
     validateConsent(assetSet, receipt);
@@ -360,9 +565,20 @@ export class AssetPreparationManager {
 
     let completedBytes = 0;
     try {
+      const cached: boolean[] = [];
       for (const asset of assetSet.assets) {
         throwIfAborted(controller.signal);
-        if (await this.store.has(asset.cacheKey, asset.sha256, asset.bytes)) {
+        try {
+          cached.push(await this.store.has(asset.cacheKey, asset.sha256, asset.bytes));
+        } catch (error) {
+          throw classifyStorageError(error);
+        }
+      }
+      const storage = await this.prepareStorage(assetSet, cached, controller.signal);
+      const assets: AssetPreparationAssetEvidence[] = [];
+      for (const [index, asset] of assetSet.assets.entries()) {
+        throwIfAborted(controller.signal);
+        if (cached[index] === true) {
           completedBytes += asset.bytes;
           options.onProgress?.({
             assetId: asset.id,
@@ -370,21 +586,150 @@ export class AssetPreparationManager {
             totalBytes: assetSet.totalBytes,
             percent: Math.round((completedBytes / assetSet.totalBytes) * 100),
           });
+          assets.push({
+            assetId: asset.id,
+            cacheKey: asset.cacheKey,
+            disposition: 'cache-hit',
+            requestUrl: null,
+            finalUrl: null,
+            finalOrigin: null,
+            responseType: null,
+            status: null,
+            expectedBytes: asset.bytes,
+            observedBytes: asset.bytes,
+            expectedSha256: asset.sha256,
+            observedSha256: asset.sha256,
+          });
           continue;
         }
 
-        await this.downloadAndStore(
-          asset,
-          controller.signal,
-          completedBytes,
-          assetSet.totalBytes,
-          options.onProgress,
+        assets.push(
+          await this.downloadAndStore(
+            asset,
+            controller.signal,
+            completedBytes,
+            assetSet.totalBytes,
+            options.onProgress,
+          ),
         );
         completedBytes += asset.bytes;
       }
+      return {
+        schemaVersion: 1,
+        kind: 'open-voice-browser-runtime-s0',
+        assetSetId: assetSet.id,
+        manifestDigest: assetSet.manifestDigest,
+        consent: {
+          assetSetId: receipt!.assetSetId,
+          manifestDigest: receipt!.manifestDigest,
+          acceptedLicenseIds: [...receipt!.acceptedLicenseIds],
+          acceptedTermsHashes: [...receipt!.acceptedTermsHashes],
+        },
+        storage,
+        assets,
+      };
     } finally {
       options.signal?.removeEventListener('abort', abort);
     }
+  }
+
+  async readPreparedAssets(
+    assetSet: AssetSetManifest,
+    receipt: ConsentReceipt | null,
+    options: Pick<AssetPreparationOptions, 'signal'> = {},
+  ): Promise<PreparedAssetBytes[]> {
+    validateConsent(assetSet, receipt);
+    const result: PreparedAssetBytes[] = [];
+    for (const asset of assetSet.assets) {
+      if (options.signal !== undefined) throwIfAborted(options.signal);
+      let bytes: ArrayBuffer | null;
+      try {
+        bytes = await this.store.readVerified(asset.cacheKey, asset.sha256, asset.bytes);
+      } catch (error) {
+        throw classifyStorageError(error);
+      }
+      if (bytes === null || bytes.byteLength !== asset.bytes) {
+        throw new AssetPreparationError(
+          'asset-unavailable',
+          `${asset.id} is not present as verified content-addressed bytes. Prepare it again.`,
+        );
+      }
+      result.push({
+        assetId: asset.id,
+        cacheKey: asset.cacheKey,
+        sha256: asset.sha256,
+        byteLength: bytes.byteLength,
+        bytes,
+      });
+    }
+    return result;
+  }
+
+  private async prepareStorage(
+    assetSet: AssetSetManifest,
+    cached: readonly boolean[],
+    signal: AbortSignal,
+  ): Promise<AssetStorageEvidence> {
+    const description = storageDescription(assetSet);
+    let retainedBytes = 0;
+    let candidateBytes = 0;
+    let largestTemporaryBytes = 0;
+    for (const [index, asset] of assetSet.assets.entries()) {
+      if (cached[index] === true) retainedBytes = safeByteSum(retainedBytes, asset.bytes);
+      else {
+        candidateBytes = safeByteSum(candidateBytes, asset.bytes);
+        largestTemporaryBytes = Math.max(largestTemporaryBytes, asset.bytes);
+      }
+    }
+    const additionalRequiredBytes =
+      candidateBytes === 0
+        ? 0
+        : safeByteSum(candidateBytes, largestTemporaryBytes, description.safetyMarginBytes);
+    const requiredCapacityBytes = safeByteSum(retainedBytes, additionalRequiredBytes);
+    let persisted: boolean | null = null;
+    let quotaBytes: number | null = null;
+    let usageBytes: number | null = null;
+    if (this.storage !== null) {
+      throwIfAborted(signal);
+      if (this.storage.persist !== undefined) {
+        try {
+          persisted = await this.storage.persist();
+        } catch {
+          persisted = null;
+        }
+      }
+      throwIfAborted(signal);
+      try {
+        const estimate = await this.storage.estimate();
+        quotaBytes = observedByteValue(estimate.quota);
+        usageBytes = observedByteValue(estimate.usage);
+      } catch {
+        quotaBytes = null;
+        usageBytes = null;
+      }
+      throwIfAborted(signal);
+      if (
+        quotaBytes !== null &&
+        usageBytes !== null &&
+        Math.max(0, quotaBytes - usageBytes) < additionalRequiredBytes
+      ) {
+        throw new AssetPreparationError(
+          'quota-exceeded',
+          'The browser storage quota is too small for the selected runtime assets.',
+        );
+      }
+    }
+    return {
+      ...description,
+      persisted,
+      quotaBytes,
+      usageBytes,
+      retainedBytes,
+      candidateBytes,
+      largestTemporaryBytes,
+      additionalRequiredBytes,
+      requiredCapacityBytes,
+    };
   }
 
   private async downloadAndStore(
@@ -393,7 +738,7 @@ export class AssetPreparationManager {
     completedBeforeAsset: number,
     totalBytes: number,
     onProgress: AssetPreparationOptions['onProgress'],
-  ): Promise<void> {
+  ): Promise<AssetPreparationAssetEvidence> {
     const operationId = ++this.operationSequence;
     const temporaryKey = `${asset.cacheKey}.partial-${this.temporaryNamespace}-${operationId}`;
     let temporaryCreated = false;
@@ -411,7 +756,9 @@ export class AssetPreparationManager {
       let networkResponse: Response;
       try {
         networkResponse = await this.fetcher(asset.url, {
+          cache: 'no-store',
           credentials: 'omit',
+          mode: 'cors',
           redirect: 'follow',
           signal,
         });
@@ -426,21 +773,28 @@ export class AssetPreparationManager {
         });
       }
 
-      if (!networkResponse.ok) {
-        throw new AssetPreparationError(
-          'network-error',
-          `Could not download ${asset.id}: HTTP ${networkResponse.status}.`,
-        );
-      }
-      const declaredLength = contentLength(networkResponse);
+      const responseMetadata = await validateResponseMetadata(asset, networkResponse);
+      const declaredLength = await contentLength(networkResponse, asset);
       if (declaredLength !== null && declaredLength !== asset.bytes) {
         const relation = declaredLength > asset.bytes ? 'larger' : 'truncated';
-        throw new AssetPreparationError(
-          'unexpected-size',
-          `${asset.id} is ${relation} than the immutable manifest size.`,
+        await rejectResponse(
+          networkResponse,
+          new AssetPreparationError(
+            'unexpected-size',
+            `${asset.id} is ${relation} than the immutable manifest size.`,
+          ),
         );
       }
-      if (networkResponse.body === null) {
+      let body: ReadableStream<Uint8Array> | null;
+      try {
+        body = networkResponse.body;
+      } catch {
+        throw new AssetPreparationError(
+          'unapproved-response',
+          `${asset.id} did not expose a readable response body.`,
+        );
+      }
+      if (body === null) {
         throw new AssetPreparationError('network-error', `${asset.id} returned no response body.`);
       }
 
@@ -451,7 +805,15 @@ export class AssetPreparationManager {
       } catch (error) {
         throw classifyStorageError(error);
       }
-      reader = networkResponse.body.getReader();
+      try {
+        reader = body.getReader();
+      } catch (error) {
+        throw new AssetPreparationError(
+          'unapproved-response',
+          `${asset.id} did not expose a readable response stream.`,
+          { cause: error },
+        );
+      }
       signal.addEventListener('abort', cancelReader, { once: true });
       let receivedBytes = 0;
       while (true) {
@@ -526,6 +888,20 @@ export class AssetPreparationManager {
       } catch (error) {
         throw classifyStorageError(error);
       }
+      return {
+        assetId: asset.id,
+        cacheKey: asset.cacheKey,
+        disposition: 'downloaded',
+        requestUrl: asset.url,
+        finalUrl: responseMetadata.finalUrl,
+        finalOrigin: responseMetadata.finalOrigin,
+        responseType: responseMetadata.responseType,
+        status: responseMetadata.status,
+        expectedBytes: asset.bytes,
+        observedBytes: receivedBytes,
+        expectedSha256: asset.sha256,
+        observedSha256: actualHash,
+      };
     } finally {
       signal.removeEventListener('abort', cancelReader);
       if (reader !== null) {

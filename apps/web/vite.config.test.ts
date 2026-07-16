@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { build } from 'vite';
 import { afterEach, expect, test } from 'vitest';
 
@@ -251,6 +252,125 @@ test('shell injection excludes Worker entries, dynamic inference chunks, and run
     /launch-catalog.*\.json$/i,
   ]) {
     expect(buildAssets).not.toEqual(expect.arrayContaining([expect.stringMatching(forbidden)]));
+  }
+});
+
+test('rejects inference code that enters the initial production module graph', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(join(root, 'inference.js'), "export const inference = 'must stay lazy';"),
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import { inference } from './inference.js';",
+        'document.body.dataset.inference = inference;',
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+  ]);
+
+  await expect(buildMetadata(root)).rejects.toThrow(/initial.*inference|inference.*initial/i);
+});
+
+test('rejects an initial production JavaScript graph at or above 250 KiB gzip', async () => {
+  const root = await createBuildFixture();
+  const bytes = new Uint8Array(384 * 1024);
+  let state = 0x12345678;
+  for (let index = 0; index < bytes.length; index += 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    bytes[index] = state >>> 24;
+  }
+  const payload = Buffer.from(bytes).toString('base64');
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      `globalThis.__initialPayload = '${payload}';`,
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/250.*gzip|gzip.*250/i);
+});
+
+test('the actual production entry graph stays small and excludes emitted inference workers', async () => {
+  const outDir = await mkdtemp(join(tmpdir(), 'open-voice-production-boundary-'));
+  temporaryRoots.push(outDir);
+  await build({
+    root: APP_ROOT,
+    configFile: join(APP_ROOT, 'vite.config.ts'),
+    logLevel: 'silent',
+    resolve: {
+      alias: {
+        '@open-voice/contracts': resolve(APP_ROOT, '../../packages/contracts/src/index.ts'),
+      },
+    },
+    build: {
+      emptyOutDir: true,
+      manifest: true,
+      outDir,
+      sourcemap: true,
+    },
+  });
+
+  const manifest = JSON.parse(
+    await readFile(join(outDir, '.vite', 'manifest.json'), 'utf8'),
+  ) as Record<
+    string,
+    {
+      file: string;
+      imports?: string[];
+      isEntry?: boolean;
+      src?: string;
+    }
+  >;
+  const entryKey = Object.entries(manifest).find(([, record]) => record.isEntry === true)?.[0];
+  expect(entryKey).toBeDefined();
+  const pending = [entryKey!];
+  const initialKeys = new Set<string>();
+  while (pending.length > 0) {
+    const key = pending.shift()!;
+    if (initialKeys.has(key)) continue;
+    initialKeys.add(key);
+    pending.push(...(manifest[key]?.imports ?? []));
+  }
+  const initialJavaScriptFiles = [...initialKeys]
+    .map((key) => manifest[key]!.file)
+    .filter((file) => /\.(?:js|mjs)$/.test(file));
+  const initialGzipBytes = (
+    await Promise.all(
+      initialJavaScriptFiles.map(
+        async (file) => gzipSync(await readFile(join(outDir, file)), { level: 9 }).byteLength,
+      ),
+    )
+  ).reduce((total, bytes) => total + bytes, 0);
+  expect(initialGzipBytes).toBeLessThan(250 * 1024);
+
+  for (const file of initialJavaScriptFiles) {
+    const sourceMap = JSON.parse(await readFile(join(outDir, `${file}.map`), 'utf8')) as {
+      sources: string[];
+    };
+    expect(sourceMap.sources).not.toEqual(
+      expect.arrayContaining([expect.stringMatching(/runtime[\\/]workers|inference/i)]),
+    );
+  }
+
+  const emitted = (await readdir(outDir, { recursive: true })).map((file) =>
+    file.replaceAll('\\', '/'),
+  );
+  const workerFiles = emitted.filter((file) => /worker.*\.js$/i.test(file));
+  expect(workerFiles.length).toBeGreaterThan(0);
+  const serviceWorker = await readFile(join(outDir, 'sw.js'), 'utf8');
+  const buildAssets = JSON.parse(
+    serviceWorker.match(/const BUILD_ASSETS = (\[[^;]*\]);/)?.[1] ?? 'null',
+  ) as string[] | null;
+  expect(buildAssets).not.toBeNull();
+  expect(buildAssets).not.toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/worker|inference|\.wasm$|\.onnx$|\.bin$|\.safetensors$|\.npz$/i),
+    ]),
+  );
+  for (const workerFile of workerFiles) {
+    expect(buildAssets).not.toContain(`/${workerFile}`);
   }
 });
 

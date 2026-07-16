@@ -19,6 +19,7 @@ const releaseGate = {
 const immutableAsset = {
   id: 'kokoro-model-q8',
   url: 'https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx',
+  approvedFinalOrigins: ['https://cas-bridge.xethub.hf.co'],
   revision: '1939ad2a8e416c0acfeecc08a694d14ef25f2231',
   sha256: 'sha256:04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0',
   bytes: 86_033_585,
@@ -91,6 +92,30 @@ describe('launch release and asset contracts', () => {
     ).toBe(false);
     expect(assetSchema.safeParse({ ...immutableAsset, cacheKey: '../model' }).success).toBe(false);
     expect(assetSchema.safeParse({ ...immutableAsset, bytes: 0 }).success).toBe(false);
+  });
+
+  it('requires an exact, unique HTTPS final-origin allowlist on every immutable asset', () => {
+    const assetSchema = schema('ImmutableAssetSchema');
+    const approved = {
+      ...immutableAsset,
+      approvedFinalOrigins: ['https://huggingface.co', 'https://cas-bridge.xethub.hf.co'],
+    };
+
+    expect(assetSchema.safeParse(approved).success).toBe(true);
+    const { approvedFinalOrigins: _approvedFinalOrigins, ...withoutOrigins } = immutableAsset;
+    expect(assetSchema.safeParse(withoutOrigins).success).toBe(false);
+    for (const invalidOrigins of [
+      [],
+      ['http://huggingface.co'],
+      ['https://token@huggingface.co'],
+      ['https://huggingface.co/models'],
+      ['https://huggingface.co?download=true'],
+      ['https://huggingface.co', 'https://huggingface.co'],
+    ]) {
+      expect(
+        assetSchema.safeParse({ ...approved, approvedFinalOrigins: invalidOrigins }).success,
+      ).toBe(false);
+    }
   });
 
   it('records pinned release-asset evidence separately from browser-fetchable assets', () => {
@@ -199,6 +224,89 @@ describe('launch release and asset contracts', () => {
     expect(assetSetSchema.safeParse({ ...assetSet, totalBytes: 1 }).success).toBe(false);
     expect(
       assetSetSchema.safeParse({ ...assetSet, assets: [immutableAsset, immutableAsset] }).success,
+    ).toBe(false);
+  });
+
+  it('validates a deterministic machine-readable browser S0 preparation evidence record', () => {
+    const evidenceSchema = schema('BrowserRuntimeS0EvidenceSchema');
+    const evidence = {
+      schemaVersion: 1,
+      kind: 'open-voice-browser-runtime-s0',
+      assetSetId: 'test-browser-assets',
+      manifestDigest: 'sha256:24bb0a356819a69a58eb0ac658c840c17a55ad409ea666e8523e83123b26e8fc',
+      consent: {
+        assetSetId: 'test-browser-assets',
+        manifestDigest: 'sha256:24bb0a356819a69a58eb0ac658c840c17a55ad409ea666e8523e83123b26e8fc',
+        acceptedLicenseIds: ['test-license'],
+        acceptedTermsHashes: [],
+      },
+      storage: {
+        selectedBytes: 4,
+        largestAssetBytes: 4,
+        safetyMarginBytes: 8 * 1024 * 1024,
+        upperBoundBytes: 8 * 1024 * 1024 + 8,
+        persisted: true,
+        quotaBytes: 64 * 1024 * 1024,
+        usageBytes: 1024,
+        retainedBytes: 0,
+        candidateBytes: 4,
+        largestTemporaryBytes: 4,
+        additionalRequiredBytes: 8 * 1024 * 1024 + 8,
+        requiredCapacityBytes: 8 * 1024 * 1024 + 8,
+      },
+      assets: [
+        {
+          assetId: 'test-model',
+          cacheKey: 'test/model/0123456789ab',
+          disposition: 'downloaded',
+          requestUrl:
+            'https://example.com/model/0123456789abcdef0123456789abcdef01234567/model.onnx',
+          finalUrl: 'https://assets.example.com/model.onnx',
+          finalOrigin: 'https://assets.example.com',
+          responseType: 'cors',
+          status: 200,
+          expectedBytes: 4,
+          observedBytes: 4,
+          expectedSha256: immutableAsset.sha256,
+          observedSha256: immutableAsset.sha256,
+        },
+      ],
+    };
+
+    expect(evidenceSchema.safeParse(evidence).success).toBe(true);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        consent: { ...evidence.consent, assetSetId: 'other-assets' },
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        storage: { ...evidence.storage, candidateBytes: 5 },
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        assets: [
+          {
+            ...evidence.assets[0],
+            finalOrigin: 'https://unapproved.example',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        assets: [
+          {
+            ...evidence.assets[0],
+            disposition: 'cache-hit',
+          },
+        ],
+      }).success,
     ).toBe(false);
   });
 
