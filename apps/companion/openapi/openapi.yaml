@@ -421,7 +421,16 @@ components:
   schemas:
     Scope:
       type: string
-      enum: [health:read, runtime:read, synthesis:create, jobs:read, jobs:cancel, audio:read, packs:request]
+      enum:
+        [
+          health:read,
+          runtime:read,
+          synthesis:create,
+          jobs:read,
+          jobs:cancel,
+          audio:read,
+          packs:request,
+        ]
     ScopeList:
       type: array
       minItems: 7
@@ -658,7 +667,12 @@ components:
       properties:
         id: { type: string, format: uuid }
         voiceId: { $ref: '#/components/schemas/VoiceId' }
-        state: { type: string, enum: [queued, starting, synthesizing, completed, cancelling, cancelled, failed, expired] }
+        state:
+          {
+            type: string,
+            enum:
+              [queued, starting, synthesizing, completed, cancelling, cancelled, failed, expired],
+          }
         audioAvailable: { type: boolean }
         createdAt: { type: string, format: date-time }
     PackActionRequest:

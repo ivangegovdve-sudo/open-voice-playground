@@ -7,6 +7,23 @@ import { parse } from 'yaml';
 const root = resolve(import.meta.dirname, '..');
 const openApiPath = resolve(root, 'openapi/openapi.yaml');
 
+type SchemaObject = Record<string, unknown> & { enum?: unknown[] };
+
+interface OpenApiDocument {
+  openapi: string;
+  jsonSchemaDialect: string;
+  servers: { url: string }[];
+  'x-protocol-major': number;
+  paths: Record<string, Record<string, unknown>>;
+  components: {
+    schemas: Record<string, SchemaObject> & {
+      JobCreateRequest: SchemaObject;
+      ProblemCode: SchemaObject;
+      VoiceId: SchemaObject;
+    };
+  };
+}
+
 const expectedVoices = [
   'pocket:alba',
   'pocket:estelle',
@@ -94,7 +111,7 @@ function assertStrictObjects(value: unknown): void {
 describe('authoritative companion OpenAPI', () => {
   it('defines the strict fail-closed v1 surface and validates shared fixtures', () => {
     expect(existsSync(openApiPath), 'authoritative OpenAPI document is missing').toBe(true);
-    const document = parse(readFileSync(openApiPath, 'utf8')) as any;
+    const document = parse(readFileSync(openApiPath, 'utf8')) as OpenApiDocument;
     expect(document.openapi).toBe('3.1.2');
     expect(document.jsonSchemaDialect).toBe('https://json-schema.org/draft/2020-12/schema');
     expect(document.servers).toEqual([{ url: 'http://127.0.0.1:17843' }]);

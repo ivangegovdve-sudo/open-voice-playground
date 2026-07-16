@@ -1,6 +1,7 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { dirname, extname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -929,11 +930,34 @@ describe('deterministic launch catalog', () => {
   });
 });
 
+const repositoryScanIgnoredDirectories = new Set([
+  '.git',
+  'dist',
+  'node_modules',
+  'target',
+  'test-results',
+]);
+const forbiddenRepositoryBinaryExtensions = new Set([
+  '.bin',
+  '.bz2',
+  '.flac',
+  '.gguf',
+  '.mp3',
+  '.npz',
+  '.onnx',
+  '.opus',
+  '.safetensors',
+  '.tar',
+  '.wav',
+  '.webm',
+  '.zip',
+]);
+
 async function walk(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(
     entries
-      .filter((entry) => !['.git', 'node_modules', 'dist', 'test-results'].includes(entry.name))
+      .filter((entry) => !repositoryScanIgnoredDirectories.has(entry.name))
       .map(async (entry) => {
         const path = join(directory, entry.name);
         return entry.isDirectory() ? walk(path) : [path];
@@ -942,23 +966,36 @@ async function walk(directory: string): Promise<string[]> {
   return files.flat();
 }
 
+function findForbiddenRepositoryBinaries(files: string[]): string[] {
+  return files.filter((file) =>
+    forbiddenRepositoryBinaryExtensions.has(extname(file).toLowerCase()),
+  );
+}
+
+it('ignores generated build directories without hiding ordinary repository binaries', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'open-voice-repository-scan-'));
+  try {
+    await Promise.all([
+      mkdir(join(fixtureRoot, 'assets'), { recursive: true }),
+      mkdir(join(fixtureRoot, 'target'), { recursive: true }),
+    ]);
+    await Promise.all([
+      writeFile(join(fixtureRoot, 'assets', 'model.bin'), 'ordinary repository binary'),
+      writeFile(join(fixtureRoot, 'target', 'cache.bin'), 'generated build output'),
+    ]);
+
+    const binaries = findForbiddenRepositoryBinaries(await walk(fixtureRoot))
+      .map((file) => relative(fixtureRoot, file))
+      .sort();
+
+    expect(binaries).toEqual([join('assets', 'model.bin')]);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 it('does not commit inference or audio binaries', async () => {
-  const forbidden = new Set([
-    '.bin',
-    '.bz2',
-    '.flac',
-    '.gguf',
-    '.mp3',
-    '.npz',
-    '.onnx',
-    '.opus',
-    '.safetensors',
-    '.tar',
-    '.wav',
-    '.webm',
-    '.zip',
-  ]);
   const files = await walk(repositoryRoot);
 
-  expect(files.filter((file) => forbidden.has(extname(file).toLowerCase()))).toEqual([]);
+  expect(findForbiddenRepositoryBinaries(files)).toEqual([]);
 });

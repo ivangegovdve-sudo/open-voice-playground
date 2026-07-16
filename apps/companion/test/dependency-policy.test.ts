@@ -21,7 +21,9 @@ describe('direct dependency policy', () => {
       >;
       for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
         for (const [name, requirement] of Object.entries(manifest[section] ?? {})) {
-          if (!/^(?:\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|workspace:\d+\.\d+\.\d+)$/.test(requirement)) {
+          if (
+            !/^(?:\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|workspace:\d+\.\d+\.\d+)$/.test(requirement)
+          ) {
             floating.push(`${file}:${section}:${name}=${requirement}`);
           }
         }
@@ -34,7 +36,9 @@ describe('direct dependency policy', () => {
     const manifestPath = resolve(root, 'apps/companion/src-tauri/Cargo.toml');
     expect(existsSync(manifestPath), 'Tauri Cargo.toml is missing').toBe(true);
     const manifest = readFileSync(manifestPath, 'utf8');
-    const unpinned = [...manifest.matchAll(/^([A-Za-z0-9_-]+)\s*=\s*\{[^\n]*version\s*=\s*"([^"]+)"/gm)]
+    const unpinned = [
+      ...manifest.matchAll(/^([A-Za-z0-9_-]+)\s*=\s*\{[^\n]*version\s*=\s*"([^"]+)"/gm),
+    ]
       .filter(([, , requirement]) => !requirement?.startsWith('='))
       .map(([, name, requirement]) => `${name}=${requirement}`);
     expect(unpinned).toEqual([]);
