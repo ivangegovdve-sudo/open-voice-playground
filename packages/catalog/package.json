@@ -20,6 +20,7 @@
     "build": "tsc -p tsconfig.build.json",
     "generate:launch": "tsx ./src/generate-launch.ts --write",
     "review:edge-snapshot": "tsx ./src/edge-snapshot-cli.ts",
+    "review:pocket-multilingual": "tsx ./src/pocket-multilingual-cli.ts",
     "check:launch": "tsx ./src/generate-launch.ts --check",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
