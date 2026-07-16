@@ -470,6 +470,22 @@ export type SyntheticTypeContract = readonly [
     expect(() => generator.generateProtocol(duplicateOperation)).toThrow(/operationId/iu);
   });
 
+  it.each([
+    ['operation', 'reference audio'],
+    ['path item', 'output name'],
+  ])('rejects forbidden %s-level inline parameter names', async (level, name) => {
+    const document = await sourceDocument();
+    const pathItem = document.paths['/v1/health']!;
+    const parameter = { in: 'query', name, schema: { type: 'string' } };
+    if (level === 'operation') {
+      const operation = pathItem.get as Record<string, unknown>;
+      operation.parameters = [...(operation.parameters as unknown[]), parameter];
+    } else {
+      pathItem.parameters = [parameter];
+    }
+    expect(() => generator.generateProtocol(document)).toThrow(/forbidden.*name/iu);
+  });
+
   it('rejects unresolvable/non-component references and reference cycles', async () => {
     const externalShape = await sourceDocument();
     externalShape.components.schemas.BadRef = { $ref: '#/components/parameters/Origin' };

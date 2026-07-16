@@ -1,3 +1,5 @@
+import { assertProtocolNamePolicy } from './protocol-name-policy.mjs';
+
 const supportedSchemaKeywords = new Set([
   '$ref',
   '$schema',
@@ -828,6 +830,7 @@ export function generateProtocol(document) {
   const schemas = document.components.schemas;
   if (!isPlainObject(schemas) || Object.keys(schemas).length === 0)
     fail('owned schemas are missing.');
+  assertProtocolNamePolicy(document);
   for (const [name, schema] of sortedEntries(schemas)) {
     if (!/^[A-Z][A-Za-z0-9]*$/u.test(name)) fail(`schema identifier ${name} is invalid.`);
     if (reservedSchemaNames.has(name)) fail(`schema identifier ${name} is reserved.`);

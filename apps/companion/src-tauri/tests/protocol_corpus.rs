@@ -24,6 +24,7 @@ struct CorpusCase {
     id: String,
     schema: String,
     valid: bool,
+    category: String,
     value: Value,
     native: Option<String>,
 }
@@ -136,4 +137,66 @@ fn native_problem_code_catalog_exactly_matches_the_positive_corpus_set() {
         .map(|code| code.as_str().to_owned())
         .collect::<BTreeSet<_>>();
     assert_eq!(native_codes, corpus_codes);
+}
+
+#[test]
+fn native_marker_deferrals_are_an_exact_c5_owned_schema_set() {
+    let corpus = parse_corpus();
+    let all_schemas = corpus
+        .cases
+        .iter()
+        .map(|case| case.schema.clone())
+        .collect::<BTreeSet<_>>();
+    let native_schemas = corpus
+        .cases
+        .iter()
+        .filter(|case| case.native.is_some())
+        .map(|case| case.schema.clone())
+        .collect::<BTreeSet<_>>();
+    let deferred = all_schemas
+        .difference(&native_schemas)
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let expected = [
+        "CanonicalDateTime",
+        "DeepLinkChallengeRequest",
+        "EngineListResponse",
+        "EngineResponse",
+        "HealthResponse",
+        "JobResponse",
+        "ManualChallengeRequest",
+        "OperationalState",
+        "PackActionRequest",
+        "PackActionResponse",
+        "PackId",
+        "PackListResponse",
+        "PackResponse",
+        "PairingChallengeRequest",
+        "PairingChallengeResponse",
+        "PairingResponse",
+        "RedeemPendingResponse",
+        "RedeemRequest",
+        "RedeemResponse",
+        "RuntimeResponse",
+        "VoiceListResponse",
+        "VoiceResponse",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<BTreeSet<_>>();
+    assert_eq!(deferred, expected);
+}
+
+#[test]
+fn only_uppercase_request_id_is_explicitly_deferred_to_c5_normalization() {
+    let deferred = parse_corpus()
+        .cases
+        .into_iter()
+        .filter(|case| case.category == "problem-identifier-boundary" && case.native.is_none())
+        .map(|case| case.id)
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        deferred,
+        BTreeSet::from(["derived-problem-requestId-uppercase".to_owned()])
+    );
 }

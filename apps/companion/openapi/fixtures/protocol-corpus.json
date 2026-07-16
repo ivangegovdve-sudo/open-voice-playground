@@ -3722,7 +3722,8 @@
         "instance": "urn:uuid:not-a-uuid",
         "code": "host-invalid",
         "requestId": "123e4567-e89b-42d3-a456-426614174000"
-      }
+      },
+      "native": "problem"
     },
     {
       "id": "derived-problem-instance-uppercase",
@@ -3737,7 +3738,8 @@
         "instance": "URN:UUID:123E4567-E89B-42D3-A456-426614174000",
         "code": "host-invalid",
         "requestId": "123e4567-e89b-42d3-a456-426614174000"
-      }
+      },
+      "native": "problem"
     },
     {
       "id": "derived-problem-requestId-malformed",
@@ -3752,7 +3754,8 @@
         "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
         "code": "host-invalid",
         "requestId": "not-a-uuid"
-      }
+      },
+      "native": "problem"
     },
     {
       "id": "derived-problem-requestId-uppercase",
@@ -3768,6 +3771,256 @@
         "code": "host-invalid",
         "requestId": "123E4567-E89B-42D3-A456-426614174000"
       }
+    },
+    {
+      "id": "derived-problem-host-invalid-root-unknown-property",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-unknown-property",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000",
+        "unexpectedCorpusField": true
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-type",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-type",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": {},
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-title",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-title",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": {},
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-status",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-status",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": "wrong-json-kind",
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-detail",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-detail",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": {},
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-instance",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-instance",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": {},
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-code",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-code",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": {},
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-omit-requestId",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-required-omission",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid"
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-root-wrong-kind-requestId",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-wrong-json-kind",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 400,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": {}
+      },
+      "native": "problem"
+    },
+    {
+      "id": "derived-problem-host-invalid-status-out-of-range",
+      "schema": "Problem",
+      "valid": false,
+      "category": "derived-problem-status-boundary",
+      "value": {
+        "type": "urn:ovp:problem:host-invalid",
+        "title": "Request rejected",
+        "status": 399,
+        "detail": "The request Host is not the companion loopback authority.",
+        "instance": "urn:uuid:123e4567-e89b-42d3-a456-426614174000",
+        "code": "host-invalid",
+        "requestId": "123e4567-e89b-42d3-a456-426614174000"
+      },
+      "native": "problem"
     },
     {
       "id": "derived-problem-origin-missing-mismatch-code",
@@ -7178,6 +7431,30 @@
       "native": "label"
     },
     {
+      "id": "derived-label-32-identical-ascii",
+      "schema": "ClientLabel",
+      "valid": true,
+      "category": "label-repeated-scalar-boundary",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "native": "label"
+    },
+    {
+      "id": "derived-label-33-identical-ascii",
+      "schema": "ClientLabel",
+      "valid": false,
+      "category": "label-repeated-scalar-boundary",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "native": "label"
+    },
+    {
+      "id": "derived-label-byte-over-nonrepeated",
+      "schema": "ClientLabel",
+      "valid": false,
+      "category": "label-utf8-byte-boundary",
+      "value": "😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁😀😁a",
+      "native": "label"
+    },
+    {
       "id": "derived-text-forbidden-u-0000",
       "schema": "SynthesisText",
       "valid": false,
@@ -7698,11 +7975,27 @@
       "native": "text"
     },
     {
+      "id": "derived-secret-invalid-interior-plus",
+      "schema": "OpaqueSecret",
+      "valid": false,
+      "category": "secret-interior-alphabet",
+      "value": "AAAAAAAAAAAAAAAAAAAAA+AAAAAAAAAAAAAAAAAAAAA",
+      "native": "secret"
+    },
+    {
       "id": "derived-version-exact-32-bytes",
       "schema": "ClientVersion",
       "valid": true,
       "category": "version-fixed-boundary",
       "value": "1.11111111111111.222222222222222",
+      "native": "version"
+    },
+    {
+      "id": "derived-version-33-bytes",
+      "schema": "ClientVersion",
+      "valid": false,
+      "category": "version-fixed-boundary",
+      "value": "1.11111111111111.2222222222222222",
       "native": "version"
     },
     {
@@ -7768,6 +8061,48 @@
       "category": "uuid-fixed-boundary",
       "value": " 123e4567-e89b-42d3-a456-426614174000",
       "native": "uuid"
+    },
+    {
+      "id": "derived-date-time-nine-fraction-z",
+      "schema": "CanonicalDateTime",
+      "valid": true,
+      "category": "date-time-canonical-boundary",
+      "value": "2028-02-29T23:59:59.123456789Z"
+    },
+    {
+      "id": "derived-date-time-ten-fraction-z",
+      "schema": "CanonicalDateTime",
+      "valid": false,
+      "category": "date-time-canonical-boundary",
+      "value": "2028-02-29T23:59:59.1234567890Z"
+    },
+    {
+      "id": "derived-date-time-nine-fraction-offset",
+      "schema": "CanonicalDateTime",
+      "valid": true,
+      "category": "date-time-canonical-boundary",
+      "value": "2028-02-29T23:59:59.123456789+03:00"
+    },
+    {
+      "id": "derived-date-time-ten-fraction-offset",
+      "schema": "CanonicalDateTime",
+      "valid": false,
+      "category": "date-time-canonical-boundary",
+      "value": "2028-02-29T23:59:59.1234567890+03:00"
+    },
+    {
+      "id": "derived-date-time-year-zero",
+      "schema": "CanonicalDateTime",
+      "valid": false,
+      "category": "date-time-canonical-boundary",
+      "value": "0000-01-01T00:00:00Z"
+    },
+    {
+      "id": "derived-date-time-leap-second",
+      "schema": "CanonicalDateTime",
+      "valid": false,
+      "category": "date-time-canonical-boundary",
+      "value": "2028-02-29T23:59:60Z"
     },
     {
       "id": "derived-pack-action-request-update",
@@ -8219,6 +8554,456 @@
       "value": {
         "state": "pending",
         "code": "pairing-pending"
+      }
+    },
+    {
+      "id": "derived-engine-list-length-0",
+      "schema": "EngineListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "engines": []
+      }
+    },
+    {
+      "id": "derived-engine-list-length-2",
+      "schema": "EngineListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "engines": [
+          {
+            "id": "pocket",
+            "state": "pack-unverified",
+            "operational": false
+          },
+          {
+            "id": "pocket",
+            "state": "pack-unverified",
+            "operational": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-pack-list-length-0",
+      "schema": "PackListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "packs": []
+      }
+    },
+    {
+      "id": "derived-pack-list-length-2",
+      "schema": "PackListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "packs": [
+          {
+            "id": "pocket-companion-pack",
+            "state": "pack-unverified",
+            "verified": false,
+            "operational": false
+          },
+          {
+            "id": "pocket-companion-pack",
+            "state": "pack-unverified",
+            "verified": false,
+            "operational": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-voice-list-length-19",
+      "schema": "VoiceListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "voices": [
+          {
+            "id": "pocket:alba",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:estelle",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:anna",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:vera",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:fantine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:charles",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:paul",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eponine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:azelma",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:george",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:mary",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:jane",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:michael",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eve",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:bill_boerst",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:caro_davy",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:peter_yearsley",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:stuart_bell",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:marius",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-voice-list-length-21",
+      "schema": "VoiceListResponse",
+      "valid": false,
+      "category": "list-cardinality-boundary",
+      "value": {
+        "voices": [
+          {
+            "id": "pocket:alba",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:estelle",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:anna",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:vera",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:fantine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:charles",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:paul",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eponine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:azelma",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:george",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:mary",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:jane",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:michael",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eve",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:bill_boerst",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:caro_davy",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:peter_yearsley",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:stuart_bell",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:marius",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:javert",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:alba",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-voice-list-length-20-duplicate",
+      "schema": "VoiceListResponse",
+      "valid": false,
+      "category": "list-unique-items-boundary",
+      "value": {
+        "voices": [
+          {
+            "id": "pocket:alba",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:estelle",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:anna",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:vera",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:fantine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:charles",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:paul",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eponine",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:azelma",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:george",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:mary",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:jane",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:michael",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:eve",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:bill_boerst",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:caro_davy",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:peter_yearsley",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:stuart_bell",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:marius",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          },
+          {
+            "id": "pocket:alba",
+            "engineId": "pocket",
+            "availableInPack": true,
+            "operational": false
+          }
+        ]
       }
     },
     {

@@ -4,6 +4,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 
 import { loadOpenApiDocument } from '../scripts/openapi-loader.mjs';
+import { collectProtocolNames, hasForbiddenName } from '../scripts/protocol-name-policy.mjs';
 import * as generated from '../src/generated/protocol.js';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -90,39 +91,6 @@ function isCanonicalDateTime(value: string): boolean {
   return true;
 }
 
-function collectProtocolNames(document: OpenApiDocument): string[] {
-  const names = new Set<string>(Object.keys(document.components.schemas));
-  for (const [componentName, parameter] of Object.entries(document.components.parameters)) {
-    names.add(componentName);
-    names.add(parameter.name);
-  }
-  function visitSchema(value: unknown): void {
-    if (Array.isArray(value)) {
-      for (const child of value) visitSchema(child);
-      return;
-    }
-    if (!isRecord(value)) return;
-    if (isRecord(value.properties)) {
-      for (const name of Object.keys(value.properties)) names.add(name);
-    }
-    for (const child of Object.values(value)) visitSchema(child);
-  }
-  visitSchema(document.components.schemas);
-  for (const item of Object.values(document.paths)) {
-    for (const operation of Object.values(item)) {
-      if (isRecord(operation) && typeof operation.operationId === 'string') {
-        names.add(operation.operationId);
-      }
-      if (isRecord(operation) && Array.isArray(operation.parameters)) {
-        for (const parameter of operation.parameters) {
-          if (isRecord(parameter) && typeof parameter.name === 'string') names.add(parameter.name);
-        }
-      }
-    }
-  }
-  return [...names];
-}
-
 function problemBranchTuple(branch: unknown): string | undefined {
   if (!isRecord(branch) || branch.type !== 'object' || branch.additionalProperties !== false) {
     return undefined;
@@ -134,54 +102,6 @@ function problemBranchTuple(branch: unknown): string | undefined {
   if (!isRecord(code) || typeof code.const !== 'string' || !isRecord(status)) return undefined;
   if (typeof status.const !== 'number') return undefined;
   return `${code.const}:${status.const}`;
-}
-
-function splitName(name: string): string[] {
-  return name
-    .replace(/([a-z0-9])([A-Z])/gu, '$1 $2')
-    .split(/[^A-Za-z0-9]+/u)
-    .filter(Boolean)
-    .map((part) => part.toLowerCase());
-}
-
-function tokenHasForbiddenConcept(
-  token: string,
-  forbidden: ReadonlySet<string>,
-  contextual: ReadonlySet<string>,
-): boolean {
-  if (forbidden.has(token)) return true;
-  const words = [...forbidden, ...contextual].sort((left, right) => right.length - left.length);
-  const states = new Map<string, boolean>([['0', false]]);
-  for (let index = 0; index < token.length; index += 1) {
-    for (const seenForbidden of [false, true]) {
-      if (!states.has(`${index}:${seenForbidden}`) && !(index === 0 && !seenForbidden)) continue;
-      for (const word of words) {
-        if (!token.startsWith(word, index)) continue;
-        const nextSeen = seenForbidden || forbidden.has(word);
-        states.set(`${index + word.length}:${nextSeen}`, true);
-      }
-    }
-  }
-  return states.has(`${token.length}:true`);
-}
-
-function hasForbiddenName(
-  name: string,
-  policy: NonNullable<OpenApiDocument['x-forbidden-name-policy']>,
-): boolean {
-  const forbidden = new Set(policy.forbiddenLexemes);
-  const contextual = new Set(policy.contextualLexemes);
-  const tokens = splitName(name);
-  const containsForbiddenPhrase = policy.forbiddenPhrases.some((phrase) =>
-    tokens.some((_, index) =>
-      phrase.every((word, phraseIndex) => tokens[index + phraseIndex] === word),
-    ),
-  );
-  return (
-    containsForbiddenPhrase ||
-    tokens.some((token) => tokenHasForbiddenConcept(token, forbidden, contextual)) ||
-    tokenHasForbiddenConcept(tokens.join(''), forbidden, contextual)
-  );
 }
 
 function assertEveryObjectPropertyIsRequired(value: unknown, path = 'schemas'): void {
@@ -248,6 +168,42 @@ describe('canonical companion protocol corpus', () => {
     ).toEqual(corpus.expected.excludedVoiceIds);
     expect(corpus.expected.canonicalSecretTailAlphabet).toBe('AEIMQUYcgkosw048');
     expect(corpus.expected.scopes).toHaveLength(7);
+    expect(document.components.schemas.ClientLabel?.['x-maxUtf8Bytes']).toBe(128);
+    expect(document.components.schemas.SynthesisText?.['x-maxUtf8Bytes']).toBe(8_000);
+
+    const base64UrlAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const canonicalTailCases = corpus.cases.filter(
+      (entry) => entry.category === 'canonical-secret-final-bits',
+    );
+    const noncanonicalTailCases = corpus.cases.filter(
+      (entry) => entry.category === 'secret-noncanonical-final-bits',
+    );
+    const assertTailCases = (cases: CorpusCase[], valid: boolean) => {
+      for (const entry of cases) {
+        expect(entry).toMatchObject({ schema: 'OpaqueSecret', valid, native: 'secret' });
+        expect(typeof entry.value).toBe('string');
+        if (typeof entry.value !== 'string') continue;
+        expect(entry.value).toHaveLength(43);
+        expect(entry.value.slice(0, 42)).toBe('A'.repeat(42));
+        expect(entry.value).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+      }
+    };
+    assertTailCases(canonicalTailCases, true);
+    assertTailCases(noncanonicalTailCases, false);
+    const canonicalTails = canonicalTailCases.map((entry) => String(entry.value).at(-1)!);
+    const noncanonicalTails = noncanonicalTailCases.map((entry) => String(entry.value).at(-1)!);
+    expect(canonicalTails).toHaveLength(16);
+    expect(new Set(canonicalTails).size).toBe(16);
+    expect(noncanonicalTails).toHaveLength(48);
+    expect(new Set(noncanonicalTails).size).toBe(48);
+    expect(base64UrlAlphabet.split('').filter((tail) => canonicalTails.includes(tail))).toEqual(
+      corpus.expected.canonicalSecretTailAlphabet.split(''),
+    );
+    expect(base64UrlAlphabet.split('').filter((tail) => noncanonicalTails.includes(tail))).toEqual(
+      base64UrlAlphabet
+        .split('')
+        .filter((tail) => !corpus.expected.canonicalSecretTailAlphabet.includes(tail)),
+    );
 
     const caseIds = new Set(corpus.cases.map((entry) => entry.id));
     const requiredBoundaryIds = [
@@ -282,6 +238,7 @@ describe('canonical companion protocol corpus', () => {
         (_, index) => `derived-text-allowed-u-${(0x80 + index).toString(16).padStart(4, '0')}`,
       ),
       'derived-version-exact-32-bytes',
+      'derived-version-33-bytes',
       'derived-version-one-part',
       'derived-version-build-metadata',
       'derived-version-whitespace',
@@ -414,6 +371,51 @@ describe('canonical companion protocol corpus', () => {
     }
   });
 
+  it('makes the Ajv UTF-8 extension enforce bytes independently from scalar length', () => {
+    const validator = createAjv().compile({ type: 'string', 'x-maxUtf8Bytes': 3 });
+    expect(validator('€')).toBe(true);
+    expect(validator('😀')).toBe(false);
+  });
+
+  it('pins an invalid interior secret character independently from canonical final bits', () => {
+    const value = `${'A'.repeat(21)}+${'A'.repeat(21)}`;
+    expect(value).toHaveLength(43);
+    expect(value.at(-1)).toBe('A');
+    expect(
+      corpus.cases.find((entry) => entry.id === 'derived-secret-invalid-interior-plus'),
+    ).toEqual({
+      id: 'derived-secret-invalid-interior-plus',
+      schema: 'OpaqueSecret',
+      valid: false,
+      category: 'secret-interior-alphabet',
+      value,
+      native: 'secret',
+    });
+  });
+
+  it('pins the client-version byte limit at exact and one-over boundaries', () => {
+    const exact = `1.${'1'.repeat(14)}.${'2'.repeat(15)}`;
+    const oneOver = `1.${'1'.repeat(14)}.${'2'.repeat(16)}`;
+    expect(Buffer.byteLength(exact, 'utf8')).toBe(32);
+    expect(Buffer.byteLength(oneOver, 'utf8')).toBe(33);
+    expect(
+      corpus.cases.find((entry) => entry.id === 'derived-version-exact-32-bytes'),
+    ).toMatchObject({
+      schema: 'ClientVersion',
+      valid: true,
+      value: exact,
+      native: 'version',
+    });
+    expect(corpus.cases.find((entry) => entry.id === 'derived-version-33-bytes')).toEqual({
+      id: 'derived-version-33-bytes',
+      schema: 'ClientVersion',
+      valid: false,
+      category: 'version-fixed-boundary',
+      value: oneOver,
+      native: 'version',
+    });
+  });
+
   it('binds every problem code/status tuple and keeps every positive fail-closed', async () => {
     const document = (await loadOpenApiDocument()) as OpenApiDocument;
     const problem = document.components.schemas.Problem;
@@ -447,6 +449,185 @@ describe('canonical companion protocol corpus', () => {
         .filter((entry) => entry.valid)
         .some((entry) => containsOperationalOverclaim(entry.value)),
     ).toBe(false);
+  });
+
+  it('pins every closed Problem root mutation to one catalog baseline', () => {
+    const baselineEntry = corpus.cases.find(
+      (entry) => entry.schema === 'Problem' && entry.valid && entry.category === 'problem-catalog',
+    );
+    expect(baselineEntry).toBeDefined();
+    if (!baselineEntry || !isRecord(baselineEntry.value)) return;
+    const baseline = baselineEntry.value as Record<string, JsonValue>;
+    const fields = ['type', 'title', 'status', 'detail', 'instance', 'code', 'requestId'];
+    expect(Object.keys(baseline).sort()).toEqual([...fields].sort());
+    const code = String(baseline.code);
+
+    const unknown = corpus.cases.find(
+      (entry) => entry.id === `derived-problem-${code}-root-unknown-property`,
+    );
+    expect(unknown).toMatchObject({ schema: 'Problem', valid: false, native: 'problem' });
+    expect(unknown?.value).toEqual({ ...baseline, unexpectedCorpusField: true });
+
+    for (const field of fields) {
+      const omitted = corpus.cases.find(
+        (entry) => entry.id === `derived-problem-${code}-root-omit-${field}`,
+      );
+      const expectedOmitted = structuredClone(baseline);
+      delete expectedOmitted[field];
+      expect(omitted, `omitted Problem.${field}`).toMatchObject({
+        schema: 'Problem',
+        valid: false,
+        native: 'problem',
+        value: expectedOmitted,
+      });
+
+      const wrongKind = corpus.cases.find(
+        (entry) => entry.id === `derived-problem-${code}-root-wrong-kind-${field}`,
+      );
+      const expectedWrongKind = structuredClone(baseline);
+      expectedWrongKind[field] = field === 'status' ? 'wrong-json-kind' : {};
+      expect(wrongKind, `wrong-kind Problem.${field}`).toMatchObject({
+        schema: 'Problem',
+        valid: false,
+        native: 'problem',
+        value: expectedWrongKind,
+      });
+    }
+
+    const outOfRange = corpus.cases.find(
+      (entry) => entry.id === `derived-problem-${code}-status-out-of-range`,
+    );
+    expect(outOfRange).toMatchObject({
+      schema: 'Problem',
+      valid: false,
+      native: 'problem',
+      value: { ...baseline, status: 399 },
+    });
+  });
+
+  it('pins the repeated-label anti-spoof boundary at exactly 32 scalars', () => {
+    expect(corpus.cases.find((entry) => entry.id === 'positive-label-128-bytes')).toEqual({
+      id: 'positive-label-128-bytes',
+      schema: 'ClientLabel',
+      valid: true,
+      category: 'utf8-byte-limit',
+      value: '😀'.repeat(32),
+      native: 'label',
+    });
+    expect(corpus.cases.find((entry) => entry.id === 'derived-label-32-identical-ascii')).toEqual({
+      id: 'derived-label-32-identical-ascii',
+      schema: 'ClientLabel',
+      valid: true,
+      category: 'label-repeated-scalar-boundary',
+      value: 'a'.repeat(32),
+      native: 'label',
+    });
+    expect(corpus.cases.find((entry) => entry.id === 'derived-label-33-identical-ascii')).toEqual({
+      id: 'derived-label-33-identical-ascii',
+      schema: 'ClientLabel',
+      valid: false,
+      category: 'label-repeated-scalar-boundary',
+      value: 'a'.repeat(33),
+      native: 'label',
+    });
+  });
+
+  it('pins the label UTF-8 byte limit without a scalar or repeated-scalar confounder', () => {
+    const oneOver = `${Array.from({ length: 32 }, (_, index) => (index % 2 === 0 ? '😀' : '😁')).join('')}a`;
+    expect(Array.from(oneOver)).toHaveLength(33);
+    expect(Buffer.byteLength(oneOver, 'utf8')).toBe(129);
+    expect(
+      corpus.cases.find((entry) => entry.id === 'derived-label-byte-over-nonrepeated'),
+    ).toEqual({
+      id: 'derived-label-byte-over-nonrepeated',
+      schema: 'ClientLabel',
+      valid: false,
+      category: 'label-utf8-byte-boundary',
+      value: oneOver,
+      native: 'label',
+    });
+  });
+
+  it('pins symmetric canonical date-time precision, year, and second boundaries', () => {
+    const expected = [
+      ['derived-date-time-nine-fraction-z', true, '2028-02-29T23:59:59.123456789Z'],
+      ['derived-date-time-ten-fraction-z', false, '2028-02-29T23:59:59.1234567890Z'],
+      ['derived-date-time-nine-fraction-offset', true, '2028-02-29T23:59:59.123456789+03:00'],
+      ['derived-date-time-ten-fraction-offset', false, '2028-02-29T23:59:59.1234567890+03:00'],
+      ['derived-date-time-year-zero', false, '0000-01-01T00:00:00Z'],
+      ['derived-date-time-leap-second', false, '2028-02-29T23:59:60Z'],
+    ] as const;
+    for (const [id, valid, value] of expected) {
+      expect(
+        corpus.cases.find((entry) => entry.id === id),
+        id,
+      ).toEqual({
+        id,
+        schema: 'CanonicalDateTime',
+        valid,
+        category: 'date-time-canonical-boundary',
+        value,
+      });
+    }
+  });
+
+  it('pins list cardinality and isolates the 20-voice uniqueness boundary', () => {
+    const representative = (schema: string, field: string): JsonValue[] => {
+      const entry = corpus.cases.find(
+        (candidate) =>
+          candidate.schema === schema &&
+          candidate.valid &&
+          candidate.category === 'representative' &&
+          isRecord(candidate.value),
+      );
+      expect(entry, `${schema} representative`).toBeDefined();
+      const value = entry && isRecord(entry.value) ? entry.value[field] : undefined;
+      expect(Array.isArray(value), `${schema}.${field}`).toBe(true);
+      return Array.isArray(value) ? value : [];
+    };
+    const engines = representative('EngineListResponse', 'engines');
+    const packs = representative('PackListResponse', 'packs');
+    const voices = representative('VoiceListResponse', 'voices');
+    const expected = [
+      ['derived-engine-list-length-0', 'EngineListResponse', 'engines', []],
+      ['derived-engine-list-length-2', 'EngineListResponse', 'engines', [engines[0], engines[0]]],
+      ['derived-pack-list-length-0', 'PackListResponse', 'packs', []],
+      ['derived-pack-list-length-2', 'PackListResponse', 'packs', [packs[0], packs[0]]],
+      ['derived-voice-list-length-19', 'VoiceListResponse', 'voices', voices.slice(0, 19)],
+      // With exactly 20 valid voice values, length 21 necessarily also duplicates an item.
+      ['derived-voice-list-length-21', 'VoiceListResponse', 'voices', [...voices, voices[0]]],
+      [
+        'derived-voice-list-length-20-duplicate',
+        'VoiceListResponse',
+        'voices',
+        [...voices.slice(0, 19), voices[0]],
+      ],
+    ] as const;
+    for (const [id, schema, field, items] of expected) {
+      expect(
+        corpus.cases.find((entry) => entry.id === id),
+        id,
+      ).toEqual({
+        id,
+        schema,
+        valid: false,
+        category: id.endsWith('duplicate')
+          ? 'list-unique-items-boundary'
+          : 'list-cardinality-boundary',
+        value: { [field]: items },
+      });
+    }
+    expect(voices).toHaveLength(20);
+    expect(new Set(voices.map((voice) => JSON.stringify(voice))).size).toBe(20);
+    const duplicateCase = corpus.cases.find(
+      (entry) => entry.id === 'derived-voice-list-length-20-duplicate',
+    );
+    const duplicateVoices =
+      duplicateCase && isRecord(duplicateCase.value) && Array.isArray(duplicateCase.value.voices)
+        ? duplicateCase.value.voices
+        : [];
+    expect(duplicateVoices).toHaveLength(20);
+    expect(new Set(duplicateVoices.map((voice) => JSON.stringify(voice))).size).toBe(19);
   });
 
   it('models pending redemption and bounded WAV as non-Problem, raw response boundaries', async () => {
@@ -519,6 +700,8 @@ describe('canonical companion protocol corpus', () => {
       ['operation', 'reference-prompt'],
       ['component-parameter', 'model control'],
       ['wire-parameter', 'outputname'],
+      ['operation-inline-parameter', 'reference audio'],
+      ['path-inline-parameter', 'output name'],
     ] as const;
     for (const [position, name] of injections) {
       const injected = JSON.parse(JSON.stringify(document)) as OpenApiDocument;
@@ -534,6 +717,18 @@ describe('canonical companion protocol corpus', () => {
         injected.components.parameters[name] = { name: 'Origin' };
       }
       if (position === 'wire-parameter') injected.components.parameters.Origin!.name = name;
+      if (position === 'operation-inline-parameter') {
+        const operation = injected.paths['/v1/health']!.get as Record<string, unknown>;
+        operation.parameters = [
+          ...(operation.parameters as unknown[]),
+          { in: 'query', name, schema: { type: 'string' } },
+        ];
+      }
+      if (position === 'path-inline-parameter') {
+        injected.paths['/v1/health']!.parameters = [
+          { in: 'query', name, schema: { type: 'string' } },
+        ];
+      }
       expect(
         collectProtocolNames(injected).some((candidate) => hasForbiddenName(candidate, policy)),
         `${position}:${name}`,

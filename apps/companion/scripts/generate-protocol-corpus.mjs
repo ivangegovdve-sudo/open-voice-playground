@@ -97,11 +97,49 @@ function derivedCases(baseCases) {
         ['requestId', 'not-a-uuid', 'malformed'],
         ['requestId', String(value.requestId).toUpperCase(), 'uppercase'],
       ]) {
-        add(`derived-problem-${field}-${suffix}`, 'Problem', 'problem-identifier-boundary', {
-          ...value,
-          [field]: candidate,
-        });
+        add(
+          `derived-problem-${field}-${suffix}`,
+          'Problem',
+          'problem-identifier-boundary',
+          { ...value, [field]: candidate },
+          field === 'requestId' && suffix === 'uppercase' ? undefined : 'problem',
+        );
       }
+
+      add(
+        `derived-problem-${value.code}-root-unknown-property`,
+        'Problem',
+        'derived-problem-unknown-property',
+        { ...value, unexpectedCorpusField: true },
+        'problem',
+      );
+      for (const field of ['type', 'title', 'status', 'detail', 'instance', 'code', 'requestId']) {
+        const omitted = clone(value);
+        delete omitted[field];
+        add(
+          `derived-problem-${value.code}-root-omit-${field}`,
+          'Problem',
+          'derived-problem-required-omission',
+          omitted,
+          'problem',
+        );
+        const wrongKind = clone(value);
+        wrongKind[field] = wrongJsonKind(value[field]);
+        add(
+          `derived-problem-${value.code}-root-wrong-kind-${field}`,
+          'Problem',
+          'derived-problem-wrong-json-kind',
+          wrongKind,
+          'problem',
+        );
+      }
+      add(
+        `derived-problem-${value.code}-status-out-of-range`,
+        'Problem',
+        'derived-problem-status-boundary',
+        { ...value, status: 399 },
+        'problem',
+      );
     }
   }
 
@@ -140,6 +178,27 @@ function derivedCases(baseCases) {
       'label',
     );
   }
+  addPositive(
+    'derived-label-32-identical-ascii',
+    'ClientLabel',
+    'label-repeated-scalar-boundary',
+    'a'.repeat(32),
+    'label',
+  );
+  add(
+    'derived-label-33-identical-ascii',
+    'ClientLabel',
+    'label-repeated-scalar-boundary',
+    'a'.repeat(33),
+    'label',
+  );
+  add(
+    'derived-label-byte-over-nonrepeated',
+    'ClientLabel',
+    'label-utf8-byte-boundary',
+    `${Array.from({ length: 32 }, (_, index) => (index % 2 === 0 ? '😀' : '😁')).join('')}a`,
+    'label',
+  );
 
   for (const codePoint of [
     ...Array.from({ length: 9 }, (_, index) => index),
@@ -172,11 +231,26 @@ function derivedCases(baseCases) {
     );
   }
 
+  add(
+    'derived-secret-invalid-interior-plus',
+    'OpaqueSecret',
+    'secret-interior-alphabet',
+    `${'A'.repeat(21)}+${'A'.repeat(21)}`,
+    'secret',
+  );
+
   addPositive(
     'derived-version-exact-32-bytes',
     'ClientVersion',
     'version-fixed-boundary',
     `1.${'1'.repeat(14)}.${'2'.repeat(15)}`,
+    'version',
+  );
+  add(
+    'derived-version-33-bytes',
+    'ClientVersion',
+    'version-fixed-boundary',
+    `1.${'1'.repeat(14)}.${'2'.repeat(16)}`,
     'version',
   );
   for (const [suffix, value] of [
@@ -202,6 +276,24 @@ function derivedCases(baseCases) {
     ['whitespace', ` ${canonicalUuid}`],
   ]) {
     add(`derived-uuid-${suffix}`, 'CanonicalUuid', 'uuid-fixed-boundary', value, 'uuid');
+  }
+
+  for (const [suffix, valid, value] of [
+    ['nine-fraction-z', true, '2028-02-29T23:59:59.123456789Z'],
+    ['ten-fraction-z', false, '2028-02-29T23:59:59.1234567890Z'],
+    ['nine-fraction-offset', true, '2028-02-29T23:59:59.123456789+03:00'],
+    ['ten-fraction-offset', false, '2028-02-29T23:59:59.1234567890+03:00'],
+    ['year-zero', false, '0000-01-01T00:00:00Z'],
+    ['leap-second', false, '2028-02-29T23:59:60Z'],
+  ]) {
+    const args = [
+      `derived-date-time-${suffix}`,
+      'CanonicalDateTime',
+      'date-time-canonical-boundary',
+      value,
+    ];
+    if (valid) addPositive(...args);
+    else add(...args);
   }
 
   const packActionRequest = representative('PackActionRequest');
@@ -306,6 +398,29 @@ function derivedCases(baseCases) {
       { ...pendingRedeem, [field]: value },
     );
   }
+
+  const engines = representative('EngineListResponse').engines;
+  add('derived-engine-list-length-0', 'EngineListResponse', 'list-cardinality-boundary', {
+    engines: [],
+  });
+  add('derived-engine-list-length-2', 'EngineListResponse', 'list-cardinality-boundary', {
+    engines: [engines[0], engines[0]],
+  });
+  const packs = representative('PackListResponse').packs;
+  add('derived-pack-list-length-0', 'PackListResponse', 'list-cardinality-boundary', { packs: [] });
+  add('derived-pack-list-length-2', 'PackListResponse', 'list-cardinality-boundary', {
+    packs: [packs[0], packs[0]],
+  });
+  const voices = representative('VoiceListResponse').voices;
+  add('derived-voice-list-length-19', 'VoiceListResponse', 'list-cardinality-boundary', {
+    voices: voices.slice(0, 19),
+  });
+  add('derived-voice-list-length-21', 'VoiceListResponse', 'list-cardinality-boundary', {
+    voices: [...voices, voices[0]],
+  });
+  add('derived-voice-list-length-20-duplicate', 'VoiceListResponse', 'list-unique-items-boundary', {
+    voices: [...voices.slice(0, 19), voices[0]],
+  });
 
   const baselines = baseCases.filter(
     (entry) =>
