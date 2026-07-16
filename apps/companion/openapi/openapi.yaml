@@ -5,6 +5,34 @@ info:
   version: 1.0.0
   description: Fail-closed local protocol for the optional Windows companion.
 x-protocol-major: 1
+x-forbidden-name-policy:
+  forbiddenLexemes:
+    [
+      clone,
+      cloning,
+      upload,
+      uploading,
+      prompt,
+      prompts,
+      prompting,
+      control,
+      controls,
+      path,
+      paths,
+      url,
+      urls,
+      command,
+      commands,
+      model,
+      models,
+      outputname,
+      referenceaudio,
+    ]
+  contextualLexemes:
+    [voice, audio, reference, synthesis, speaker, sample, file, input, output, name, remote, local]
+  forbiddenPhrases:
+    - [reference, audio]
+    - [output, name]
 servers:
   - url: http://127.0.0.1:17843
 tags:
@@ -89,7 +117,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/RedeemResponse' }
-        '202': { $ref: '#/components/responses/ProblemResponse' }
+        '202':
+          description: Native pairing decision is still pending.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RedeemPendingResponse' }
         '400': { $ref: '#/components/responses/ProblemResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
@@ -312,10 +344,7 @@ paths:
             X-Request-Id: { $ref: '#/components/headers/RequestId' }
           content:
             audio/wav:
-              schema:
-                type: string
-                contentEncoding: binary
-                maxLength: 67108864
+              x-maxBodyBytes: 67108864
         '401': { $ref: '#/components/responses/ProblemResponse' }
         '403': { $ref: '#/components/responses/ProblemResponse' }
         '404': { $ref: '#/components/responses/ProblemResponse' }
@@ -369,20 +398,17 @@ components:
       name: X-OVP-Client-Version
       in: header
       required: true
-      schema:
-        type: string
-        pattern: '^[0-9]+\.[0-9]+\.[0-9]+$'
-        maxLength: 32
+      schema: { $ref: '#/components/schemas/ClientVersion' }
     ChallengeId:
       name: id
       in: path
       required: true
-      schema: { type: string, format: uuid }
+      schema: { $ref: '#/components/schemas/CanonicalUuid' }
     JobId:
       name: id
       in: path
       required: true
-      schema: { type: string, format: uuid }
+      schema: { $ref: '#/components/schemas/CanonicalUuid' }
     PackId:
       name: id
       in: path
@@ -397,7 +423,7 @@ components:
       schema: { type: string, const: nosniff }
     RequestId:
       required: true
-      schema: { type: string, format: uuid }
+      schema: { $ref: '#/components/schemas/CanonicalUuid' }
     Location:
       required: true
       schema: { type: string, minLength: 1, maxLength: 256 }
@@ -419,6 +445,35 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
   schemas:
+    CanonicalUuid:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      minLength: 36
+      maxLength: 36
+    CanonicalDateTime:
+      type: string
+      format: date-time
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|\+([01][0-9]|2[0-3]):[0-5][0-9]|-(?!00:00$)([01][0-9]|2[0-3]):[0-5][0-9])$'
+      minLength: 20
+      maxLength: 35
+    ClientLabel:
+      type: string
+      pattern: '^(?!(.)\1{32,}$)[^\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028-\u202E\u2066-\u2069<>{}\[\]`]+$'
+      minLength: 1
+      maxLength: 64
+      x-maxUtf8Bytes: 128
+    ClientVersion:
+      type: string
+      pattern: '^1\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+      minLength: 5
+      maxLength: 32
+    SynthesisText:
+      type: string
+      pattern: '^[^\u0000-\u0008\u000E-\u001F]+$'
+      minLength: 1
+      maxLength: 2000
+      x-maxUtf8Bytes: 8000
     Scope:
       type: string
       enum:
@@ -433,13 +488,23 @@ components:
         ]
     ScopeList:
       type: array
+      const:
+        [
+          health:read,
+          runtime:read,
+          synthesis:create,
+          jobs:read,
+          jobs:cancel,
+          audio:read,
+          packs:request,
+        ]
       minItems: 7
       maxItems: 7
       uniqueItems: true
       items: { $ref: '#/components/schemas/Scope' }
     OpaqueSecret:
       type: string
-      pattern: '^[A-Za-z0-9_-]{43}$'
+      pattern: '^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$'
       minLength: 43
       maxLength: 43
     VoiceId:
@@ -470,7 +535,7 @@ components:
       const: pocket-companion-pack
     OperationalState:
       type: string
-      enum: [companion-not-installed, pack-unverified, ready, busy, degraded]
+      const: pack-unverified
     ProblemCode:
       type: string
       enum:
@@ -497,7 +562,6 @@ components:
         - handler-timeout
         - listener-conflict
         - pairing-not-found
-        - pairing-pending
         - pairing-denied
         - pairing-expired
         - pairing-consumed
@@ -511,17 +575,604 @@ components:
         - text-invalid
         - action-invalid
     Problem:
-      type: object
-      additionalProperties: false
-      required: [type, title, status, detail, instance, code, requestId]
-      properties:
-        type: { type: string, pattern: '^urn:ovp:problem:[a-z0-9-]+$', maxLength: 96 }
-        title: { type: string, minLength: 1, maxLength: 96 }
-        status: { type: integer, minimum: 400, maximum: 599 }
-        detail: { type: string, minLength: 1, maxLength: 160 }
-        instance: { type: string, pattern: '^urn:uuid:[0-9a-f-]{36}$', maxLength: 45 }
-        code: { $ref: '#/components/schemas/ProblemCode' }
-        requestId: { type: string, format: uuid }
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:host-invalid' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail:
+              { type: string, const: 'The request Host is not the companion loopback authority.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'host-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:origin-missing' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The Origin header is required.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'origin-missing' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:origin-denied' }
+            title: { type: string, const: 'Origin denied' }
+            status: { type: integer, const: 403 }
+            detail: { type: string, const: 'The requesting origin is not allowed.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'origin-denied' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:version-missing' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The client version header is required.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'version-missing' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:version-unsupported' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 426 }
+            detail: { type: string, const: 'The client protocol major is not supported.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'version-unsupported' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:auth-missing' }
+            title: { type: string, const: 'Authentication failed' }
+            status: { type: integer, const: 401 }
+            detail: { type: string, const: 'A bearer token is required.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'auth-missing' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:auth-invalid' }
+            title: { type: string, const: 'Authentication failed' }
+            status: { type: integer, const: 401 }
+            detail: { type: string, const: 'The bearer token is not valid.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'auth-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:auth-origin-mismatch' }
+            title: { type: string, const: 'Authentication failed' }
+            status: { type: integer, const: 401 }
+            detail: { type: string, const: 'The bearer token is not valid for this origin.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'auth-origin-mismatch' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:scope-denied' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 403 }
+            detail: { type: string, const: 'The bearer token lacks the required scope.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'scope-denied' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:rate-limited' }
+            title: { type: string, const: 'Rate limit exceeded' }
+            status: { type: integer, const: 429 }
+            detail: { type: string, const: 'The request rate limit has been reached.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'rate-limited' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:request-line-too-large' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 414 }
+            detail: { type: string, const: 'The HTTP request line exceeds the limit.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'request-line-too-large' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:headers-too-large' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 431 }
+            detail: { type: string, const: 'The HTTP headers exceed the limit.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'headers-too-large' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:body-too-large' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 413 }
+            detail: { type: string, const: 'The JSON request body exceeds the limit.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'body-too-large' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:body-timeout' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 408 }
+            detail: { type: string, const: 'The request body did not arrive within the deadline.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'body-timeout' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:header-timeout' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 408 }
+            detail:
+              { type: string, const: 'The request headers did not arrive within the deadline.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'header-timeout' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:schema-invalid' }
+            title: { type: string, const: 'Invalid request' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The request body does not match the protocol schema.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'schema-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:queue-full' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 503 }
+            detail: { type: string, const: 'The synthesis queue is at capacity.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'queue-full' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:ownership-denied' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 404 }
+            detail: { type: string, const: 'The requested resource was not found.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'ownership-denied' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:resource-not-found' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 404 }
+            detail: { type: string, const: 'The requested resource was not found.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'resource-not-found' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:conflict' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 409 }
+            detail: { type: string, const: 'The request conflicts with current state.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'conflict' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:handler-timeout' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 504 }
+            detail: { type: string, const: 'The request handler exceeded its deadline.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'handler-timeout' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:listener-conflict' }
+            title: { type: string, const: 'Listener unavailable' }
+            status: { type: integer, const: 503 }
+            detail: { type: string, const: 'The fixed loopback port is already in use.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'listener-conflict' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pairing-not-found' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 404 }
+            detail: { type: string, const: 'The requested resource was not found.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pairing-not-found' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pairing-denied' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 403 }
+            detail: { type: string, const: 'The native pairing request was denied.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pairing-denied' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pairing-expired' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 410 }
+            detail: { type: string, const: 'The pairing request has expired.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pairing-expired' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pairing-consumed' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 409 }
+            detail: { type: string, const: 'The request conflicts with current state.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pairing-consumed' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pairing-attempts-exhausted' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 403 }
+            detail: { type: string, const: 'The manual pairing attempts are exhausted.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pairing-attempts-exhausted' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:pack-unverified' }
+            title: { type: string, const: 'Runtime unavailable' }
+            status: { type: integer, const: 503 }
+            detail: { type: string, const: 'No verified Pocket pack is installed.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'pack-unverified' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:runtime-unavailable' }
+            title: { type: string, const: 'Runtime unavailable' }
+            status: { type: integer, const: 503 }
+            detail: { type: string, const: 'The synthesis runtime is unavailable.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'runtime-unavailable' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:method-not-allowed' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 405 }
+            detail: { type: string, const: 'The HTTP method is not supported for this route.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'method-not-allowed' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:content-type-unsupported' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 415 }
+            detail: { type: string, const: 'The request content type is not supported.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'content-type-unsupported' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:transfer-encoding-invalid' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The HTTP transfer encoding is not supported.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'transfer-encoding-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:duplicate-header' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'A security-sensitive header was duplicated.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'duplicate-header' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:text-invalid' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The synthesis text is outside the accepted bounds.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'text-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
+        - type: object
+          additionalProperties: false
+          required: [type, title, status, detail, instance, code, requestId]
+          properties:
+            type: { type: string, const: 'urn:ovp:problem:action-invalid' }
+            title: { type: string, const: 'Request rejected' }
+            status: { type: integer, const: 400 }
+            detail: { type: string, const: 'The requested pack action is not accepted.' }
+            instance:
+              {
+                type: string,
+                pattern: '^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+                minLength: 45,
+                maxLength: 45,
+              }
+            code: { type: string, const: 'action-invalid' }
+            requestId: { $ref: '#/components/schemas/CanonicalUuid' }
     HealthResponse:
       type: object
       additionalProperties: false
@@ -537,7 +1188,7 @@ components:
       properties:
         state: { $ref: '#/components/schemas/OpaqueSecret' }
         verifierHash: { $ref: '#/components/schemas/OpaqueSecret' }
-        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        clientLabel: { $ref: '#/components/schemas/ClientLabel' }
         scopes: { $ref: '#/components/schemas/ScopeList' }
     ManualChallengeRequest:
       type: object
@@ -546,7 +1197,7 @@ components:
       properties:
         code: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{12}$', minLength: 12, maxLength: 12 }
         verifierHash: { $ref: '#/components/schemas/OpaqueSecret' }
-        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        clientLabel: { $ref: '#/components/schemas/ClientLabel' }
         scopes: { $ref: '#/components/schemas/ScopeList' }
     PairingChallengeRequest:
       oneOf:
@@ -557,15 +1208,21 @@ components:
       additionalProperties: false
       required: [id, state, expiresAt]
       properties:
-        id: { type: string, format: uuid }
+        id: { $ref: '#/components/schemas/CanonicalUuid' }
         state: { type: string, const: pending }
-        expiresAt: { type: string, format: date-time }
+        expiresAt: { $ref: '#/components/schemas/CanonicalDateTime' }
     RedeemRequest:
       type: object
       additionalProperties: false
       required: [verifier]
       properties:
         verifier: { $ref: '#/components/schemas/OpaqueSecret' }
+    RedeemPendingResponse:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state: { type: string, const: pending }
     RedeemResponse:
       type: object
       additionalProperties: false
@@ -578,11 +1235,11 @@ components:
       additionalProperties: false
       required: [id, clientLabel, scopes, createdAt, lastUsedAt]
       properties:
-        id: { type: string, format: uuid }
-        clientLabel: { type: string, minLength: 1, maxLength: 64 }
+        id: { $ref: '#/components/schemas/CanonicalUuid' }
+        clientLabel: { $ref: '#/components/schemas/ClientLabel' }
         scopes: { $ref: '#/components/schemas/ScopeList' }
-        createdAt: { type: string, format: date-time }
-        lastUsedAt: { type: string, format: date-time }
+        createdAt: { $ref: '#/components/schemas/CanonicalDateTime' }
+        lastUsedAt: { $ref: '#/components/schemas/CanonicalDateTime' }
     RuntimeResponse:
       type: object
       additionalProperties: false
@@ -595,15 +1252,11 @@ components:
     EngineResponse:
       type: object
       additionalProperties: false
-      required: [id, state, operational, synthesisControls]
+      required: [id, state, operational]
       properties:
         id: { type: string, const: pocket }
         state: { type: string, const: pack-unverified }
         operational: { type: boolean, const: false }
-        synthesisControls:
-          type: array
-          maxItems: 0
-          items: { type: string }
     EngineListResponse:
       type: object
       additionalProperties: false
@@ -659,22 +1312,17 @@ components:
       required: [voiceId, text]
       properties:
         voiceId: { $ref: '#/components/schemas/VoiceId' }
-        text: { type: string, minLength: 1, maxLength: 2000 }
+        text: { $ref: '#/components/schemas/SynthesisText' }
     JobResponse:
       type: object
       additionalProperties: false
       required: [id, voiceId, state, audioAvailable, createdAt]
       properties:
-        id: { type: string, format: uuid }
+        id: { $ref: '#/components/schemas/CanonicalUuid' }
         voiceId: { $ref: '#/components/schemas/VoiceId' }
-        state:
-          {
-            type: string,
-            enum:
-              [queued, starting, synthesizing, completed, cancelling, cancelled, failed, expired],
-          }
-        audioAvailable: { type: boolean }
-        createdAt: { type: string, format: date-time }
+        state: { type: string, enum: [queued, cancelling, cancelled, failed, expired] }
+        audioAvailable: { type: boolean, const: false }
+        createdAt: { $ref: '#/components/schemas/CanonicalDateTime' }
     PackActionRequest:
       type: object
       additionalProperties: false
@@ -686,7 +1334,7 @@ components:
       additionalProperties: false
       required: [id, packId, action, state]
       properties:
-        id: { type: string, format: uuid }
+        id: { $ref: '#/components/schemas/CanonicalUuid' }
         packId: { $ref: '#/components/schemas/PackId' }
         action: { type: string, enum: [install, update, repair, remove] }
         state: { type: string, const: pending-native-decision }

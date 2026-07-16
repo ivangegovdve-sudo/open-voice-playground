@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     path::PathBuf,
     sync::{
         Arc, Mutex,
@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     deep_link::{DeepLinkError, DeepLinkRegistry},
-    protocol::{ALL_SCOPES, Scope},
+    protocol::{ALL_SCOPES, Scope, validate_client_label},
     secret::{
         SecretError, SecretString, decode_canonical_secret, generate_secret as new_secret,
         hash_bytes, hash_for_transport as transport_hash,
@@ -981,34 +981,8 @@ fn validate_challenge_input(
     if scopes != fixed_scopes() {
         return Err(PairingError::InvalidRequest);
     }
-    validate_client_label(client_label)?;
+    validate_client_label(client_label).map_err(|_| PairingError::InvalidRequest)?;
     if origin.is_empty() || origin.len() > 256 || origin.contains(['\r', '\n', '\0']) {
-        return Err(PairingError::InvalidRequest);
-    }
-    Ok(())
-}
-
-fn validate_client_label(label: &str) -> Result<(), PairingError> {
-    if label.is_empty() || label.chars().count() > 64 || label.len() > 128 {
-        return Err(PairingError::InvalidRequest);
-    }
-    let prompt_punctuation = ['<', '>', '{', '}', '[', ']', '`'];
-    if label.chars().any(|scalar| {
-        matches!(
-            scalar,
-            '\u{0000}'..='\u{001f}'
-                | '\u{007f}'
-                | '\u{0080}'..='\u{009f}'
-                | '\u{061c}'
-                | '\u{200e}'..='\u{200f}'
-                | '\u{2028}'..='\u{202e}'
-                | '\u{2066}'..='\u{2069}'
-        ) || prompt_punctuation.contains(&scalar)
-    }) {
-        return Err(PairingError::InvalidRequest);
-    }
-    let unique = label.chars().collect::<HashSet<_>>();
-    if unique.len() == 1 && label.chars().count() > 32 {
         return Err(PairingError::InvalidRequest);
     }
     Ok(())

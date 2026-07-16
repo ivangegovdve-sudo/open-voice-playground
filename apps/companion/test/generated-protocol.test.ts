@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import * as protocol from '../src/generated/protocol.js';
 
 const schemaNames = [
+  'CanonicalDateTime',
+  'CanonicalUuid',
+  'ClientLabel',
+  'ClientVersion',
   'DeepLinkChallengeRequest',
   'EngineListResponse',
   'EngineResponse',
@@ -22,11 +26,13 @@ const schemaNames = [
   'PairingResponse',
   'Problem',
   'ProblemCode',
+  'RedeemPendingResponse',
   'RedeemRequest',
   'RedeemResponse',
   'RuntimeResponse',
   'Scope',
   'ScopeList',
+  'SynthesisText',
   'VoiceId',
   'VoiceListResponse',
   'VoiceResponse',
@@ -48,7 +54,7 @@ function parse(name: string, value: unknown): unknown {
 
 const uuid = '123e4567-e89b-12d3-a456-426614174000';
 const timestamp = '2028-02-29T23:59:59.123+03:00';
-const opaqueSecret = 'a'.repeat(43);
+const opaqueSecret = 'A'.repeat(43);
 const scopes = [
   'health:read',
   'runtime:read',
@@ -98,7 +104,6 @@ const engine = {
   id: 'pocket',
   state: 'pack-unverified',
   operational: false,
-  synthesisControls: [],
 };
 const pack = {
   id: 'pocket-companion-pack',
@@ -113,6 +118,10 @@ const voices = voiceIds.map((id) => ({
   operational: false,
 }));
 const validValues = {
+  CanonicalDateTime: timestamp,
+  CanonicalUuid: uuid,
+  ClientLabel: 'Browser playground',
+  ClientVersion: '1.0.0',
   DeepLinkChallengeRequest: deepLinkChallenge,
   EngineListResponse: { engines: [engine] },
   EngineResponse: engine,
@@ -154,12 +163,13 @@ const validValues = {
     type: 'urn:ovp:problem:schema-invalid',
     title: 'Invalid request',
     status: 400,
-    detail: 'The request did not match the contract.',
+    detail: 'The request body does not match the protocol schema.',
     instance: `urn:uuid:${uuid}`,
     code: 'schema-invalid',
     requestId: uuid,
   },
   ProblemCode: 'schema-invalid',
+  RedeemPendingResponse: { state: 'pending' },
   RedeemRequest: { verifier: opaqueSecret },
   RedeemResponse: { token: opaqueSecret, pairing },
   RuntimeResponse: {
@@ -170,6 +180,7 @@ const validValues = {
   },
   Scope: 'health:read',
   ScopeList: scopes,
+  SynthesisText: 'Exact text',
   VoiceId: 'pocket:alba',
   VoiceListResponse: { voices },
   VoiceResponse: voices[0],
@@ -239,7 +250,7 @@ describe('generated companion protocol validators', () => {
       type: 'urn:ovp:problem:schema-invalid',
       title: 'Invalid request',
       status: 400,
-      detail: 'The request did not match the contract.',
+      detail: 'The request body does not match the protocol schema.',
       instance: `urn:uuid:${uuid}`,
       code: 'schema-invalid',
       requestId: uuid,

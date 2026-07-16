@@ -3,17 +3,20 @@ use open_voice_companion::protocol::{
     TextValidationError, negotiate_version, validate_synthesis_text,
 };
 
-const VALID_JOB: &str = include_str!("../../openapi/fixtures/job-create.valid.json");
-const INVALID_JOBS: &str = include_str!("../../openapi/fixtures/job-create.invalid.json");
-
 #[test]
-fn rust_contract_matches_shared_strict_fixtures_and_exact_ids() {
-    let job: JobCreateRequest = serde_json::from_str(VALID_JOB).expect("valid shared fixture");
+fn rust_contract_matches_strict_job_shape_and_exact_ids() {
+    let job: JobCreateRequest = serde_json::from_value(serde_json::json!({
+        "voiceId": "pocket:alba",
+        "text": "Exact text, preserved byte for byte."
+    }))
+    .expect("valid canonical job");
     assert_eq!(job.voice_id.as_str(), "pocket:alba");
     assert_eq!(job.text, "Exact text, preserved byte for byte.");
 
-    let invalid: Vec<serde_json::Value> = serde_json::from_str(INVALID_JOBS).unwrap();
-    for fixture in invalid {
+    for fixture in [
+        serde_json::json!({"voiceId": "pocket:alba"}),
+        serde_json::json!({"voiceId": "pocket:alba", "text": "Exact", "extra": true}),
+    ] {
         assert!(serde_json::from_value::<JobCreateRequest>(fixture).is_err());
     }
 

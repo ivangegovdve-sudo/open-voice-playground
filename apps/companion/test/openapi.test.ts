@@ -1,6 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
 
 import { loadOpenApiDocument } from '../scripts/openapi-loader.mjs';
@@ -18,7 +17,6 @@ interface OpenApiDocument {
   paths: Record<string, Record<string, unknown>>;
   components: {
     schemas: Record<string, SchemaObject> & {
-      JobCreateRequest: SchemaObject;
       ProblemCode: SchemaObject;
       VoiceId: SchemaObject;
     };
@@ -110,7 +108,7 @@ function assertStrictObjects(value: unknown): void {
 }
 
 describe('authoritative companion OpenAPI', () => {
-  it('defines the strict fail-closed v1 surface and validates shared fixtures', async () => {
+  it('defines the strict fail-closed v1 surface', async () => {
     expect(existsSync(openApiPath), 'authoritative OpenAPI document is missing').toBe(true);
     const document = (await loadOpenApiDocument()) as OpenApiDocument;
     expect(document.openapi).toBe('3.1.2');
@@ -148,19 +146,5 @@ describe('authoritative companion OpenAPI', () => {
         forbidden.has(name.toLowerCase()),
       ),
     ).toEqual([]);
-
-    const ajv = new Ajv2020({ allErrors: true, strict: false, validateFormats: false });
-    const createJob = ajv.compile({
-      ...document.components.schemas.JobCreateRequest,
-      components: document.components,
-    });
-    const validFixture = JSON.parse(
-      readFileSync(resolve(root, 'openapi/fixtures/job-create.valid.json'), 'utf8'),
-    );
-    const invalidFixtures = JSON.parse(
-      readFileSync(resolve(root, 'openapi/fixtures/job-create.invalid.json'), 'utf8'),
-    ) as unknown[];
-    expect(createJob(validFixture)).toBe(true);
-    for (const fixture of invalidFixtures) expect(createJob(fixture)).toBe(false);
   });
 });

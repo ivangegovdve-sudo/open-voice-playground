@@ -42,5 +42,5 @@ export type ProtocolBrandContract = readonly [
   >,
   Assert<IsStrictSubtype<ParsedPairingChallenge['id'], string>>,
   Assert<IsStrictSubtype<ParsedProblem['status'], number>>,
-  Assert<IsStrictSubtype<ParsedEngine['synthesisControls'], readonly string[]>>,
+  Assert<IsStrictSubtype<ParsedEngine['state'], string>>,
 ];

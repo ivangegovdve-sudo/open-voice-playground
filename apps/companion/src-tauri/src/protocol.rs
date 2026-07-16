@@ -1,6 +1,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use uuid::Uuid;
 
+use crate::secret::is_canonical_secret;
+
 pub const PROTOCOL_MAJOR: u64 = 1;
 pub const CLIENT_VERSION: &str = "1.0.0";
 
@@ -109,6 +111,91 @@ impl<'de> Deserialize<'de> for Scope {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("scope list must equal the fixed protocol tuple")]
+pub struct ScopeListValidationError;
+
+pub fn validate_scope_list(scopes: &[Scope]) -> Result<(), ScopeListValidationError> {
+    let exact = ALL_SCOPES.map(|scope| Scope::parse(scope).expect("owned scope must parse"));
+    if scopes == exact {
+        Ok(())
+    } else {
+        Err(ScopeListValidationError)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("secret encoding is not canonical")]
+pub struct OpaqueSecretValidationError;
+
+pub fn validate_opaque_secret(value: &str) -> Result<(), OpaqueSecretValidationError> {
+    if is_canonical_secret(value) {
+        Ok(())
+    } else {
+        Err(OpaqueSecretValidationError)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("UUID text is not canonical")]
+pub struct CanonicalUuidValidationError;
+
+pub fn validate_canonical_uuid(value: &str) -> Result<(), CanonicalUuidValidationError> {
+    let parsed = Uuid::parse_str(value).map_err(|_| CanonicalUuidValidationError)?;
+    if parsed.to_string() == value {
+        Ok(())
+    } else {
+        Err(CanonicalUuidValidationError)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum ClientLabelValidationError {
+    #[error("client label is empty")]
+    Empty,
+    #[error("client label exceeds 64 Unicode scalar values")]
+    TooManyScalars,
+    #[error("client label exceeds 128 UTF-8 bytes")]
+    TooManyBytes,
+    #[error("client label contains a disallowed scalar")]
+    DisallowedScalar,
+    #[error("client label is an unsafe repeated-scalar string")]
+    RepeatedScalar,
+}
+
+pub fn validate_client_label(label: &str) -> Result<(), ClientLabelValidationError> {
+    if label.is_empty() {
+        return Err(ClientLabelValidationError::Empty);
+    }
+    if label.chars().count() > 64 {
+        return Err(ClientLabelValidationError::TooManyScalars);
+    }
+    if label.len() > 128 {
+        return Err(ClientLabelValidationError::TooManyBytes);
+    }
+    let prompt_punctuation = ['<', '>', '{', '}', '[', ']', '`'];
+    if label.chars().any(|scalar| {
+        matches!(
+            scalar,
+            '\u{0000}'..='\u{001f}'
+                | '\u{007f}'
+                | '\u{0080}'..='\u{009f}'
+                | '\u{061c}'
+                | '\u{200e}'..='\u{200f}'
+                | '\u{2028}'..='\u{202e}'
+                | '\u{2066}'..='\u{2069}'
+        ) || prompt_punctuation.contains(&scalar)
+    }) {
+        return Err(ClientLabelValidationError::DisallowedScalar);
+    }
+    let mut scalars = label.chars();
+    let first = scalars.next().expect("nonempty label has one scalar");
+    if label.chars().count() > 32 && scalars.all(|scalar| scalar == first) {
+        return Err(ClientLabelValidationError::RepeatedScalar);
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct JobCreateRequest {
@@ -187,7 +274,6 @@ pub enum ProblemCode {
     HandlerTimeout,
     ListenerConflict,
     PairingNotFound,
-    PairingPending,
     PairingDenied,
     PairingExpired,
     PairingConsumed,
@@ -202,7 +288,7 @@ pub enum ProblemCode {
     ActionInvalid,
 }
 
-pub const ALL_PROBLEM_CODES: [ProblemCode; 36] = [
+pub const ALL_PROBLEM_CODES: [ProblemCode; 35] = [
     ProblemCode::HostInvalid,
     ProblemCode::OriginMissing,
     ProblemCode::OriginDenied,
@@ -226,7 +312,6 @@ pub const ALL_PROBLEM_CODES: [ProblemCode; 36] = [
     ProblemCode::HandlerTimeout,
     ProblemCode::ListenerConflict,
     ProblemCode::PairingNotFound,
-    ProblemCode::PairingPending,
     ProblemCode::PairingDenied,
     ProblemCode::PairingExpired,
     ProblemCode::PairingConsumed,
@@ -267,7 +352,6 @@ impl ProblemCode {
             Self::HandlerTimeout => "handler-timeout",
             Self::ListenerConflict => "listener-conflict",
             Self::PairingNotFound => "pairing-not-found",
-            Self::PairingPending => "pairing-pending",
             Self::PairingDenied => "pairing-denied",
             Self::PairingExpired => "pairing-expired",
             Self::PairingConsumed => "pairing-consumed",
@@ -280,6 +364,40 @@ impl ProblemCode {
             Self::DuplicateHeader => "duplicate-header",
             Self::TextInvalid => "text-invalid",
             Self::ActionInvalid => "action-invalid",
+        }
+    }
+
+    const fn status(self) -> u16 {
+        match self {
+            Self::HostInvalid
+            | Self::OriginMissing
+            | Self::VersionMissing
+            | Self::SchemaInvalid
+            | Self::TransferEncodingInvalid
+            | Self::DuplicateHeader
+            | Self::TextInvalid
+            | Self::ActionInvalid => 400,
+            Self::AuthMissing | Self::AuthInvalid | Self::AuthOriginMismatch => 401,
+            Self::OriginDenied
+            | Self::ScopeDenied
+            | Self::PairingDenied
+            | Self::PairingAttemptsExhausted => 403,
+            Self::OwnershipDenied | Self::ResourceNotFound | Self::PairingNotFound => 404,
+            Self::MethodNotAllowed => 405,
+            Self::BodyTimeout | Self::HeaderTimeout => 408,
+            Self::Conflict | Self::PairingConsumed => 409,
+            Self::PairingExpired => 410,
+            Self::BodyTooLarge => 413,
+            Self::RequestLineTooLarge => 414,
+            Self::ContentTypeUnsupported => 415,
+            Self::VersionUnsupported => 426,
+            Self::RateLimited => 429,
+            Self::HeadersTooLarge => 431,
+            Self::QueueFull
+            | Self::ListenerConflict
+            | Self::PackUnverified
+            | Self::RuntimeUnavailable => 503,
+            Self::HandlerTimeout => 504,
         }
     }
 
@@ -322,7 +440,6 @@ impl ProblemCode {
             Self::Conflict | Self::PairingConsumed => "The request conflicts with current state.",
             Self::HandlerTimeout => "The request handler exceeded its deadline.",
             Self::ListenerConflict => "The fixed loopback port is already in use.",
-            Self::PairingPending => "The native pairing decision is still pending.",
             Self::PairingDenied => "The native pairing request was denied.",
             Self::PairingExpired => "The pairing request has expired.",
             Self::PairingAttemptsExhausted => "The manual pairing attempts are exhausted.",
@@ -343,9 +460,9 @@ impl ProblemCode {
 pub struct Problem {
     #[serde(rename = "type")]
     pub problem_type: String,
-    pub title: &'static str,
+    pub title: String,
     pub status: u16,
-    pub detail: &'static str,
+    pub detail: String,
     pub instance: String,
     pub code: ProblemCode,
     pub request_id: Uuid,
@@ -356,18 +473,32 @@ impl Problem {
         let request_id = Uuid::new_v4();
         Self {
             problem_type: format!("urn:ovp:problem:{}", code.as_str()),
-            title: code.title(),
+            title: code.title().to_owned(),
             status,
-            detail: code.detail(),
+            detail: code.detail().to_owned(),
             instance: format!("urn:uuid:{request_id}"),
             code,
             request_id,
         }
     }
+
+    pub fn is_catalog_valid(&self) -> bool {
+        self.problem_type == format!("urn:ovp:problem:{}", self.code.as_str())
+            && self.title == self.code.title()
+            && self.status == self.code.status()
+            && self.detail == self.code.detail()
+            && self
+                .instance
+                .strip_prefix("urn:uuid:")
+                .is_some_and(|value| validate_canonical_uuid(value).is_ok())
+    }
 }
 
 pub fn negotiate_version(value: Option<&str>) -> Result<(), ProblemCode> {
     let value = value.ok_or(ProblemCode::VersionMissing)?;
+    if value.len() > 32 {
+        return Err(ProblemCode::VersionUnsupported);
+    }
     let parts: Vec<&str> = value.split('.').collect();
     if parts.len() != 3
         || parts.iter().any(|part| {

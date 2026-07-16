@@ -655,7 +655,7 @@ function utf8Length(value: string): number {
   return length;
 }
 
-function isCanonicalUuid(value: string): boolean {
+function matchesCanonicalUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value);
 }
 
@@ -663,7 +663,7 @@ function isLeapYear(year: number): boolean {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
-function isCanonicalDateTime(value: string): boolean {
+function matchesCanonicalDateTime(value: string): boolean {
   const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/u.exec(value);
   if (match === null) return false;
   const year = Number(match[1]);
@@ -742,8 +742,8 @@ function validateSchema(
     if (schema.pattern !== undefined && !new RegExp(schema.pattern, "u").test(value)) {
       return invalid(path);
     }
-    if (schema.format === "uuid" && !isCanonicalUuid(value)) return invalid(path);
-    if (schema.format === "date-time" && !isCanonicalDateTime(value)) return invalid(path);
+    if (schema.format === "uuid" && !matchesCanonicalUuid(value)) return invalid(path);
+    if (schema.format === "date-time" && !matchesCanonicalDateTime(value)) return invalid(path);
   }
   if (typeof value === "number") {
     if (schema.minimum !== undefined && value < schema.minimum) return invalid(path);

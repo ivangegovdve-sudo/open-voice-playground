@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "corpus:check": "node ./scripts/generate-protocol-corpus.mjs --check",
+    "corpus:generate": "node ./scripts/generate-protocol-corpus.mjs --write",
     "openapi:check": "node ./scripts/generate-openapi.mjs --check",
     "openapi:generate": "node ./scripts/generate-openapi.mjs --write",
     "test": "vitest run",
