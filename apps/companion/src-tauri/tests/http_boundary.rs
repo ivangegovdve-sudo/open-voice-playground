@@ -1,9 +1,35 @@
-use std::{net::SocketAddr, time::Duration};
-
-use open_voice_companion::{
-    origin::OriginPolicy,
-    server::{CompanionServer, ListenerError},
+use std::{
+    collections::BTreeMap,
+    net::SocketAddr,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::{Duration, Instant},
 };
+
+use async_trait::async_trait;
+use open_voice_companion::{
+    http_dispatch::{
+        AuthError, AuthPermit, AuthPort, AuthRequest, AuthenticatedPairing, EntityTag,
+        HandlerContext, HandlerError, HandlerPort, HandlerRequest, HandlerSuccess,
+        ResponseLocation, WavBody,
+    },
+    origin::OriginPolicy,
+    pairing::PairingRecord,
+    protocol::{
+        CanonicalUuid, EngineListResponse, HealthResponse, JobResponse, PackActionResponse,
+        PackListResponse, PairingChallengeResponse, PairingResponse, RedeemResponse,
+        RuntimeResponse, VoiceListResponse,
+    },
+    rate::{
+        RateClass, RateLimitError, RateLimitPort, RatePermit, RateRequest, RateSubject,
+        RetryAfterSeconds,
+    },
+    scheduler::Clock,
+    server::{CompanionServer, ListenerError, ServerPorts},
+};
+use serde::{Deserialize, de::DeserializeOwned};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -11,7 +37,371 @@ use tokio::{
 };
 
 const GOOD_ORIGIN: &str = "http://127.0.0.1:5173";
+const PROTOCOL_CORPUS: &str = include_str!("../../openapi/fixtures/protocol-corpus.json");
 static FIXED_PORT: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+#[derive(Deserialize)]
+struct RequestCorpus {
+    cases: Vec<RequestCorpusCase>,
+}
+
+#[derive(Deserialize)]
+struct RequestCorpusCase {
+    id: String,
+    schema: String,
+    valid: bool,
+    value: serde_json::Value,
+}
+
+#[derive(Default)]
+struct BoundaryState {
+    auth_reservations: AtomicUsize,
+    auth_commits: AtomicUsize,
+    rate_reservations: AtomicUsize,
+    rate_commits: AtomicUsize,
+    handler_calls: AtomicUsize,
+    monotonic_calls: AtomicUsize,
+    utc_calls: AtomicUsize,
+    rate_requests: Mutex<Vec<(RateClass, RateSubject)>>,
+}
+
+struct BoundaryAuth {
+    state: Arc<BoundaryState>,
+    accept: bool,
+}
+
+struct BoundaryAuthPermit {
+    state: Arc<BoundaryState>,
+    pairing: PairingRecord,
+}
+
+#[async_trait]
+impl AuthPermit for BoundaryAuthPermit {
+    fn pairing_id(&self) -> uuid::Uuid {
+        self.pairing.id
+    }
+
+    async fn commit(self: Box<Self>) -> Result<AuthenticatedPairing, AuthError> {
+        self.state.auth_commits.fetch_add(1, Ordering::SeqCst);
+        Ok(AuthenticatedPairing::from_record(self.pairing))
+    }
+}
+
+#[async_trait]
+impl AuthPort for BoundaryAuth {
+    async fn reserve(&self, request: AuthRequest) -> Result<Box<dyn AuthPermit>, AuthError> {
+        self.state.auth_reservations.fetch_add(1, Ordering::SeqCst);
+        if !self.accept {
+            return Err(AuthError::Invalid);
+        }
+        let (token, origin, _scope, _ownership, now) = request.into_parts();
+        assert_eq!(token.expose().len(), 43);
+        Ok(Box::new(BoundaryAuthPermit {
+            state: Arc::clone(&self.state),
+            pairing: PairingRecord {
+                id: uuid::Uuid::from_u128(0xc8),
+                origin,
+                client_label: "HTTP boundary fake".to_owned(),
+                scopes: Vec::new(),
+                created_at: now,
+                last_used_at: now,
+            },
+        }))
+    }
+}
+
+struct BoundaryRate {
+    state: Arc<BoundaryState>,
+    error: Option<RateLimitError>,
+}
+
+struct BoundaryRatePermit {
+    state: Arc<BoundaryState>,
+}
+
+impl RatePermit for BoundaryRatePermit {
+    fn commit(self: Box<Self>) {
+        self.state.rate_commits.fetch_add(1, Ordering::SeqCst);
+    }
+}
+
+impl RateLimitPort for BoundaryRate {
+    fn reserve(&self, request: RateRequest) -> Result<Box<dyn RatePermit>, RateLimitError> {
+        self.state.rate_reservations.fetch_add(1, Ordering::SeqCst);
+        self.state
+            .rate_requests
+            .lock()
+            .unwrap()
+            .push((request.class(), request.subject().clone()));
+        if let Some(error) = self.error {
+            return Err(error);
+        }
+        Ok(Box::new(BoundaryRatePermit {
+            state: Arc::clone(&self.state),
+        }))
+    }
+}
+
+struct BoundaryClock {
+    state: Arc<BoundaryState>,
+}
+
+impl Clock for BoundaryClock {
+    fn monotonic(&self) -> Instant {
+        self.state.monotonic_calls.fetch_add(1, Ordering::SeqCst);
+        Instant::now()
+    }
+
+    fn utc(&self) -> time::OffsetDateTime {
+        self.state.utc_calls.fetch_add(1, Ordering::SeqCst);
+        time::OffsetDateTime::now_utc()
+    }
+}
+
+struct BoundaryHandler {
+    state: Arc<BoundaryState>,
+}
+
+#[async_trait]
+impl HandlerPort for BoundaryHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+        match request {
+            HandlerRequest::GetHealth => Ok(HandlerSuccess::Health(HealthResponse::listening())),
+            HandlerRequest::CreatePairingChallenge { .. } => Err(HandlerError::PairingNotFound),
+            _ => Err(HandlerError::ResourceNotFound),
+        }
+    }
+}
+
+fn decode<T: DeserializeOwned>(value: serde_json::Value) -> T {
+    serde_json::from_value(value).expect("checked response fixture")
+}
+
+fn pairing_response() -> PairingResponse {
+    decode(serde_json::json!({
+        "id": "55555555-5555-4555-8555-555555555555",
+        "clientLabel": "HTTP boundary fake",
+        "scopes": [
+            "health:read",
+            "runtime:read",
+            "synthesis:create",
+            "jobs:read",
+            "jobs:cancel",
+            "audio:read",
+            "packs:request"
+        ],
+        "createdAt": "2026-01-02T03:04:05Z",
+        "lastUsedAt": "2026-01-02T03:04:05Z"
+    }))
+}
+
+fn job_response() -> JobResponse {
+    decode(serde_json::json!({
+        "id": "66666666-6666-4666-8666-666666666666",
+        "voiceId": "pocket:alba",
+        "state": "queued",
+        "audioAvailable": false,
+        "createdAt": "2026-01-02T03:04:05Z"
+    }))
+}
+
+struct SuccessHandler {
+    redeem_pending: bool,
+}
+
+#[async_trait]
+impl HandlerPort for SuccessHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        let etag = |value: &str| EntityTag::new(value.to_owned()).unwrap();
+        let location = |value: &str| ResponseLocation::new(value.to_owned()).unwrap();
+        match request {
+            HandlerRequest::GetHealth => Ok(HandlerSuccess::Health(HealthResponse::listening())),
+            HandlerRequest::CreatePairingChallenge { body: _ } => {
+                let body: PairingChallengeResponse = decode(serde_json::json!({
+                    "id": "11111111-1111-4111-8111-111111111111",
+                    "state": "pending",
+                    "expiresAt": "2026-01-02T03:06:05Z"
+                }));
+                Ok(HandlerSuccess::PairingChallengeCreated {
+                    body,
+                    location: location("/v1/pairings/challenges/opaque"),
+                })
+            }
+            HandlerRequest::RedeemPairingChallenge { id: _, body: _ } => {
+                if self.redeem_pending {
+                    Ok(HandlerSuccess::RedeemPending {
+                        retry_after: RetryAfterSeconds::new(2).unwrap(),
+                    })
+                } else {
+                    let body: RedeemResponse = decode(serde_json::json!({
+                        "token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                        "pairing": {
+                            "id": "55555555-5555-4555-8555-555555555555",
+                            "clientLabel": "HTTP boundary fake",
+                            "scopes": [
+                                "health:read",
+                                "runtime:read",
+                                "synthesis:create",
+                                "jobs:read",
+                                "jobs:cancel",
+                                "audio:read",
+                                "packs:request"
+                            ],
+                            "createdAt": "2026-01-02T03:04:05Z",
+                            "lastUsedAt": "2026-01-02T03:04:05Z"
+                        }
+                    }));
+                    Ok(HandlerSuccess::RedeemComplete(body))
+                }
+            }
+            HandlerRequest::GetCurrentPairing => {
+                Ok(HandlerSuccess::CurrentPairing(pairing_response()))
+            }
+            HandlerRequest::RevokeCurrentPairing => Ok(HandlerSuccess::PairingRevoked),
+            HandlerRequest::GetRuntime => Ok(HandlerSuccess::Runtime {
+                body: RuntimeResponse::non_operational(),
+                etag: etag("\"runtime-v1\""),
+            }),
+            HandlerRequest::ListEngines => Ok(HandlerSuccess::Engines {
+                body: EngineListResponse::non_operational(),
+                etag: etag("\"engines-v1\""),
+            }),
+            HandlerRequest::ListVoices => Ok(HandlerSuccess::Voices {
+                body: VoiceListResponse::non_operational(),
+                etag: etag("\"voices-v1\""),
+            }),
+            HandlerRequest::ListPacks => Ok(HandlerSuccess::Packs {
+                body: PackListResponse::non_operational(),
+                etag: etag("\"packs-v1\""),
+            }),
+            HandlerRequest::CreateJob { body: _ } => Ok(HandlerSuccess::JobCreated {
+                body: job_response(),
+                location: location("/v1/jobs/opaque"),
+            }),
+            HandlerRequest::GetJob { id: _ } => Ok(HandlerSuccess::Job(job_response())),
+            HandlerRequest::CancelJob { id: _ } => {
+                Ok(HandlerSuccess::JobCancellationAccepted(job_response()))
+            }
+            HandlerRequest::GetJobAudio { id: _ } => Ok(HandlerSuccess::JobAudio {
+                body: WavBody::new(vec![0, 0xff, b'R', b'I', b'F', b'F', 0x80]).unwrap(),
+                etag: etag("\"audio-v1\""),
+            }),
+            HandlerRequest::RequestPackAction { id: _, body } => {
+                Ok(HandlerSuccess::PackActionAccepted {
+                    body: PackActionResponse::pending(
+                        uuid::Uuid::from_u128(0x7777).into(),
+                        body.into_action(),
+                    ),
+                    location: location("/v1/pack-actions/opaque"),
+                })
+            }
+        }
+    }
+}
+
+struct ErrorHandler(HandlerError);
+
+#[async_trait]
+impl HandlerPort for ErrorHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        _request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        Err(self.0)
+    }
+}
+
+struct WireErrorCase {
+    handler: Arc<dyn HandlerPort>,
+    raw: Vec<u8>,
+    status: &'static str,
+    retry_after: Option<&'static str>,
+}
+
+struct CorpusHandler {
+    state: Arc<BoundaryState>,
+    schemas: Arc<Mutex<Vec<&'static str>>>,
+}
+
+#[async_trait]
+impl HandlerPort for CorpusHandler {
+    async fn handle(
+        &self,
+        _context: HandlerContext,
+        request: HandlerRequest,
+    ) -> Result<HandlerSuccess, HandlerError> {
+        let schema = match request {
+            HandlerRequest::CreatePairingChallenge { body: _ } => "PairingChallengeRequest",
+            HandlerRequest::RedeemPairingChallenge { id: _, body: _ } => "RedeemRequest",
+            HandlerRequest::CreateJob { body: _ } => "JobCreateRequest",
+            HandlerRequest::RequestPackAction { id: _, body: _ } => "PackActionRequest",
+            _ => panic!("request corpus reached the wrong typed handler variant"),
+        };
+        self.state.handler_calls.fetch_add(1, Ordering::SeqCst);
+        self.schemas.lock().unwrap().push(schema);
+        Err(HandlerError::ResourceNotFound)
+    }
+}
+
+fn ports_with_handler(
+    handler: Arc<dyn HandlerPort>,
+    rate_error: Option<RateLimitError>,
+) -> (ServerPorts, Arc<BoundaryState>) {
+    let state = Arc::new(BoundaryState::default());
+    let ports = ServerPorts::new(
+        handler,
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: rate_error,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+    );
+    (ports, state)
+}
+
+fn test_ports(accept_auth: bool) -> (ServerPorts, Arc<BoundaryState>) {
+    test_ports_with_rate(accept_auth, None)
+}
+
+fn test_ports_with_rate(
+    accept_auth: bool,
+    rate_error: Option<RateLimitError>,
+) -> (ServerPorts, Arc<BoundaryState>) {
+    let state = Arc::new(BoundaryState::default());
+    let ports = ServerPorts::new(
+        Arc::new(BoundaryHandler {
+            state: Arc::clone(&state),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: accept_auth,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: rate_error,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+    );
+    (ports, state)
+}
 
 fn request(method: &str, target: &str, extra: &str) -> String {
     format!(
@@ -20,6 +410,10 @@ fn request(method: &str, target: &str, extra: &str) -> String {
 }
 
 async fn roundtrip(raw: impl AsRef<[u8]>) -> String {
+    String::from_utf8(roundtrip_bytes(raw).await).unwrap()
+}
+
+async fn roundtrip_bytes(raw: impl AsRef<[u8]>) -> Vec<u8> {
     let mut stream = TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, 17_843))
         .await
         .unwrap();
@@ -29,7 +423,71 @@ async fn roundtrip(raw: impl AsRef<[u8]>) -> String {
         .await
         .expect("server must close one-request connection")
         .unwrap();
-    String::from_utf8(response).unwrap()
+    response
+}
+
+struct ParsedWireResponse {
+    status: String,
+    headers: BTreeMap<String, Vec<String>>,
+    body: Vec<u8>,
+}
+
+impl ParsedWireResponse {
+    fn parse(bytes: Vec<u8>) -> Self {
+        let end = bytes
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .expect("wire response has a header terminator");
+        let header = std::str::from_utf8(&bytes[..end]).expect("response headers are ASCII");
+        let mut lines = header.split("\r\n");
+        let status = lines.next().expect("status line").to_owned();
+        let mut headers = BTreeMap::<String, Vec<String>>::new();
+        for line in lines {
+            let (name, value) = line.split_once(": ").expect("canonical response header");
+            headers
+                .entry(name.to_ascii_lowercase())
+                .or_default()
+                .push(value.to_owned());
+        }
+        let body = bytes[end + 4..].to_vec();
+        let declared = headers["content-length"][0].parse::<usize>().unwrap();
+        assert_eq!(declared, body.len(), "wire Content-Length/EOF identity");
+        Self {
+            status,
+            headers,
+            body,
+        }
+    }
+
+    fn one(&self, name: &str) -> &str {
+        let values = self
+            .headers
+            .get(&name.to_ascii_lowercase())
+            .unwrap_or_else(|| panic!("missing header {name}"));
+        assert_eq!(values.len(), 1, "header multiplicity for {name}");
+        &values[0]
+    }
+
+    fn absent(&self, name: &str) {
+        assert!(
+            !self.headers.contains_key(&name.to_ascii_lowercase()),
+            "forbidden header {name}"
+        );
+    }
+}
+
+fn assert_common_wire(response: &ParsedWireResponse) {
+    assert_eq!(response.one("connection"), "close");
+    assert_eq!(response.one("cache-control"), "no-store");
+    assert_eq!(response.one("x-content-type-options"), "nosniff");
+    uuid::Uuid::parse_str(response.one("x-request-id")).expect("canonical request ID");
+    for (name, values) in &response.headers {
+        assert_eq!(values.len(), 1, "duplicate response header {name}");
+    }
+    response.absent("content-encoding");
+    response.absent("transfer-encoding");
+    response.absent("set-cookie");
+    response.absent("access-control-allow-credentials");
 }
 
 fn assert_security_headers(response: &str) {
@@ -55,10 +513,955 @@ fn assert_problem(response: &str, status: &str, code: &str) {
     assert_security_headers(response);
 }
 
+fn json_request(method: &str, target: &str, authorization: bool, body: &str) -> Vec<u8> {
+    let authorization = if authorization {
+        format!("Authorization: Bearer {}\r\n", "A".repeat(43))
+    } else {
+        String::new()
+    };
+    format!(
+        "{method} {target} HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\nContent-Type: application/json\r\nContent-Length: {}\r\n{authorization}\r\n{body}",
+        body.len()
+    )
+    .into_bytes()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_json_schema_and_concrete_serde_precede_every_effect() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, state) = test_ports(true);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    let secret = "A".repeat(43);
+    let scopes = r#"["health:read","runtime:read","synthesis:create","jobs:read","jobs:cancel","audio:read","packs:request"]"#;
+    let common = format!(
+        r#""verifierHash":"{secret}","clientLabel":"Browser playground","scopes":{scopes}"#
+    );
+    let invalid_cases = vec![
+        (
+            "challenge-empty",
+            "/v1/pairings/challenges",
+            false,
+            "{}".to_owned(),
+        ),
+        (
+            "challenge-array",
+            "/v1/pairings/challenges",
+            false,
+            "[]".to_owned(),
+        ),
+        (
+            "challenge-unknown",
+            "/v1/pairings/challenges",
+            false,
+            format!(r#"{{"state":"{secret}",{common},"unexpected":true}}"#),
+        ),
+        (
+            "challenge-duplicate",
+            "/v1/pairings/challenges",
+            false,
+            format!(r#"{{"state":"{secret}","state":"{secret}",{common}}}"#),
+        ),
+        (
+            "challenge-hybrid",
+            "/v1/pairings/challenges",
+            false,
+            format!(r#"{{"state":"{secret}","code":"12345678",{common}}}"#),
+        ),
+        (
+            "challenge-neither-variant",
+            "/v1/pairings/challenges",
+            false,
+            format!(r#"{{{common}}}"#),
+        ),
+        (
+            "challenge-bad-secret",
+            "/v1/pairings/challenges",
+            false,
+            format!(r#"{{"state":"short",{common}}}"#),
+        ),
+        (
+            "challenge-bad-scope",
+            "/v1/pairings/challenges",
+            false,
+            format!(
+                r#"{{"state":"{secret}","verifierHash":"{secret}","clientLabel":"Browser playground","scopes":["root"]}}"#
+            ),
+        ),
+        (
+            "redeem-empty",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            "{}".to_owned(),
+        ),
+        (
+            "redeem-array",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            "[]".to_owned(),
+        ),
+        (
+            "redeem-unknown",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            format!(r#"{{"verifier":"{secret}","unexpected":true}}"#),
+        ),
+        (
+            "redeem-duplicate",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            format!(r#"{{"verifier":"{secret}","verifier":"{secret}"}}"#),
+        ),
+        (
+            "redeem-bad-secret",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            r#"{"verifier":"short"}"#.to_owned(),
+        ),
+        ("job-empty", "/v1/jobs", true, "{}".to_owned()),
+        ("job-array", "/v1/jobs", true, "[]".to_owned()),
+        (
+            "job-unknown",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","text":"hello","unexpected":true}"#.to_owned(),
+        ),
+        (
+            "job-duplicate",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","voiceId":"pocket:alba","text":"hello"}"#.to_owned(),
+        ),
+        (
+            "job-bad-voice",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"not:a-voice","text":"hello"}"#.to_owned(),
+        ),
+        (
+            "job-empty-text",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","text":""}"#.to_owned(),
+        ),
+        (
+            "job-control-text",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","text":"bad\u0000text"}"#.to_owned(),
+        ),
+        (
+            "job-text-limit",
+            "/v1/jobs",
+            true,
+            format!(
+                r#"{{"voiceId":"pocket:alba","text":"{}"}}"#,
+                "x".repeat(8_001)
+            ),
+        ),
+        (
+            "pack-empty",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            "{}".to_owned(),
+        ),
+        (
+            "pack-array",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            "[]".to_owned(),
+        ),
+        (
+            "pack-unknown",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            r#"{"action":"install","unexpected":true}"#.to_owned(),
+        ),
+        (
+            "pack-duplicate",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            r#"{"action":"install","action":"install"}"#.to_owned(),
+        ),
+        (
+            "pack-bad-action",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            r#"{"action":"execute"}"#.to_owned(),
+        ),
+    ];
+
+    let mut mismatches = Vec::new();
+    for (label, target, authorization, body) in invalid_cases {
+        let response = roundtrip(json_request("POST", target, authorization, &body)).await;
+        if !response.contains("\"code\":\"schema-invalid\"") {
+            let observed = response.lines().next().unwrap_or("missing status");
+            let code = response
+                .split("\"code\":\"")
+                .nth(1)
+                .and_then(|tail| tail.split('"').next())
+                .unwrap_or("missing-code");
+            mismatches.push(format!("{label}: {observed} ({code})"));
+        }
+    }
+
+    let invalid_path = roundtrip(json_request(
+        "POST",
+        "/v1/pairings/challenges/not-a-uuid/redeem",
+        false,
+        &format!(r#"{{"verifier":"{secret}"}}"#),
+    ))
+    .await;
+    if !invalid_path.contains("\"code\":\"schema-invalid\"") {
+        mismatches.push("redeem-bad-uuid did not fail schema validation".to_owned());
+    }
+
+    server.shutdown().await;
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.rate_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    assert!(
+        mismatches.is_empty(),
+        "invalid concrete requests crossed the C8 boundary: {}",
+        mismatches.join("; ")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_all_four_request_schema_corpora_cross_the_live_typed_boundary_exactly() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let corpus: RequestCorpus = serde_json::from_str(PROTOCOL_CORPUS).unwrap();
+    let selected = corpus
+        .cases
+        .into_iter()
+        .filter(|case| {
+            matches!(
+                case.schema.as_str(),
+                "PairingChallengeRequest"
+                    | "RedeemRequest"
+                    | "JobCreateRequest"
+                    | "PackActionRequest"
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(selected.len(), 40);
+    assert_eq!(selected.iter().filter(|case| case.valid).count(), 8);
+    assert_eq!(selected.iter().filter(|case| !case.valid).count(), 32);
+
+    let state = Arc::new(BoundaryState::default());
+    let typed_schemas = Arc::new(Mutex::new(Vec::new()));
+    let ports = ServerPorts::new(
+        Arc::new(CorpusHandler {
+            state: Arc::clone(&state),
+            schemas: Arc::clone(&typed_schemas),
+        }),
+        Arc::new(BoundaryAuth {
+            state: Arc::clone(&state),
+            accept: true,
+        }),
+        Arc::new(BoundaryRate {
+            state: Arc::clone(&state),
+            error: None,
+        }),
+        Arc::new(BoundaryClock {
+            state: Arc::clone(&state),
+        }),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    for case in &selected {
+        let (target, authorization) = match case.schema.as_str() {
+            "PairingChallengeRequest" => ("/v1/pairings/challenges", false),
+            "RedeemRequest" => (
+                "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+                false,
+            ),
+            "JobCreateRequest" => ("/v1/jobs", true),
+            "PackActionRequest" => ("/v1/packs/pocket-companion-pack/actions", true),
+            _ => unreachable!(),
+        };
+        let before_handler = state.handler_calls.load(Ordering::SeqCst);
+        let before_auth = state.auth_commits.load(Ordering::SeqCst);
+        let before_rate = state.rate_commits.load(Ordering::SeqCst);
+        let before_typed = typed_schemas.lock().unwrap().len();
+        let body = serde_json::to_string(&case.value).unwrap();
+        let response = ParsedWireResponse::parse(
+            roundtrip_bytes(json_request("POST", target, authorization, &body)).await,
+        );
+
+        let expected_delta = usize::from(case.valid);
+        assert_eq!(
+            state.handler_calls.load(Ordering::SeqCst) - before_handler,
+            expected_delta,
+            "handler effect for corpus case {}",
+            case.id
+        );
+        assert_eq!(
+            state.rate_commits.load(Ordering::SeqCst) - before_rate,
+            expected_delta,
+            "rate effect for corpus case {}",
+            case.id
+        );
+        assert_eq!(
+            state.auth_commits.load(Ordering::SeqCst) - before_auth,
+            usize::from(case.valid && authorization),
+            "auth effect for corpus case {}",
+            case.id
+        );
+        assert_eq!(
+            typed_schemas.lock().unwrap().len() - before_typed,
+            expected_delta,
+            "typed dispatch for corpus case {}",
+            case.id
+        );
+        if case.valid {
+            assert_eq!(
+                typed_schemas.lock().unwrap().last().copied(),
+                Some(case.schema.as_str()),
+                "typed schema for corpus case {}",
+                case.id
+            );
+        } else {
+            assert_eq!(response.status, "HTTP/1.1 400 Bad Request", "{}", case.id);
+            let problem: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+            assert_eq!(problem["code"], "schema-invalid", "{}", case.id);
+        }
+    }
+    server.shutdown().await;
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 8);
+    assert_eq!(state.rate_commits.load(Ordering::SeqCst), 8);
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 5);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_actual_and_preflight_response_profiles_are_exact() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
+        .await
+        .expect("fixed listener should bind");
+
+    let unauthorized = roundtrip(request("GET", "/v1/runtime", "")).await;
+    let wrong_method = roundtrip(request("POST", "/v1/health", "")).await;
+    let preflight = roundtrip(preflight_request(
+        "/v1/health",
+        "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: X-OVP-Client-Version\r\n",
+        "",
+    ))
+    .await;
+    let failed_preflight = roundtrip(preflight_request(
+        "/v1/health",
+        "Access-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type, X-OVP-Client-Version\r\n",
+        "",
+    ))
+    .await;
+
+    let mut mismatches = Vec::new();
+    if !unauthorized.contains("\r\nWWW-Authenticate: Bearer realm=\"open-voice-companion\"\r\n") {
+        mismatches.push("401 missing exact WWW-Authenticate");
+    }
+    if !wrong_method.contains("\r\nAllow: GET, OPTIONS\r\n") {
+        mismatches.push("known-path 405 missing exact Allow");
+    }
+    if preflight.contains("Access-Control-Expose-Headers") {
+        mismatches.push("successful preflight exposed actual-response headers");
+    }
+    if !failed_preflight.contains(
+        "\r\nVary: Origin, Access-Control-Request-Method, Access-Control-Request-Headers\r\n",
+    ) {
+        mismatches.push("failed preflight missing base Vary");
+    }
+    if failed_preflight.contains("Access-Control-Allow-") {
+        mismatches.push("failed preflight emitted Access-Control-Allow-* headers");
+    }
+
+    server.shutdown().await;
+    assert!(
+        mismatches.is_empty(),
+        "response profile drift: {}",
+        mismatches.join("; ")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_rejects_public_authorization_cookie_encoding_and_parameterized_content_type_before_body()
+ {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
+        .await
+        .expect("fixed listener should bind");
+
+    let cases = [
+        (
+            "public authorization",
+            request(
+                "GET",
+                "/v1/health",
+                &format!("Authorization: Bearer {}\r\n", "A".repeat(43)),
+            ),
+            "schema-invalid",
+        ),
+        (
+            "cookie",
+            request("GET", "/v1/health", "Cookie: session=forbidden\r\n"),
+            "schema-invalid",
+        ),
+        (
+            "content encoding",
+            request("GET", "/v1/health", "Content-Encoding: identity\r\n"),
+            "schema-invalid",
+        ),
+        (
+            "bodyless content type",
+            request("GET", "/v1/health", "Content-Type: application/json\r\n"),
+            "schema-invalid",
+        ),
+        (
+            "parameterized json",
+            format!(
+                "POST /v1/pairings/challenges HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: 2\r\n\r\n{{}}"
+            ),
+            "content-type-unsupported",
+        ),
+    ];
+
+    let before = server.metrics().body_reads;
+    let mut mismatches = Vec::new();
+    for (label, raw, expected) in cases {
+        let response = roundtrip(raw).await;
+        if !response.contains(&format!("\"code\":\"{expected}\"")) {
+            let status = response.lines().next().unwrap_or("missing status");
+            mismatches.push(format!("{label}: {status}"));
+        }
+    }
+    let after = server.metrics().body_reads;
+
+    server.shutdown().await;
+    assert_eq!(before, after, "pre-body rejections polled request bodies");
+    assert!(
+        mismatches.is_empty(),
+        "forbidden public headers/media crossed admission: {}",
+        mismatches.join("; ")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_auth_and_rate_rejections_precede_declared_body_polling() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let authorization = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let held_headers = format!(
+        "POST /v1/jobs HTTP/1.1\r\nHost: 127.0.0.1:17843\r\nOrigin: {GOOD_ORIGIN}\r\nX-OVP-Client-Version: 1.0.0\r\nContent-Type: application/json\r\nContent-Length: 10\r\n{authorization}\r\n"
+    );
+
+    let (ports, state) = test_ports(false);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let auth_response = roundtrip(&held_headers).await;
+    assert_problem(&auth_response, "401 Unauthorized", "auth-invalid");
+    assert_eq!(server.metrics().body_reads, 0);
+    assert_eq!(state.auth_reservations.load(Ordering::SeqCst), 1);
+    assert_eq!(state.rate_reservations.load(Ordering::SeqCst), 0);
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    server.shutdown().await;
+
+    let limited = RateLimitError::Limited(RetryAfterSeconds::new(7).unwrap());
+    let (ports, state) = test_ports_with_rate(true, Some(limited));
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let rate_response = roundtrip(&held_headers).await;
+    assert_problem(&rate_response, "429 Too Many Requests", "rate-limited");
+    assert_eq!(server.metrics().body_reads, 0);
+    assert_eq!(state.auth_reservations.load(Ordering::SeqCst), 1);
+    assert_eq!(state.rate_reservations.load(Ordering::SeqCst), 1);
+    assert_eq!(state.auth_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.rate_commits.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_projects_exact_rate_subjects_and_skips_auth_rate_clock_for_preflight() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, state) = test_ports(true);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let secret = "A".repeat(43);
+    let challenge = format!(
+        r#"{{"state":"{secret}","verifierHash":"{secret}","clientLabel":"Browser playground","scopes":["health:read","runtime:read","synthesis:create","jobs:read","jobs:cancel","audio:read","packs:request"]}}"#
+    );
+
+    let requests = vec![
+        request("GET", "/v1/health", "").into_bytes(),
+        json_request("POST", "/v1/pairings/challenges", false, &challenge),
+        json_request(
+            "POST",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            &format!(r#"{{"verifier":"{secret}"}}"#),
+        ),
+        request("GET", "/v1/pairings/current", &bearer).into_bytes(),
+        request("DELETE", "/v1/pairings/current", &bearer).into_bytes(),
+        request("GET", "/v1/runtime", &bearer).into_bytes(),
+        request("GET", "/v1/engines", &bearer).into_bytes(),
+        request("GET", "/v1/voices", &bearer).into_bytes(),
+        request("GET", "/v1/packs", &bearer).into_bytes(),
+        json_request(
+            "POST",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","text":"hello"}"#,
+        ),
+        request(
+            "GET",
+            "/v1/jobs/22222222-2222-4222-8222-222222222222",
+            &bearer,
+        )
+        .into_bytes(),
+        request(
+            "DELETE",
+            "/v1/jobs/33333333-3333-4333-8333-333333333333",
+            &bearer,
+        )
+        .into_bytes(),
+        request(
+            "GET",
+            "/v1/jobs/44444444-4444-4444-8444-444444444444/audio",
+            &bearer,
+        )
+        .into_bytes(),
+        json_request(
+            "POST",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            r#"{"action":"install"}"#,
+        ),
+    ];
+    for raw in requests {
+        let _ = roundtrip(raw).await;
+    }
+
+    let pairing = CanonicalUuid::from(uuid::Uuid::from_u128(0xc8));
+    let challenge_id = CanonicalUuid::parse("11111111-1111-4111-8111-111111111111").unwrap();
+    assert_eq!(
+        *state.rate_requests.lock().unwrap(),
+        vec![
+            (
+                RateClass::Health,
+                RateSubject::Origin(GOOD_ORIGIN.to_owned()),
+            ),
+            (
+                RateClass::PairingCreate,
+                RateSubject::Origin(GOOD_ORIGIN.to_owned()),
+            ),
+            (
+                RateClass::PairingRedeem,
+                RateSubject::Challenge(challenge_id),
+            ),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::JobCreate, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::AuthenticatedRead, RateSubject::Pairing(pairing)),
+            (RateClass::PackAction, RateSubject::Pairing(pairing)),
+        ]
+    );
+    assert_eq!(state.auth_reservations.load(Ordering::SeqCst), 11);
+    assert_eq!(state.monotonic_calls.load(Ordering::SeqCst), 14);
+    assert_eq!(state.utc_calls.load(Ordering::SeqCst), 14);
+    server.shutdown().await;
+
+    let (ports, state) = test_ports(true);
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let response = roundtrip(preflight_request(
+        "/v1/health",
+        "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: X-OVP-Client-Version\r\n",
+        "",
+    ))
+    .await;
+    assert!(response.starts_with("HTTP/1.1 204 No Content\r\n"));
+    assert_eq!(state.auth_reservations.load(Ordering::SeqCst), 0);
+    assert_eq!(state.rate_reservations.load(Ordering::SeqCst), 0);
+    assert_eq!(state.monotonic_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(state.utc_calls.load(Ordering::SeqCst), 0);
+    assert_eq!(state.handler_calls.load(Ordering::SeqCst), 0);
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_raw_json_problem_preflight_and_204_profiles_are_identity_exact() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, _state) = ports_with_handler(
+        Arc::new(SuccessHandler {
+            redeem_pending: true,
+        }),
+        None,
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+
+    let health = ParsedWireResponse::parse(roundtrip_bytes(request("GET", "/v1/health", "")).await);
+    assert_eq!(health.status, "HTTP/1.1 200 OK");
+    assert_common_wire(&health);
+    assert_eq!(health.one("content-type"), "application/json");
+    assert_eq!(health.one("access-control-allow-origin"), GOOD_ORIGIN);
+    assert_eq!(
+        health.one("access-control-expose-headers"),
+        "ETag, Location, Retry-After, X-Request-Id"
+    );
+    assert_eq!(health.one("vary"), "Origin");
+
+    let unauthorized =
+        ParsedWireResponse::parse(roundtrip_bytes(request("GET", "/v1/runtime", "")).await);
+    assert_eq!(unauthorized.status, "HTTP/1.1 401 Unauthorized");
+    assert_common_wire(&unauthorized);
+    assert_eq!(
+        unauthorized.one("www-authenticate"),
+        "Bearer realm=\"open-voice-companion\""
+    );
+    assert_eq!(unauthorized.one("content-type"), "application/problem+json");
+    let problem: serde_json::Value = serde_json::from_slice(&unauthorized.body).unwrap();
+    assert_eq!(problem["code"], "auth-missing");
+    assert_eq!(
+        problem["requestId"].as_str().unwrap(),
+        unauthorized.one("x-request-id")
+    );
+    uuid::Uuid::parse_str(
+        problem["instance"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("urn:uuid:")
+            .unwrap(),
+    )
+    .unwrap();
+    let safe_problem = String::from_utf8(unauthorized.body.clone()).unwrap();
+    for sentinel in [
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "C8_RAW_BODY_SENTINEL",
+        "C8_INTERNAL_SENTINEL",
+    ] {
+        assert!(!safe_problem.contains(sentinel));
+    }
+
+    let preflight = ParsedWireResponse::parse(
+        roundtrip_bytes(preflight_request(
+            "/v1/health",
+            "Access-Control-Request-Method: GET\r\nAccess-Control-Request-Headers: X-OVP-Client-Version\r\nAccess-Control-Request-Private-Network: true\r\n",
+            "",
+        ))
+        .await,
+    );
+    assert_eq!(preflight.status, "HTTP/1.1 204 No Content");
+    assert_common_wire(&preflight);
+    assert!(preflight.body.is_empty());
+    assert_eq!(preflight.one("content-length"), "0");
+    preflight.absent("content-type");
+    preflight.absent("access-control-expose-headers");
+    assert_eq!(preflight.one("access-control-allow-origin"), GOOD_ORIGIN);
+    assert_eq!(
+        preflight.one("access-control-allow-methods"),
+        "GET, POST, DELETE, OPTIONS"
+    );
+    assert_eq!(
+        preflight.one("access-control-allow-headers"),
+        "Authorization, Content-Type, X-OVP-Client-Version"
+    );
+    assert_eq!(preflight.one("access-control-max-age"), "600");
+    assert_eq!(
+        preflight.one("access-control-allow-private-network"),
+        "true"
+    );
+    assert_eq!(
+        preflight.one("vary"),
+        "Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Access-Control-Request-Private-Network"
+    );
+
+    let failed = ParsedWireResponse::parse(
+        roundtrip_bytes(preflight_request(
+            "/v1/health",
+            "Access-Control-Request-Method: POST\r\nAccess-Control-Request-Headers: Content-Type, X-OVP-Client-Version\r\n",
+            "",
+        ))
+        .await,
+    );
+    assert_eq!(failed.status, "HTTP/1.1 405 Method Not Allowed");
+    assert_common_wire(&failed);
+    assert_eq!(failed.one("allow"), "GET, OPTIONS");
+    assert_eq!(
+        failed.one("vary"),
+        "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+    );
+    for name in [
+        "access-control-allow-origin",
+        "access-control-allow-methods",
+        "access-control-allow-headers",
+        "access-control-allow-private-network",
+        "access-control-expose-headers",
+    ] {
+        failed.absent(name);
+    }
+
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let revoked = ParsedWireResponse::parse(
+        roundtrip_bytes(request("DELETE", "/v1/pairings/current", &bearer)).await,
+    );
+    assert_eq!(revoked.status, "HTTP/1.1 204 No Content");
+    assert_common_wire(&revoked);
+    assert!(revoked.body.is_empty());
+    assert_eq!(revoked.one("content-length"), "0");
+    revoked.absent("content-type");
+
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_raw_success_metadata_and_binary_wav_profiles_are_exact() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, _state) = ports_with_handler(
+        Arc::new(SuccessHandler {
+            redeem_pending: true,
+        }),
+        None,
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    let secret = "A".repeat(43);
+    let challenge_body = format!(
+        r#"{{"state":"{secret}","verifierHash":"{secret}","clientLabel":"Browser playground","scopes":["health:read","runtime:read","synthesis:create","jobs:read","jobs:cancel","audio:read","packs:request"]}}"#
+    );
+    let challenge = ParsedWireResponse::parse(
+        roundtrip_bytes(json_request(
+            "POST",
+            "/v1/pairings/challenges",
+            false,
+            &challenge_body,
+        ))
+        .await,
+    );
+    assert_eq!(challenge.status, "HTTP/1.1 201 Created");
+    assert_common_wire(&challenge);
+    assert_eq!(challenge.one("location"), "/v1/pairings/challenges/opaque");
+    challenge.absent("etag");
+    challenge.absent("retry-after");
+
+    let pending = ParsedWireResponse::parse(
+        roundtrip_bytes(json_request(
+            "POST",
+            "/v1/pairings/challenges/11111111-1111-4111-8111-111111111111/redeem",
+            false,
+            &format!(r#"{{"verifier":"{secret}"}}"#),
+        ))
+        .await,
+    );
+    assert_eq!(pending.status, "HTTP/1.1 202 Accepted");
+    assert_eq!(pending.one("retry-after"), "2");
+    pending.absent("location");
+    pending.absent("etag");
+
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    for (path, expected_etag) in [
+        ("/v1/runtime", "\"runtime-v1\""),
+        ("/v1/engines", "\"engines-v1\""),
+        ("/v1/voices", "\"voices-v1\""),
+        ("/v1/packs", "\"packs-v1\""),
+    ] {
+        let response =
+            ParsedWireResponse::parse(roundtrip_bytes(request("GET", path, &bearer)).await);
+        assert_eq!(response.status, "HTTP/1.1 200 OK");
+        assert_common_wire(&response);
+        assert_eq!(response.one("etag"), expected_etag);
+        response.absent("location");
+        response.absent("retry-after");
+    }
+
+    let created = ParsedWireResponse::parse(
+        roundtrip_bytes(json_request(
+            "POST",
+            "/v1/jobs",
+            true,
+            r#"{"voiceId":"pocket:alba","text":"hello"}"#,
+        ))
+        .await,
+    );
+    assert_eq!(created.status, "HTTP/1.1 202 Accepted");
+    assert_eq!(created.one("location"), "/v1/jobs/opaque");
+    created.absent("retry-after");
+    created.absent("etag");
+
+    let cancelled = ParsedWireResponse::parse(
+        roundtrip_bytes(request(
+            "DELETE",
+            "/v1/jobs/33333333-3333-4333-8333-333333333333",
+            &bearer,
+        ))
+        .await,
+    );
+    assert_eq!(cancelled.status, "HTTP/1.1 202 Accepted");
+    cancelled.absent("location");
+    cancelled.absent("retry-after");
+    cancelled.absent("etag");
+
+    let pack = ParsedWireResponse::parse(
+        roundtrip_bytes(json_request(
+            "POST",
+            "/v1/packs/pocket-companion-pack/actions",
+            true,
+            r#"{"action":"install"}"#,
+        ))
+        .await,
+    );
+    assert_eq!(pack.status, "HTTP/1.1 202 Accepted");
+    assert_eq!(pack.one("location"), "/v1/pack-actions/opaque");
+    pack.absent("retry-after");
+    pack.absent("etag");
+
+    let audio = ParsedWireResponse::parse(
+        roundtrip_bytes(request(
+            "GET",
+            "/v1/jobs/44444444-4444-4444-8444-444444444444/audio",
+            &bearer,
+        ))
+        .await,
+    );
+    assert_eq!(audio.status, "HTTP/1.1 200 OK");
+    assert_common_wire(&audio);
+    assert_eq!(audio.one("content-type"), "audio/wav");
+    assert_eq!(audio.one("etag"), "\"audio-v1\"");
+    assert_eq!(audio.body, vec![0, 0xff, b'R', b'I', b'F', b'F', 0x80]);
+    audio.absent("location");
+    audio.absent("retry-after");
+
+    server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_raw_allow_and_error_retry_conditions_are_exact() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let (ports, _state) = ports_with_handler(
+        Arc::new(SuccessHandler {
+            redeem_pending: true,
+        }),
+        None,
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .expect("fixed listener should bind");
+    for (method, path, allow) in [
+        ("POST", "/v1/health", "GET, OPTIONS"),
+        ("GET", "/v1/pairings/challenges", "POST, OPTIONS"),
+        ("POST", "/v1/pairings/current", "GET, DELETE, OPTIONS"),
+    ] {
+        let response = ParsedWireResponse::parse(roundtrip_bytes(request(method, path, "")).await);
+        assert_eq!(response.status, "HTTP/1.1 405 Method Not Allowed");
+        assert_eq!(response.one("allow"), allow);
+    }
+    server.shutdown().await;
+
+    let limited = RateLimitError::Limited(RetryAfterSeconds::new(7).unwrap());
+    let (ports, _state) = ports_with_handler(
+        Arc::new(SuccessHandler {
+            redeem_pending: true,
+        }),
+        Some(limited),
+    );
+    let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+        .await
+        .unwrap();
+    let response =
+        ParsedWireResponse::parse(roundtrip_bytes(request("GET", "/v1/health", "")).await);
+    assert_eq!(response.status, "HTTP/1.1 429 Too Many Requests");
+    assert_eq!(response.one("retry-after"), "7");
+    server.shutdown().await;
+
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let error_cases = vec![
+        WireErrorCase {
+            handler: Arc::new(ErrorHandler(HandlerError::QueueFull(
+                RetryAfterSeconds::new(9).unwrap(),
+            ))),
+            raw: json_request(
+                "POST",
+                "/v1/jobs",
+                true,
+                r#"{"voiceId":"pocket:alba","text":"hello"}"#,
+            ),
+            status: "HTTP/1.1 503 Service Unavailable",
+            retry_after: Some("9"),
+        },
+        WireErrorCase {
+            handler: Arc::new(ErrorHandler(HandlerError::RuntimeUnavailable)),
+            raw: request("GET", "/v1/runtime", &bearer).into_bytes(),
+            status: "HTTP/1.1 503 Service Unavailable",
+            retry_after: None,
+        },
+        WireErrorCase {
+            handler: Arc::new(ErrorHandler(HandlerError::PackUnverified)),
+            raw: json_request(
+                "POST",
+                "/v1/packs/pocket-companion-pack/actions",
+                true,
+                r#"{"action":"install"}"#,
+            ),
+            status: "HTTP/1.1 503 Service Unavailable",
+            retry_after: None,
+        },
+    ];
+    for case in error_cases {
+        let (ports, _state) = ports_with_handler(case.handler, None);
+        let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+            .await
+            .unwrap();
+        let response = ParsedWireResponse::parse(roundtrip_bytes(case.raw).await);
+        assert_eq!(response.status, case.status);
+        match case.retry_after {
+            Some(value) => assert_eq!(response.one("retry-after"), value),
+            None => response.absent("retry-after"),
+        }
+        server.shutdown().await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn c8_expired_or_missing_job_audio_is_non_oracular_resource_not_found() {
+    let _fixed_port = FIXED_PORT.lock().await;
+    let bearer = format!("Authorization: Bearer {}\r\n", "A".repeat(43));
+    let raw = request(
+        "GET",
+        "/v1/jobs/44444444-4444-4444-8444-444444444444/audio",
+        &bearer,
+    );
+
+    for error in [HandlerError::PairingExpired, HandlerError::ResourceNotFound] {
+        let (ports, _state) = ports_with_handler(Arc::new(ErrorHandler(error)), None);
+        let server = CompanionServer::start(OriginPolicy::debug_local(), ports)
+            .await
+            .unwrap();
+        let response = ParsedWireResponse::parse(roundtrip_bytes(raw.clone()).await);
+        assert_eq!(response.status, "HTTP/1.1 404 Not Found");
+        let problem: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(problem["code"], "resource-not-found");
+        server.shutdown().await;
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn c7_rejects_non_origin_forms_without_whatwg_equivalence() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
 
@@ -105,7 +1508,7 @@ async fn c7_rejects_non_origin_forms_without_whatwg_equivalence() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn c7_rejects_queries_fragments_and_normalization_aliases() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
 
@@ -152,7 +1555,7 @@ async fn c7_rejects_queries_fragments_and_normalization_aliases() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn c7_classifies_unknown_wrong_method_and_bad_parameters_before_auth() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
     let authorization = format!("Authorization: Bearer {}\r\n", "S".repeat(43));
@@ -300,7 +1703,7 @@ async fn c7_classifies_unknown_wrong_method_and_bad_parameters_before_auth() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn c7_buffered_body_overrun_precedes_protected_auth() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
     let authorization = format!("Authorization: Bearer {}\r\n", "S".repeat(43));
@@ -330,7 +1733,7 @@ fn preflight_request(target: &str, headers: &str, body: &str) -> String {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn c7_preflight_is_route_method_header_parameter_and_body_exact() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
 
@@ -630,7 +2033,7 @@ async fn c7_preflight_is_route_method_header_parameter_and_body_exact() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn fixed_ipv4_raw_http_boundary_fails_closed() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
     assert_eq!(
@@ -638,7 +2041,7 @@ async fn fixed_ipv4_raw_http_boundary_fails_closed() {
         SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, 17_843))
     );
     assert_eq!(
-        CompanionServer::start(OriginPolicy::debug_local())
+        CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
             .await
             .unwrap_err(),
         ListenerError::Conflict
@@ -796,7 +2199,7 @@ async fn fixed_ipv4_raw_http_boundary_fails_closed() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn real_header_and_body_deadlines_close_slow_requests() {
     let _fixed_port = FIXED_PORT.lock().await;
-    let server = CompanionServer::start(OriginPolicy::debug_local())
+    let server = CompanionServer::start(OriginPolicy::debug_local(), test_ports(false).0)
         .await
         .expect("fixed listener should bind");
 

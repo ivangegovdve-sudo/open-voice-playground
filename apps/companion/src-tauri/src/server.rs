@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use serde_json::json;
+use serde_json::Value;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpSocket, TcpStream},
@@ -17,14 +17,31 @@ use tokio::{
     time::{Instant, timeout, timeout_at},
 };
 use uuid::Uuid;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::{
-    origin::OriginPolicy,
-    protocol::{Problem, ProblemCode, RequestMessage, negotiate_version},
-    router::{
-        AuthClass, GLOBAL_METHODS, MatchedConcreteRoute, MatchedPreflightRoute, OperationId,
-        PREFLIGHT_ALLOWED_HEADERS, RouteMatch, resolve_route,
+    http_dispatch::{
+        AuthError, AuthPermit, AuthPort, AuthRequest, HandlerContext, HandlerError, HandlerPort,
+        HandlerRequest, OwnershipTarget, RequestObservedAt,
     },
+    http_response::{ResponseFactory, ValidatedOrigin, write_prepared},
+    origin::OriginPolicy,
+    pairing::BearerSecret,
+    protocol::{
+        JobCreateRequest, OwnedSchemaName, PackActionRequest, PairingChallengeRequest, ProblemCode,
+        RedeemRequest, RequestMessage, negotiate_version,
+    },
+    rate::{
+        RateClass, RateLimitError, RateLimitPort, RatePermit, RateRequest, RateSubject,
+        RetryAfterSeconds,
+    },
+    router::{
+        AllowSet, AuthClass, MatchedConcreteRoute, MatchedPreflightRoute, OperationId,
+        OwnershipClass, PREFLIGHT_ALLOWED_HEADERS, PathParameters, PreflightTarget, RouteMatch,
+        resolve_route,
+    },
+    scheduler::Clock,
+    schema::{OpenApiSchemas, SchemaError},
 };
 
 pub const LISTENER_PORT: u16 = 17_843;
@@ -38,7 +55,6 @@ pub const BODY_TIMEOUT: Duration = Duration::from_secs(10);
 pub const HANDLER_TIMEOUT: Duration = Duration::from_secs(30);
 
 const LISTENER_ADDR: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, LISTENER_PORT);
-const EXPOSED_HEADERS: &str = "ETag, Location, Retry-After, X-Request-Id";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum ListenerError {
@@ -135,6 +151,30 @@ impl Drop for ActivityGuard {
 
 pub struct CompanionServer;
 
+#[derive(Clone)]
+pub struct ServerPorts {
+    handler: Arc<dyn HandlerPort>,
+    auth: Arc<dyn AuthPort>,
+    rate: Arc<dyn RateLimitPort>,
+    clock: Arc<dyn Clock>,
+}
+
+impl ServerPorts {
+    pub fn new(
+        handler: Arc<dyn HandlerPort>,
+        auth: Arc<dyn AuthPort>,
+        rate: Arc<dyn RateLimitPort>,
+        clock: Arc<dyn Clock>,
+    ) -> Self {
+        Self {
+            handler,
+            auth,
+            rate,
+            clock,
+        }
+    }
+}
+
 pub struct ServerHandle {
     local_addr: SocketAddr,
     metrics: Arc<Metrics>,
@@ -182,7 +222,12 @@ impl Drop for ServerHandle {
 }
 
 impl CompanionServer {
-    pub async fn start(origin_policy: OriginPolicy) -> Result<ServerHandle, ListenerError> {
+    pub async fn start(
+        origin_policy: OriginPolicy,
+        ports: ServerPorts,
+    ) -> Result<ServerHandle, ListenerError> {
+        let schemas = Arc::new(OpenApiSchemas::embedded().map_err(|_| ListenerError::Unavailable)?);
+        let responses = Arc::new(ResponseFactory::new(Arc::clone(&schemas)));
         let socket = TcpSocket::new_v4().map_err(|_| ListenerError::Unavailable)?;
         socket
             .set_reuseaddr(false)
@@ -204,13 +249,17 @@ impl CompanionServer {
         let connections = Arc::new(Semaphore::new(MAX_CONNECTIONS));
         let requests = Arc::new(Semaphore::new(MAX_IN_FLIGHT));
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let accept_metrics = Arc::clone(&metrics);
         let accept_task = tokio::spawn(run_accept_loop(
             listener,
-            origin_policy,
-            connections,
-            requests,
-            Arc::clone(&accept_metrics),
+            AcceptLoopContext {
+                origin_policy,
+                connections,
+                requests,
+                metrics: Arc::clone(&metrics),
+                ports,
+                schemas,
+                responses,
+            },
             shutdown_rx,
         ));
 
@@ -223,6 +272,16 @@ impl CompanionServer {
     }
 }
 
+struct AcceptLoopContext {
+    origin_policy: OriginPolicy,
+    connections: Arc<Semaphore>,
+    requests: Arc<Semaphore>,
+    metrics: Arc<Metrics>,
+    ports: ServerPorts,
+    schemas: Arc<OpenApiSchemas>,
+    responses: Arc<ResponseFactory>,
+}
+
 fn map_bind_error(error: io::Error) -> ListenerError {
     if error.kind() == io::ErrorKind::AddrInUse {
         ListenerError::Conflict
@@ -233,12 +292,18 @@ fn map_bind_error(error: io::Error) -> ListenerError {
 
 async fn run_accept_loop(
     listener: TcpListener,
-    origin_policy: OriginPolicy,
-    connections: Arc<Semaphore>,
-    requests: Arc<Semaphore>,
-    metrics: Arc<Metrics>,
+    context: AcceptLoopContext,
     mut shutdown: oneshot::Receiver<()>,
 ) {
+    let AcceptLoopContext {
+        origin_policy,
+        connections,
+        requests,
+        metrics,
+        ports,
+        schemas,
+        responses,
+    } = context;
     loop {
         tokio::select! {
             _ = &mut shutdown => break,
@@ -255,29 +320,51 @@ async fn run_accept_loop(
                 let policy = origin_policy.clone();
                 let request_semaphore = Arc::clone(&requests);
                 let connection_metrics = Arc::clone(&metrics);
+                let connection_ports = ports.clone();
+                let connection_schemas = Arc::clone(&schemas);
+                let connection_responses = Arc::clone(&responses);
                 tokio::spawn(async move {
                     let _connection_permit = connection_permit;
                     let _connection_activity = ActivityGuard::connection(Arc::clone(&connection_metrics));
                     let Ok(request_permit) = request_semaphore.try_acquire_owned() else {
-                        let response = Response::problem(ProblemCode::QueueFull);
-                        let _ = write_response(&mut stream, response, None).await;
+                        let delay = RetryAfterSeconds::new(1)
+                            .expect("the fixed admission delay is in range");
+                        let response = connection_responses
+                            .actual_problem(
+                                None,
+                                None,
+                                None,
+                                ProblemCode::QueueFull,
+                                Some(delay),
+                            )
+                            .unwrap_or_else(|_| {
+                                connection_responses.fallback_actual(None, None, None)
+                            });
+                        let _ = write_prepared(&mut stream, response).await;
                         return;
                     };
                     let _request_permit = request_permit;
                     let _request_activity = ActivityGuard::request(Arc::clone(&connection_metrics));
-                    let _ = handle_connection(&mut stream, &policy, &connection_metrics).await;
+                    let _ = handle_connection(
+                        &mut stream,
+                        &policy,
+                        &connection_metrics,
+                        &connection_ports,
+                        &connection_schemas,
+                        &connection_responses,
+                    )
+                    .await;
                 });
             }
         }
     }
 }
 
-#[derive(Debug)]
 struct ParsedRequest {
-    method: String,
-    target: String,
-    headers: Vec<(String, String)>,
-    body_prefix: Vec<u8>,
+    method: Zeroizing<String>,
+    target: Zeroizing<String>,
+    headers: Vec<(String, Zeroizing<String>)>,
+    body_prefix: Zeroizing<Vec<u8>>,
 }
 
 impl ParsedRequest {
@@ -295,7 +382,7 @@ impl ParsedRequest {
     }
 }
 
-fn header_values<'a>(headers: &'a [(String, String)], name: &str) -> Vec<&'a str> {
+fn header_values<'a>(headers: &'a [(String, Zeroizing<String>)], name: &str) -> Vec<&'a str> {
     headers
         .iter()
         .filter(|(candidate, _)| candidate == name)
@@ -307,31 +394,81 @@ fn header_values<'a>(headers: &'a [(String, String)], name: &str) -> Vec<&'a str
 struct BoundaryFailure {
     code: ProblemCode,
     origin: Option<String>,
+    allow: Option<AllowSet>,
 }
 
 impl BoundaryFailure {
     const fn new(code: ProblemCode) -> Self {
-        Self { code, origin: None }
+        Self {
+            code,
+            origin: None,
+            allow: None,
+        }
     }
 
     fn with_origin(mut self, origin: &str) -> Self {
         self.origin = Some(origin.to_owned());
         self
     }
+
+    fn from_route(error: crate::router::RouteError) -> Self {
+        Self {
+            code: error.problem_code(),
+            origin: None,
+            allow: error.allow(),
+        }
+    }
+}
+
+async fn write_actual_problem(
+    stream: &mut TcpStream,
+    responses: &ResponseFactory,
+    origin: Option<&str>,
+    operation: Option<OperationId>,
+    allow: Option<AllowSet>,
+    code: ProblemCode,
+    retry_after: Option<RetryAfterSeconds>,
+) -> io::Result<()> {
+    let origin = origin.map(|origin| ValidatedOrigin::from_allowed(origin.to_owned()));
+    let response = responses
+        .actual_problem(origin.as_ref(), operation, allow, code, retry_after)
+        .unwrap_or_else(|_| responses.fallback_actual(origin.as_ref(), operation, allow));
+    write_prepared(stream, response).await
+}
+
+async fn write_preflight_problem(
+    stream: &mut TcpStream,
+    responses: &ResponseFactory,
+    operation: Option<OperationId>,
+    allow: Option<AllowSet>,
+    code: ProblemCode,
+    retry_after: Option<RetryAfterSeconds>,
+) -> io::Result<()> {
+    let response = responses
+        .preflight_problem(operation, allow, code, retry_after)
+        .unwrap_or_else(|_| responses.fallback_preflight(operation, allow));
+    write_prepared(stream, response).await
 }
 
 async fn handle_connection(
     stream: &mut TcpStream,
     origin_policy: &OriginPolicy,
     metrics: &Arc<Metrics>,
+    ports: &ServerPorts,
+    schemas: &OpenApiSchemas,
+    responses: &ResponseFactory,
 ) -> io::Result<()> {
     let mut parsed = match read_and_parse_headers(stream).await {
         Ok(parsed) => parsed,
         Err(failure) => {
-            return write_response(
+            return write_actual_problem(
                 stream,
-                Response::problem(failure.code),
+                responses,
                 failure.origin.as_deref(),
+                None,
+                failure.allow,
+                failure.code,
+                None,
             )
             .await;
         }
@@ -340,17 +477,26 @@ async fn handle_connection(
     let context = match validate_pre_body(&parsed, origin_policy) {
         Ok(context) => context,
         Err(failure) => {
-            return write_response(
-                stream,
-                Response::problem(failure.code),
-                failure.origin.as_deref(),
-            )
-            .await;
+            return if parsed.method.as_str() == "OPTIONS" {
+                write_preflight_problem(stream, responses, None, failure.allow, failure.code, None)
+                    .await
+            } else {
+                write_actual_problem(
+                    stream,
+                    responses,
+                    failure.origin.as_deref(),
+                    None,
+                    failure.allow,
+                    failure.code,
+                    None,
+                )
+                .await
+            };
         }
     };
 
     if let RouteMatch::Preflight(preflight) = context.route {
-        let response = match validate_preflight(
+        let (target, legacy_private_network) = match validate_preflight(
             &parsed.headers,
             &parsed.body_prefix,
             preflight,
@@ -358,38 +504,348 @@ async fn handle_connection(
         ) {
             Ok(response) => response,
             Err(failure) => {
-                return write_response(stream, Response::problem(failure.code), None).await;
+                return write_preflight_problem(
+                    stream,
+                    responses,
+                    Some(preflight.operation()),
+                    failure.allow,
+                    failure.code,
+                    None,
+                )
+                .await;
             }
         };
-        return write_response(stream, response, Some(&context.origin)).await;
+        let origin = ValidatedOrigin::from_allowed(context.origin);
+        let response = responses
+            .preflight_success(&origin, &preflight, &target, legacy_private_network)
+            .unwrap_or_else(|_| responses.fallback_preflight(Some(preflight.operation()), None));
+        return write_prepared(stream, response).await;
     }
 
-    let body_prefix = std::mem::take(&mut parsed.body_prefix);
-    let body = match read_body(stream, body_prefix, context.content_length, metrics).await {
-        Ok(body) => body,
-        Err(failure) => {
-            return write_response(
+    let RequestContext {
+        origin,
+        content_length,
+        route,
+        bearer,
+    } = context;
+    let RouteMatch::Concrete(route) = route else {
+        unreachable!("preflight returned before concrete admission")
+    };
+    let monotonic = ports.clock.monotonic();
+    let utc = ports.clock.utc();
+    let auth_permit = match reserve_auth(ports, &route, bearer, &origin, utc).await {
+        Ok(permit) => permit,
+        Err(code) => {
+            return write_actual_problem(
                 stream,
-                Response::problem(failure.code),
-                Some(&context.origin),
+                responses,
+                Some(&origin),
+                Some(route.operation()),
+                None,
+                code,
+                None,
+            )
+            .await;
+        }
+    };
+    let rate_permit = match reserve_rate(ports, &route, &origin, auth_permit.as_deref(), monotonic)
+    {
+        Ok(permit) => permit,
+        Err((code, retry_after)) => {
+            return write_actual_problem(
+                stream,
+                responses,
+                Some(&origin),
+                Some(route.operation()),
+                None,
+                code,
+                retry_after,
             )
             .await;
         }
     };
 
-    let RouteMatch::Concrete(route) = context.route else {
-        unreachable!("preflight returned before body polling")
+    let body_prefix = std::mem::take(&mut parsed.body_prefix);
+    let body = match read_body(stream, body_prefix, content_length, metrics).await {
+        Ok(body) => body,
+        Err(failure) => {
+            return write_actual_problem(
+                stream,
+                responses,
+                Some(&origin),
+                Some(route.operation()),
+                None,
+                failure.code,
+                None,
+            )
+            .await;
+        }
     };
-    let response = match timeout(HANDLER_TIMEOUT, dispatch(route, &body)).await {
-        Ok(response) => response,
-        Err(_) => Response::problem(ProblemCode::HandlerTimeout),
+
+    let validated_body = match validate_request_body(&route, &body, schemas) {
+        Ok(body) => body,
+        Err(code) => {
+            return write_actual_problem(
+                stream,
+                responses,
+                Some(&origin),
+                Some(route.operation()),
+                None,
+                code,
+                None,
+            )
+            .await;
+        }
     };
-    write_response(stream, response, Some(&context.origin)).await
+    let request = match validated_body.into_handler_request(&route) {
+        Ok(request) => request,
+        Err(code) => {
+            return write_actual_problem(
+                stream,
+                responses,
+                Some(&origin),
+                Some(route.operation()),
+                None,
+                code,
+                None,
+            )
+            .await;
+        }
+    };
+    let pairing = match auth_permit {
+        Some(permit) => match permit.commit().await {
+            Ok(pairing) => Some(pairing),
+            Err(error) => {
+                return write_actual_problem(
+                    stream,
+                    responses,
+                    Some(&origin),
+                    Some(route.operation()),
+                    None,
+                    map_auth_error(error),
+                    None,
+                )
+                .await;
+            }
+        },
+        None => None,
+    };
+    if let Some(permit) = rate_permit {
+        permit.commit();
+    }
+    let handler_context = HandlerContext::new(
+        origin.clone(),
+        RequestObservedAt::new(monotonic, utc),
+        pairing,
+    );
+    let prepared = match timeout(
+        HANDLER_TIMEOUT,
+        ports.handler.handle(handler_context, request),
+    )
+    .await
+    {
+        Ok(Ok(success)) => {
+            let checked_origin = ValidatedOrigin::from_allowed(origin.clone());
+            responses
+                .success(&checked_origin, &route, success)
+                .unwrap_or_else(|_| {
+                    responses.fallback_actual(Some(&checked_origin), Some(route.operation()), None)
+                })
+        }
+        Ok(Err(error)) => {
+            let (code, retry_after) = map_handler_error(route.operation(), error);
+            let checked_origin = ValidatedOrigin::from_allowed(origin.clone());
+            responses
+                .actual_problem(
+                    Some(&checked_origin),
+                    Some(route.operation()),
+                    None,
+                    code,
+                    retry_after,
+                )
+                .unwrap_or_else(|_| {
+                    responses.fallback_actual(Some(&checked_origin), Some(route.operation()), None)
+                })
+        }
+        Err(_) => {
+            let checked_origin = ValidatedOrigin::from_allowed(origin.clone());
+            responses
+                .actual_problem(
+                    Some(&checked_origin),
+                    Some(route.operation()),
+                    None,
+                    ProblemCode::HandlerTimeout,
+                    None,
+                )
+                .unwrap_or_else(|_| {
+                    responses.fallback_actual(Some(&checked_origin), Some(route.operation()), None)
+                })
+        }
+    };
+    write_prepared(stream, prepared).await
+}
+
+fn map_auth_error(error: AuthError) -> ProblemCode {
+    match error {
+        AuthError::Invalid => ProblemCode::AuthInvalid,
+        AuthError::OriginMismatch => ProblemCode::AuthOriginMismatch,
+        AuthError::ScopeDenied => ProblemCode::ScopeDenied,
+        AuthError::NotFound => ProblemCode::ResourceNotFound,
+        AuthError::Unavailable => ProblemCode::RuntimeUnavailable,
+    }
+}
+
+fn map_handler_error(
+    operation: OperationId,
+    error: HandlerError,
+) -> (ProblemCode, Option<RetryAfterSeconds>) {
+    if operation == OperationId::GetJobAudio && error == HandlerError::PairingExpired {
+        return (ProblemCode::ResourceNotFound, None);
+    }
+    match error {
+        HandlerError::ResourceNotFound => (ProblemCode::ResourceNotFound, None),
+        HandlerError::Conflict => (ProblemCode::Conflict, None),
+        HandlerError::PairingNotFound => (ProblemCode::PairingNotFound, None),
+        HandlerError::PairingDenied => (ProblemCode::PairingDenied, None),
+        HandlerError::PairingExpired => (ProblemCode::PairingExpired, None),
+        HandlerError::PairingConsumed => (ProblemCode::PairingConsumed, None),
+        HandlerError::PairingAttemptsExhausted => (ProblemCode::PairingAttemptsExhausted, None),
+        HandlerError::QueueFull(delay) => (ProblemCode::QueueFull, Some(delay)),
+        HandlerError::PackUnverified => (ProblemCode::PackUnverified, None),
+        HandlerError::RuntimeUnavailable => (ProblemCode::RuntimeUnavailable, None),
+    }
+}
+
+fn ownership_target(route: &MatchedConcreteRoute) -> Result<OwnershipTarget, ProblemCode> {
+    match (route.contract().access.ownership, route.parameters()) {
+        (OwnershipClass::None, _) => Ok(OwnershipTarget::None),
+        (OwnershipClass::TokenSelf, PathParameters::None) => Ok(OwnershipTarget::TokenSelf),
+        (OwnershipClass::JobOwner, PathParameters::CanonicalUuid(id)) => {
+            Ok(OwnershipTarget::Job(id))
+        }
+        (OwnershipClass::TokenSelf | OwnershipClass::JobOwner, _) => {
+            Err(ProblemCode::RuntimeUnavailable)
+        }
+    }
+}
+
+async fn reserve_auth(
+    ports: &ServerPorts,
+    route: &MatchedConcreteRoute,
+    bearer: Option<BearerSecret>,
+    origin: &str,
+    now_utc: time::OffsetDateTime,
+) -> Result<Option<Box<dyn AuthPermit>>, ProblemCode> {
+    match route.contract().access.auth {
+        AuthClass::OriginOnly => {
+            if bearer.is_some() {
+                Err(ProblemCode::RuntimeUnavailable)
+            } else {
+                Ok(None)
+            }
+        }
+        AuthClass::Bearer => {
+            let token = bearer.ok_or(ProblemCode::RuntimeUnavailable)?;
+            let request = AuthRequest::new(
+                token,
+                origin.to_owned(),
+                route.contract().access.scope.map(|scope| scope.as_scope()),
+                ownership_target(route)?,
+                now_utc,
+            );
+            ports
+                .auth
+                .reserve(request)
+                .await
+                .map(Some)
+                .map_err(map_auth_error)
+        }
+        AuthClass::Preflight => Err(ProblemCode::RuntimeUnavailable),
+    }
+}
+
+fn rate_projection(
+    route: &MatchedConcreteRoute,
+    origin: &str,
+    pairing_id: Option<Uuid>,
+    now: std::time::Instant,
+) -> Result<Option<RateRequest>, ProblemCode> {
+    let pairing_subject = || {
+        pairing_id
+            .map(|id| RateSubject::Pairing(id.into()))
+            .ok_or(ProblemCode::RuntimeUnavailable)
+    };
+    let projection = match route.operation() {
+        OperationId::GetHealth => Some((RateClass::Health, RateSubject::Origin(origin.to_owned()))),
+        OperationId::CreatePairingChallenge => Some((
+            RateClass::PairingCreate,
+            RateSubject::Origin(origin.to_owned()),
+        )),
+        OperationId::RedeemPairingChallenge => match route.parameters() {
+            PathParameters::CanonicalUuid(id) => {
+                Some((RateClass::PairingRedeem, RateSubject::Challenge(id)))
+            }
+            _ => return Err(ProblemCode::RuntimeUnavailable),
+        },
+        OperationId::GetCurrentPairing
+        | OperationId::GetRuntime
+        | OperationId::ListEngines
+        | OperationId::ListVoices
+        | OperationId::ListPacks
+        | OperationId::GetJob
+        | OperationId::GetJobAudio => Some((RateClass::AuthenticatedRead, pairing_subject()?)),
+        OperationId::CreateJob => Some((RateClass::JobCreate, pairing_subject()?)),
+        OperationId::RequestPackAction => Some((RateClass::PackAction, pairing_subject()?)),
+        OperationId::RevokeCurrentPairing | OperationId::CancelJob => None,
+        OperationId::PreflightHealth
+        | OperationId::PreflightPairingChallenges
+        | OperationId::PreflightPairingChallengeRedeem
+        | OperationId::PreflightCurrentPairing
+        | OperationId::PreflightRuntime
+        | OperationId::PreflightEngines
+        | OperationId::PreflightVoices
+        | OperationId::PreflightPacks
+        | OperationId::PreflightJobs
+        | OperationId::PreflightJob
+        | OperationId::PreflightJobAudio
+        | OperationId::PreflightPackActions => return Err(ProblemCode::RuntimeUnavailable),
+    };
+    projection
+        .map(|(class, subject)| {
+            RateRequest::new(class, subject, now).map_err(|_| ProblemCode::RuntimeUnavailable)
+        })
+        .transpose()
+}
+
+type RateReservationError = (ProblemCode, Option<RetryAfterSeconds>);
+type RateReservationResult = Result<Option<Box<dyn RatePermit>>, RateReservationError>;
+
+fn reserve_rate(
+    ports: &ServerPorts,
+    route: &MatchedConcreteRoute,
+    origin: &str,
+    auth_permit: Option<&dyn AuthPermit>,
+    now: std::time::Instant,
+) -> RateReservationResult {
+    let pairing_id = auth_permit.map(|permit| permit.pairing_id());
+    let Some(request) =
+        rate_projection(route, origin, pairing_id, now).map_err(|code| (code, None))?
+    else {
+        return Ok(None);
+    };
+    ports
+        .rate
+        .reserve(request)
+        .map(Some)
+        .map_err(|error| match error {
+            RateLimitError::Limited(delay) => (ProblemCode::RateLimited, Some(delay)),
+            RateLimitError::Unavailable => (ProblemCode::RuntimeUnavailable, None),
+        })
 }
 
 async fn read_and_parse_headers(stream: &mut TcpStream) -> Result<ParsedRequest, BoundaryFailure> {
     let deadline = Instant::now() + HEADER_TIMEOUT;
-    let mut bytes = Vec::with_capacity(1024);
+    let mut bytes = Zeroizing::new(Vec::with_capacity(1024));
     let header_end = loop {
         if let Some(end) = find_header_end(&bytes) {
             if end > MAX_HEADER_BYTES {
@@ -403,8 +859,8 @@ async fn read_and_parse_headers(stream: &mut TcpStream) -> Result<ParsedRequest,
         if bytes.len() > MAX_HEADER_BYTES {
             return Err(BoundaryFailure::new(ProblemCode::HeadersTooLarge));
         }
-        let mut chunk = [0_u8; 1024];
-        let read = timeout_at(deadline, stream.read(&mut chunk))
+        let mut chunk = Zeroizing::new([0_u8; 1024]);
+        let read = timeout_at(deadline, stream.read(&mut chunk[..]))
             .await
             .map_err(|_| BoundaryFailure::new(ProblemCode::HeaderTimeout))?
             .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
@@ -444,14 +900,14 @@ async fn read_and_parse_headers(stream: &mut TcpStream) -> Result<ParsedRequest,
             .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid))?
             .trim_matches([' ', '\t'])
             .to_owned();
-        parsed_headers.push((header.name.to_ascii_lowercase(), value));
+        parsed_headers.push((header.name.to_ascii_lowercase(), Zeroizing::new(value)));
     }
 
     Ok(ParsedRequest {
-        method,
-        target,
+        method: Zeroizing::new(method),
+        target: Zeroizing::new(target),
         headers: parsed_headers,
-        body_prefix: bytes[header_end..].to_vec(),
+        body_prefix: Zeroizing::new(bytes[header_end..].to_vec()),
     })
 }
 
@@ -470,6 +926,7 @@ struct RequestContext {
     origin: String,
     content_length: usize,
     route: RouteMatch,
+    bearer: Option<BearerSecret>,
 }
 
 fn validate_pre_body(
@@ -500,8 +957,18 @@ fn validate_pre_body(
     if !request.values("transfer-encoding").is_empty() {
         return Err(BoundaryFailure::new(ProblemCode::TransferEncodingInvalid).with_origin(&origin));
     }
+    if !request.values("content-encoding").is_empty() {
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+    }
     let content_length = match content_lengths.first() {
-        Some(value) if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) => {
+        Some(value)
+            if *value == "0"
+                || (value
+                    .as_bytes()
+                    .first()
+                    .is_some_and(|byte| matches!(byte, b'1'..=b'9'))
+                    && value.as_bytes()[1..].iter().all(u8::is_ascii_digit)) =>
+        {
             value
                 .parse::<usize>()
                 .map_err(|_| BoundaryFailure::new(ProblemCode::BodyTooLarge).with_origin(&origin))?
@@ -518,13 +985,14 @@ fn validate_pre_body(
         return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
     }
 
-    if request.method == "OPTIONS" {
-        let route = resolve_route(&request.method, &request.target)
-            .map_err(|error| BoundaryFailure::new(error.problem_code()))?;
+    if request.method.as_str() == "OPTIONS" {
+        let route = resolve_route(request.method.as_str(), request.target.as_str())
+            .map_err(BoundaryFailure::from_route)?;
         return Ok(RequestContext {
             origin,
             content_length,
             route,
+            bearer: None,
         });
     }
 
@@ -535,28 +1003,33 @@ fn validate_pre_body(
     negotiate_version(versions.first().copied())
         .map_err(|code| BoundaryFailure::new(code).with_origin(&origin))?;
 
-    let route = resolve_route(&request.method, &request.target)
-        .map_err(|error| BoundaryFailure::new(error.problem_code()).with_origin(&origin))?;
+    let route = resolve_route(request.method.as_str(), request.target.as_str())
+        .map_err(|error| BoundaryFailure::from_route(error).with_origin(&origin))?;
     let RouteMatch::Concrete(concrete) = route else {
         unreachable!("non-OPTIONS method cannot resolve as preflight")
     };
 
     match concrete.contract().messages.request {
-        RequestMessage::Json { required: true, .. } => {
+        RequestMessage::Json {
+            required: true,
+            media_type,
+            ..
+        } => {
             let content_types = request.values("content-type");
-            if content_types.len() != 1
-                || !matches!(
-                    content_types[0].to_ascii_lowercase().as_str(),
-                    "application/json" | "application/json; charset=utf-8"
-                )
-            {
+            if content_types.len() > 1 {
+                return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader).with_origin(&origin));
+            }
+            if content_types.len() != 1 || !content_types[0].eq_ignore_ascii_case(media_type) {
                 return Err(
                     BoundaryFailure::new(ProblemCode::ContentTypeUnsupported).with_origin(&origin)
                 );
             }
         }
         RequestMessage::None => {
-            if content_length != 0 || !request.body_prefix.is_empty() {
+            if !request.values("content-type").is_empty()
+                || content_length != 0
+                || !request.body_prefix.is_empty()
+            {
                 return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
             }
         }
@@ -565,33 +1038,45 @@ fn validate_pre_body(
         } => unreachable!("closed C5 requests never declare an optional JSON body"),
     }
 
-    match concrete.contract().access.auth {
-        AuthClass::OriginOnly => {}
+    if !request.values("cookie").is_empty() {
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+    }
+
+    let bearer = match concrete.contract().access.auth {
+        AuthClass::OriginOnly => {
+            if !request.values("authorization").is_empty() {
+                return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+            }
+            None
+        }
         AuthClass::Bearer => {
             let authorization = request.one("authorization").ok_or_else(|| {
                 BoundaryFailure::new(ProblemCode::AuthMissing).with_origin(&origin)
             })?;
-            if !authorization.starts_with("Bearer ") || authorization.len() != 50 {
-                return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
-            }
-            return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
+            let encoded = authorization.strip_prefix("Bearer ").ok_or_else(|| {
+                BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin)
+            })?;
+            let token = BearerSecret::from_encoded(encoded.to_owned())
+                .map_err(|_| BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin))?;
+            Some(token)
         }
         AuthClass::Preflight => unreachable!("concrete route cannot have preflight access"),
-    }
+    };
 
     Ok(RequestContext {
         origin,
         content_length,
         route,
+        bearer,
     })
 }
 
 fn validate_preflight(
-    headers: &[(String, String)],
+    headers: &[(String, Zeroizing<String>)],
     body_prefix: &[u8],
     route: MatchedPreflightRoute,
     content_length: usize,
-) -> Result<Response, BoundaryFailure> {
+) -> Result<(PreflightTarget, bool), BoundaryFailure> {
     if content_length != 0 || !body_prefix.is_empty() {
         return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
@@ -616,7 +1101,7 @@ fn validate_preflight(
         .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
     let target = route
         .resolve_requested_method(method)
-        .map_err(|error| BoundaryFailure::new(error.problem_code()))?;
+        .map_err(BoundaryFailure::from_route)?;
 
     let header_fields = header_values(headers, "access-control-request-headers");
     if header_fields.len() > 1 {
@@ -662,22 +1147,22 @@ fn validate_preflight(
     {
         return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
-    Ok(Response::preflight(!private_network.is_empty()))
+    Ok((target, !private_network.is_empty()))
 }
 
 async fn read_body(
     stream: &mut TcpStream,
-    mut body: Vec<u8>,
+    mut body: Zeroizing<Vec<u8>>,
     content_length: usize,
     metrics: &Arc<Metrics>,
-) -> Result<Vec<u8>, BoundaryFailure> {
+) -> Result<Zeroizing<Vec<u8>>, BoundaryFailure> {
     if body.len() > content_length {
         return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
     let deadline = Instant::now() + BODY_TIMEOUT;
     while body.len() < content_length {
         let remaining = content_length - body.len();
-        let mut chunk = [0_u8; 1024];
+        let mut chunk = Zeroizing::new([0_u8; 1024]);
         let read_limit = remaining.min(chunk.len());
         metrics.body_reads.fetch_add(1, Ordering::SeqCst);
         let read = timeout_at(deadline, stream.read(&mut chunk[..read_limit]))
@@ -692,172 +1177,185 @@ async fn read_body(
     Ok(body)
 }
 
-async fn dispatch(route: MatchedConcreteRoute, body: &[u8]) -> Response {
-    match route.operation() {
-        OperationId::GetHealth => Response::json(
-            200,
-            json!({
-                "app": "open-voice-companion",
-                "protocolMajor": 1,
-                "listenerState": "listening"
-            }),
-        ),
-        OperationId::CreatePairingChallenge => {
-            if serde_json::from_slice::<serde_json::Value>(body).is_err() {
-                Response::problem(ProblemCode::SchemaInvalid)
-            } else {
-                Response::problem(ProblemCode::PairingNotFound)
+enum ValidatedBody {
+    None,
+    PairingChallenge(PairingChallengeRequest),
+    Redeem(RedeemRequest),
+    JobCreate(JobCreateRequest),
+    PackAction(PackActionRequest),
+}
+
+impl ValidatedBody {
+    fn into_handler_request(
+        self,
+        route: &MatchedConcreteRoute,
+    ) -> Result<HandlerRequest, ProblemCode> {
+        let parameters = route.parameters();
+        match route.operation() {
+            OperationId::GetHealth => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::GetHealth),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::CreatePairingChallenge => match (parameters, self) {
+                (PathParameters::None, Self::PairingChallenge(body)) => {
+                    Ok(HandlerRequest::CreatePairingChallenge { body })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::RedeemPairingChallenge => match (parameters, self) {
+                (PathParameters::CanonicalUuid(id), Self::Redeem(body)) => {
+                    Ok(HandlerRequest::RedeemPairingChallenge { id, body })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::GetCurrentPairing => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::GetCurrentPairing),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::RevokeCurrentPairing => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::RevokeCurrentPairing),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::GetRuntime => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::GetRuntime),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::ListEngines => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::ListEngines),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::ListVoices => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::ListVoices),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::ListPacks => match (parameters, self) {
+                (PathParameters::None, Self::None) => Ok(HandlerRequest::ListPacks),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::CreateJob => match (parameters, self) {
+                (PathParameters::None, Self::JobCreate(body)) => {
+                    Ok(HandlerRequest::CreateJob { body })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::GetJob => match (parameters, self) {
+                (PathParameters::CanonicalUuid(id), Self::None) => {
+                    Ok(HandlerRequest::GetJob { id })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::CancelJob => match (parameters, self) {
+                (PathParameters::CanonicalUuid(id), Self::None) => {
+                    Ok(HandlerRequest::CancelJob { id })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::GetJobAudio => match (parameters, self) {
+                (PathParameters::CanonicalUuid(id), Self::None) => {
+                    Ok(HandlerRequest::GetJobAudio { id })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::RequestPackAction => match (parameters, self) {
+                (PathParameters::PackId(id), Self::PackAction(body)) => {
+                    Ok(HandlerRequest::RequestPackAction { id, body })
+                }
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            },
+            OperationId::PreflightHealth
+            | OperationId::PreflightPairingChallenges
+            | OperationId::PreflightPairingChallengeRedeem
+            | OperationId::PreflightCurrentPairing
+            | OperationId::PreflightRuntime
+            | OperationId::PreflightEngines
+            | OperationId::PreflightVoices
+            | OperationId::PreflightPacks
+            | OperationId::PreflightJobs
+            | OperationId::PreflightJob
+            | OperationId::PreflightJobAudio
+            | OperationId::PreflightPackActions => Err(ProblemCode::RuntimeUnavailable),
+        }
+    }
+}
+
+fn scrub_json_strings(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            for (mut key, mut child) in std::mem::take(object) {
+                key.zeroize();
+                scrub_json_strings(&mut child);
             }
         }
-        _ => Response::problem(ProblemCode::ResourceNotFound),
+        Value::Array(array) => {
+            for mut child in std::mem::take(array) {
+                scrub_json_strings(&mut child);
+            }
+        }
+        Value::String(string) => string.zeroize(),
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
     }
 }
 
-struct Response {
-    status: u16,
-    content_type: Option<&'static str>,
-    body: Vec<u8>,
-    headers: Vec<(&'static str, String)>,
-    request_id: Uuid,
-}
-
-impl Response {
-    fn json(status: u16, body: serde_json::Value) -> Self {
-        Self {
-            status,
-            content_type: Some("application/json"),
-            body: serde_json::to_vec(&body).expect("serializing static response cannot fail"),
-            headers: Vec::new(),
-            request_id: Uuid::new_v4(),
-        }
-    }
-
-    fn problem(code: ProblemCode) -> Self {
-        let problem = Problem::new(code);
-        let status = problem.status();
-        let request_id = problem.request_id();
-        Self {
-            status,
-            content_type: Some("application/problem+json"),
-            body: serde_json::to_vec(&problem).expect("serializing Problem cannot fail"),
-            headers: Vec::new(),
-            request_id,
-        }
-    }
-
-    fn preflight(private_network: bool) -> Self {
-        let mut headers = vec![
-            (
-                "Access-Control-Allow-Methods",
-                GLOBAL_METHODS
-                    .iter()
-                    .map(|method| method.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ),
-            (
-                "Access-Control-Allow-Headers",
-                PREFLIGHT_ALLOWED_HEADERS
-                    .iter()
-                    .map(|header| header.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            ),
-            ("Access-Control-Max-Age", "600".to_owned()),
-            (
-                "Vary",
-                "Origin, Access-Control-Request-Method, Access-Control-Request-Headers".to_owned(),
-            ),
-        ];
-        if private_network {
-            headers.push(("Access-Control-Allow-Private-Network", "true".to_owned()));
-            headers[3]
-                .1
-                .push_str(", Access-Control-Request-Private-Network");
-        }
-        Self {
-            status: 204,
-            content_type: None,
-            body: Vec::new(),
-            headers,
-            request_id: Uuid::new_v4(),
+fn map_schema_validation(error: SchemaError) -> ProblemCode {
+    match error {
+        SchemaError::InvalidInstance => ProblemCode::SchemaInvalid,
+        SchemaError::InvalidDocument | SchemaError::UnknownSchema => {
+            ProblemCode::RuntimeUnavailable
         }
     }
 }
 
-async fn write_response(
-    stream: &mut TcpStream,
-    response: Response,
-    origin: Option<&str>,
-) -> io::Result<()> {
-    let mut bytes = format!(
-        "HTTP/1.1 {} {}\r\nConnection: close\r\nContent-Length: {}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Request-Id: {}\r\n",
-        response.status,
-        reason_phrase(response.status),
-        response.body.len(),
-        response.request_id
-    );
-    if let Some(content_type) = response.content_type {
-        bytes.push_str(&format!("Content-Type: {content_type}\r\n"));
-    }
-    if let Some(origin) = origin {
-        bytes.push_str(&format!("Access-Control-Allow-Origin: {origin}\r\n"));
-        bytes.push_str(&format!(
-            "Access-Control-Expose-Headers: {EXPOSED_HEADERS}\r\n"
-        ));
-        if !response.headers.iter().any(|(name, _)| *name == "Vary") {
-            bytes.push_str("Vary: Origin\r\n");
+fn validate_json_schema(
+    schemas: &OpenApiSchemas,
+    schema: OwnedSchemaName,
+    bytes: &[u8],
+) -> Result<(), ProblemCode> {
+    let mut value =
+        serde_json::from_slice::<Value>(bytes).map_err(|_| ProblemCode::SchemaInvalid)?;
+    let result = schemas
+        .validate_owned(schema, &value)
+        .map_err(map_schema_validation);
+    scrub_json_strings(&mut value);
+    result
+}
+
+fn validate_request_body(
+    route: &MatchedConcreteRoute,
+    bytes: &[u8],
+    schemas: &OpenApiSchemas,
+) -> Result<ValidatedBody, ProblemCode> {
+    match route.contract().messages.request {
+        RequestMessage::None => {
+            if bytes.is_empty() {
+                Ok(ValidatedBody::None)
+            } else {
+                Err(ProblemCode::SchemaInvalid)
+            }
         }
-    }
-    for (name, value) in response.headers {
-        bytes.push_str(name);
-        bytes.push_str(": ");
-        bytes.push_str(&value);
-        bytes.push_str("\r\n");
-    }
-    bytes.push_str("\r\n");
-    stream.write_all(bytes.as_bytes()).await?;
-    stream.write_all(&response.body).await?;
-    stream.shutdown().await
-}
-
-const fn reason_phrase(status: u16) -> &'static str {
-    match status {
-        200 => "OK",
-        201 => "Created",
-        202 => "Accepted",
-        204 => "No Content",
-        400 => "Bad Request",
-        401 => "Unauthorized",
-        403 => "Forbidden",
-        404 => "Not Found",
-        405 => "Method Not Allowed",
-        408 => "Request Timeout",
-        409 => "Conflict",
-        410 => "Gone",
-        413 => "Payload Too Large",
-        414 => "URI Too Long",
-        415 => "Unsupported Media Type",
-        426 => "Upgrade Required",
-        429 => "Too Many Requests",
-        431 => "Request Header Fields Too Large",
-        503 => "Service Unavailable",
-        504 => "Gateway Timeout",
-        _ => "Error",
-    }
-}
-
-#[cfg(test)]
-mod c5_checked_status_tests {
-    use super::*;
-
-    #[test]
-    fn boundary_failures_and_problem_responses_derive_status_from_the_catalog() {
-        let failure = BoundaryFailure::new(ProblemCode::VersionUnsupported);
-        let response = Response::problem(failure.code);
-        assert_eq!(response.status, 426);
-        let value: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
-        assert_eq!(value["status"], 426);
-        assert_eq!(value["code"], "version-unsupported");
+        RequestMessage::Json {
+            required: true,
+            media_type: _,
+            schema,
+        } => {
+            validate_json_schema(schemas, schema, bytes)?;
+            match schema {
+                OwnedSchemaName::PairingChallengeRequest => serde_json::from_slice(bytes)
+                    .map(ValidatedBody::PairingChallenge)
+                    .map_err(|_| ProblemCode::SchemaInvalid),
+                OwnedSchemaName::RedeemRequest => serde_json::from_slice(bytes)
+                    .map(ValidatedBody::Redeem)
+                    .map_err(|_| ProblemCode::SchemaInvalid),
+                OwnedSchemaName::JobCreateRequest => serde_json::from_slice(bytes)
+                    .map(ValidatedBody::JobCreate)
+                    .map_err(|_| ProblemCode::SchemaInvalid),
+                OwnedSchemaName::PackActionRequest => serde_json::from_slice(bytes)
+                    .map(ValidatedBody::PackAction)
+                    .map_err(|_| ProblemCode::SchemaInvalid),
+                _ => Err(ProblemCode::RuntimeUnavailable),
+            }
+        }
+        RequestMessage::Json {
+            required: false, ..
+        } => Err(ProblemCode::RuntimeUnavailable),
     }
 }

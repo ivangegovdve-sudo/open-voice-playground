@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use jsonschema::{Keyword, ValidationError, Validator, paths::Location};
 use serde_json::{Map, Value};
 
+use crate::protocol::OwnedSchemaName;
+
 const OPENAPI: &str = include_str!("../../openapi/openapi.yaml");
 const DIALECT: &str = "https://json-schema.org/draft/2020-12/schema";
 
@@ -89,6 +91,14 @@ impl OpenApiSchemas {
         validator
             .validate(instance)
             .map_err(|_| SchemaError::InvalidInstance)
+    }
+
+    pub fn validate_owned(
+        &self,
+        schema: OwnedSchemaName,
+        instance: &Value,
+    ) -> Result<(), SchemaError> {
+        self.validate(schema.as_str(), instance)
     }
 }
 
