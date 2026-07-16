@@ -91,10 +91,14 @@ function toPosix(value) {
 function normalizeWorkspacePattern(pattern) {
   if (typeof pattern !== 'string' || pattern.length === 0) return { category: 'empty' };
   if (pattern.includes('\0')) return { category: 'nul' };
-  const normalized = toPosix(pattern);
+  let normalized = toPosix(pattern);
+  if (normalized.startsWith('./')) normalized = normalized.slice(2);
+  if (normalized.length === 0) return { category: 'empty' };
   if (isAbsolute(normalized) || win32.isAbsolute(normalized)) return { category: 'absolute' };
   if (normalized.startsWith('!')) return { category: 'negated' };
   if (normalized.includes('{') || normalized.includes('}')) return { category: 'brace' };
+  while (normalized.endsWith('/')) normalized = normalized.slice(0, -1);
+  if (normalized.length === 0) return { category: 'empty' };
   const segments = normalized.split('/');
   if (segments.includes('..')) return { category: 'parent' };
   if (segments.some((segment) => segment.length === 0)) return { category: 'empty' };
@@ -129,12 +133,15 @@ function workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex = 0, pa
     return (
       workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex, patternIndex + 1) ||
       (pathIndex < pathSegments.length &&
+        !pathSegments[pathIndex].startsWith('.') &&
         workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex + 1, patternIndex))
     );
   }
+  const pathSegment = pathSegments[pathIndex];
   return (
     pathIndex < pathSegments.length &&
-    workspaceSegmentExpression(pattern).test(pathSegments[pathIndex]) &&
+    !(pathSegment.startsWith('.') && !pattern.startsWith('.')) &&
+    workspaceSegmentExpression(pattern).test(pathSegment) &&
     workspaceSegmentsMatch(pathSegments, patternSegments, pathIndex + 1, patternIndex + 1)
   );
 }
@@ -312,6 +319,14 @@ function parentPosixDirectory(directory) {
 }
 
 /**
+ * @param {string} packagePath
+ * @returns {boolean}
+ */
+function hasNodeModulesSegment(packagePath) {
+  return packagePath.split('/').includes('node_modules');
+}
+
+/**
  * @param {unknown} value
  * @returns {boolean}
  */
@@ -450,7 +465,7 @@ function auditNpmLock(rootDir, manifests) {
   for (const [packagePath, entry] of Object.entries(packages)) {
     if (
       packagePath !== '' &&
-      !packagePath.includes('node_modules') &&
+      !hasNodeModulesSegment(packagePath) &&
       !workspaceByDirectory.has(packagePath)
     ) {
       violations.push({
@@ -522,7 +537,7 @@ function auditNpmLock(rootDir, manifests) {
 
   let lockedRegistryPackages = 0;
   for (const [packagePath, entry] of Object.entries(packages)) {
-    if (!packagePath.includes('node_modules') || entry?.link === true) continue;
+    if (!hasNodeModulesSegment(packagePath) || entry?.link === true) continue;
     lockedRegistryPackages += 1;
     for (const workspaceName of workspaceByName.keys()) {
       const workspaceSuffix = `node_modules/${workspaceName}`;
@@ -733,6 +748,7 @@ export function auditCargoDirectMetadata(metadata) {
     windowsDependencies.length !== 1 ||
     windowsDependency.req !== '=0.62.2' ||
     windowsDependency.kind !== null ||
+    windowsDependency.rename !== null ||
     windowsDependency.target !== 'cfg(windows)' ||
     JSON.stringify(windowsFeatures) !== JSON.stringify([...WINDOWS_FEATURES].sort())
   ) {

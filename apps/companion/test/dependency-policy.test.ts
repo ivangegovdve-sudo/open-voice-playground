@@ -12,6 +12,7 @@ import {
   cargoMetadataArguments,
   discoverNpmWorkspaceManifests,
   loadCargoDirectMetadata,
+  POLICY,
 } from '../scripts/dependency-policy.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
@@ -281,6 +282,48 @@ function createNpmLockFixture(mutate?: (fixture: NpmLockFixture) => void): strin
   return fixture;
 }
 
+function createNodeModulesSegmentFixture(): string {
+  const fixture = mkdtempSync(resolve(tmpdir(), 'open-voice-c10-path-segment-'));
+  const rootManifest = {
+    name: 'fixture-root',
+    version: '1.0.0',
+    private: true,
+    packageManager: 'npm@11.16.0',
+    engines: { node: '>=22.13.0' },
+    workspaces: ['packages/*'],
+  };
+  const workspaceManifest = {
+    name: '@fixture/node-modules-tools',
+    version: '1.0.0',
+    private: true,
+  };
+  writeJson(resolve(fixture, 'package.json'), rootManifest);
+  writeJson(resolve(fixture, 'packages/node_modules-tools/package.json'), workspaceManifest);
+  writeJson(resolve(fixture, 'package-lock.json'), {
+    name: rootManifest.name,
+    version: rootManifest.version,
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      '': {
+        name: rootManifest.name,
+        version: rootManifest.version,
+        workspaces: rootManifest.workspaces,
+        engines: rootManifest.engines,
+      },
+      'packages/node_modules-tools': {
+        name: workspaceManifest.name,
+        version: workspaceManifest.version,
+      },
+      'node_modules/@fixture/node-modules-tools': {
+        resolved: 'packages/node_modules-tools',
+        link: true,
+      },
+    },
+  });
+  return fixture;
+}
+
 describe('direct dependency policy', () => {
   it('uses the exact locked Cargo metadata command and closes adapter failures', () => {
     const calls: Array<{ command: string; args: string[]; options: Record<string, unknown> }> = [];
@@ -430,6 +473,7 @@ describe('direct dependency policy', () => {
       ['version', (dependency) => (dependency.req = '=0.62.1')],
       ['target', (dependency) => (dependency.target = null)],
       ['kind', (dependency) => (dependency.kind = 'dev')],
+      ['rename', (dependency) => (dependency.rename = 'winapi')],
       [
         'missing feature',
         (dependency) =>
@@ -634,6 +678,58 @@ describe('direct dependency policy', () => {
     } finally {
       rmSync(arrayFixture, { recursive: true, force: true });
       rmSync(objectFixture, { recursive: true, force: true });
+    }
+  });
+
+  it('matches npm 11.16 leading-dot and hidden-segment workspace semantics', () => {
+    expect(POLICY.npmVersion).toBe('11.16.0');
+    const leadingDot = createWorkspaceDiscoveryFixture(['./apps/*'], ['apps/one']);
+    const repeatedLeadingDot = createWorkspaceDiscoveryFixture(['././apps/*'], ['apps/one']);
+    const internalDot = createWorkspaceDiscoveryFixture(['apps/./*'], ['apps/one']);
+    const trailingSlash = createWorkspaceDiscoveryFixture(['apps/*/'], ['apps/one']);
+    const implicitDot = createWorkspaceDiscoveryFixture(
+      ['apps/*'],
+      ['apps/visible', 'apps/.hidden'],
+    );
+    const explicitDot = createWorkspaceDiscoveryFixture(
+      ['apps/.*'],
+      ['apps/visible', 'apps/.hidden'],
+    );
+    const globStarDot = createWorkspaceDiscoveryFixture(
+      ['apps/**'],
+      ['apps/visible/deep', 'apps/.hidden/deep'],
+    );
+    try {
+      expect(discoverNpmWorkspaceManifests(leadingDot)).toEqual([
+        'package.json',
+        'apps/one/package.json',
+      ]);
+      expect(discoverNpmWorkspaceManifests(repeatedLeadingDot)).toEqual(['package.json']);
+      expect(discoverNpmWorkspaceManifests(internalDot)).toEqual(['package.json']);
+      expect(discoverNpmWorkspaceManifests(trailingSlash)).toEqual([
+        'package.json',
+        'apps/one/package.json',
+      ]);
+      expect(discoverNpmWorkspaceManifests(implicitDot)).toEqual([
+        'package.json',
+        'apps/visible/package.json',
+      ]);
+      expect(discoverNpmWorkspaceManifests(explicitDot)).toEqual([
+        'package.json',
+        'apps/.hidden/package.json',
+      ]);
+      expect(discoverNpmWorkspaceManifests(globStarDot)).toEqual([
+        'package.json',
+        'apps/visible/deep/package.json',
+      ]);
+    } finally {
+      rmSync(leadingDot, { recursive: true, force: true });
+      rmSync(repeatedLeadingDot, { recursive: true, force: true });
+      rmSync(internalDot, { recursive: true, force: true });
+      rmSync(trailingSlash, { recursive: true, force: true });
+      rmSync(implicitDot, { recursive: true, force: true });
+      rmSync(explicitDot, { recursive: true, force: true });
+      rmSync(globStarDot, { recursive: true, force: true });
     }
   });
 
@@ -950,6 +1046,37 @@ describe('direct dependency policy', () => {
       ]);
     } finally {
       rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it('classifies node_modules only as a POSIX lock-path segment', () => {
+    const validWorkspace = createNodeModulesSegmentFixture();
+    const staleWorkspace = createNpmLockFixture(({ lock }) => {
+      lock.packages['apps/stale-node_modules-copy'] = {
+        name: '@fixture/stale-copy',
+        version: '1.0.0',
+      };
+    });
+    try {
+      expect(auditNpmRepository(validWorkspace)).toEqual({
+        manifests: ['package.json', 'packages/node_modules-tools/package.json'],
+        lockedRegistryPackages: 0,
+        violations: [],
+      });
+      expect(auditNpmRepository(staleWorkspace)).toEqual({
+        manifests: ['package.json', 'apps/app/package.json', 'apps/internal/package.json'],
+        lockedRegistryPackages: 2,
+        violations: [
+          {
+            code: 'npm-lock-workspace-link',
+            path: 'apps/stale-node_modules-copy',
+            detail: 'stale workspace',
+          },
+        ],
+      });
+    } finally {
+      rmSync(validWorkspace, { recursive: true, force: true });
+      rmSync(staleWorkspace, { recursive: true, force: true });
     }
   });
 
