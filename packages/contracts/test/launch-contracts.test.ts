@@ -227,8 +227,8 @@ describe('launch release and asset contracts', () => {
     ).toBe(false);
   });
 
-  it('validates a deterministic machine-readable browser S0 preparation evidence record', () => {
-    const evidenceSchema = schema('BrowserRuntimeS0EvidenceSchema');
+  it('validates the structure of a deterministic machine-readable browser S0 evidence record', () => {
+    const evidenceSchema = schema('BrowserRuntimeS0EvidenceStructureSchema');
     const evidence = {
       schemaVersion: 1,
       kind: 'open-voice-browser-runtime-s0',
@@ -308,6 +308,218 @@ describe('launch release and asset contracts', () => {
         ],
       }).success,
     ).toBe(false);
+  });
+
+  it('binds browser S0 evidence to every trusted asset-manifest identity and total', () => {
+    const structureSchema = schema('BrowserRuntimeS0EvidenceStructureSchema');
+    const parseEvidence = api.parseBrowserRuntimeS0Evidence;
+    expect(parseEvidence).toBeTypeOf('function');
+    const parse = parseEvidence as (value: unknown, trustedAssetSet: unknown) => unknown;
+    const revision = '0123456789abcdef0123456789abcdef01234567';
+    const firstAsset = {
+      ...immutableAsset,
+      id: 'test-model',
+      url: `https://example.com/model/${revision}/model.onnx`,
+      approvedFinalOrigins: ['https://assets.example.com'],
+      revision,
+      bytes: 4,
+      cacheKey: 'test/model/0123456789ab',
+      sourceIds: ['test-source'],
+      licenseIds: ['test-license'],
+    };
+    const secondAsset = {
+      ...firstAsset,
+      id: 'test-voice',
+      url: `https://example.com/model/${revision}/voice.bin`,
+      approvedFinalOrigins: ['https://cdn.example.com'],
+      sha256: 'sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      bytes: 6,
+      cacheKey: 'test/voice/0123456789ab',
+      mediaType: 'application/octet-stream',
+    };
+    const assetSet = {
+      id: 'test-browser-assets',
+      engineId: 'test-engine',
+      manifestDigest: 'sha256:24bb0a356819a69a58eb0ac658c840c17a55ad409ea666e8523e83123b26e8fc',
+      assets: [firstAsset, secondAsset],
+      totalBytes: 10,
+      requiredAcceptanceLicenseIds: ['test-license'],
+      releaseGate,
+    };
+    const margin = 8 * 1024 * 1024;
+    const evidence = {
+      schemaVersion: 1,
+      kind: 'open-voice-browser-runtime-s0',
+      assetSetId: assetSet.id,
+      manifestDigest: assetSet.manifestDigest,
+      consent: {
+        assetSetId: assetSet.id,
+        manifestDigest: assetSet.manifestDigest,
+        acceptedLicenseIds: ['test-license'],
+        acceptedTermsHashes: [],
+      },
+      storage: {
+        selectedBytes: 10,
+        largestAssetBytes: 6,
+        safetyMarginBytes: margin,
+        upperBoundBytes: margin + 16,
+        persisted: true,
+        quotaBytes: 64 * 1024 * 1024,
+        usageBytes: 1024,
+        retainedBytes: 6,
+        candidateBytes: 4,
+        largestTemporaryBytes: 4,
+        additionalRequiredBytes: margin + 8,
+        requiredCapacityBytes: margin + 14,
+      },
+      assets: [
+        {
+          assetId: firstAsset.id,
+          cacheKey: firstAsset.cacheKey,
+          disposition: 'downloaded',
+          requestUrl: firstAsset.url,
+          finalUrl: 'https://assets.example.com/model.onnx',
+          finalOrigin: 'https://assets.example.com',
+          responseType: 'cors',
+          status: 200,
+          expectedBytes: firstAsset.bytes,
+          observedBytes: firstAsset.bytes,
+          expectedSha256: firstAsset.sha256,
+          observedSha256: firstAsset.sha256,
+        },
+        {
+          assetId: secondAsset.id,
+          cacheKey: secondAsset.cacheKey,
+          disposition: 'cache-hit',
+          requestUrl: null,
+          finalUrl: null,
+          finalOrigin: null,
+          responseType: null,
+          status: null,
+          expectedBytes: secondAsset.bytes,
+          observedBytes: secondAsset.bytes,
+          expectedSha256: secondAsset.sha256,
+          observedSha256: secondAsset.sha256,
+        },
+      ],
+    };
+
+    expect(parse(evidence, assetSet)).toEqual(evidence);
+
+    const unrelatedDigest = `sha256:${'a'.repeat(64)}`;
+    const mutations: Array<[string, unknown]> = [
+      ['asset order', { ...evidence, assets: [evidence.assets[1], evidence.assets[0]] }],
+      [
+        'asset ID',
+        {
+          ...evidence,
+          assets: [{ ...evidence.assets[0], assetId: 'other-model' }, evidence.assets[1]],
+        },
+      ],
+      [
+        'cache key',
+        {
+          ...evidence,
+          assets: [
+            { ...evidence.assets[0], cacheKey: 'other/model/0123456789ab' },
+            evidence.assets[1],
+          ],
+        },
+      ],
+      [
+        'request URL',
+        {
+          ...evidence,
+          assets: [
+            { ...evidence.assets[0], requestUrl: 'https://mirror.example.com/model.onnx' },
+            evidence.assets[1],
+          ],
+        },
+      ],
+      [
+        'byte identity',
+        {
+          ...evidence,
+          assets: [
+            { ...evidence.assets[0], expectedBytes: 5, observedBytes: 5 },
+            evidence.assets[1],
+          ],
+        },
+      ],
+      [
+        'hash identity',
+        {
+          ...evidence,
+          assets: [
+            {
+              ...evidence.assets[0],
+              expectedSha256: unrelatedDigest,
+              observedSha256: unrelatedDigest,
+            },
+            evidence.assets[1],
+          ],
+        },
+      ],
+      [
+        'approved final origin',
+        {
+          ...evidence,
+          assets: [
+            {
+              ...evidence.assets[0],
+              finalUrl: 'https://evil.example/model.onnx',
+              finalOrigin: 'https://evil.example',
+            },
+            evidence.assets[1],
+          ],
+        },
+      ],
+      [
+        'manifest digest string',
+        {
+          ...evidence,
+          manifestDigest: unrelatedDigest,
+          consent: { ...evidence.consent, manifestDigest: unrelatedDigest },
+        },
+      ],
+      [
+        'disposition storage arithmetic',
+        {
+          ...evidence,
+          storage: {
+            ...evidence.storage,
+            retainedBytes: 5,
+            candidateBytes: 5,
+            largestTemporaryBytes: 5,
+            additionalRequiredBytes: margin + 10,
+            requiredCapacityBytes: margin + 15,
+          },
+        },
+      ],
+      [
+        'manifest totals',
+        {
+          ...evidence,
+          storage: {
+            ...evidence.storage,
+            selectedBytes: 11,
+            upperBoundBytes: margin + 17,
+            retainedBytes: 5,
+            candidateBytes: 6,
+            largestTemporaryBytes: 6,
+            additionalRequiredBytes: margin + 12,
+            requiredCapacityBytes: margin + 17,
+          },
+        },
+      ],
+    ];
+    for (const [label, mutation] of mutations) {
+      expect(
+        structureSchema.safeParse(mutation).success,
+        `${label} is structurally plausible`,
+      ).toBe(true);
+      expect(() => parse(mutation, assetSet), `${label} must be manifest-bound`).toThrow();
+    }
   });
 
   it('keeps future Azure server-only, hard-disabled, terms-gated, and zero-budget', () => {

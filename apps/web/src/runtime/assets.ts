@@ -1,7 +1,8 @@
-import type {
-  AssetSetManifest,
-  BrowserRuntimeS0Evidence,
-  ImmutableAsset,
+import {
+  parseBrowserRuntimeS0Evidence,
+  type AssetSetManifest,
+  type BrowserRuntimeS0Evidence,
+  type ImmutableAsset,
 } from '@open-voice/contracts';
 
 export type ConsentReceipt = {
@@ -414,6 +415,14 @@ async function rejectResponse(response: Response, error: AssetPreparationError):
   throw error;
 }
 
+async function bestEffortCleanup(action: () => unknown): Promise<void> {
+  try {
+    await action();
+  } catch {
+    // Cleanup must never replace the operation's owned error or suppress later cleanup steps.
+  }
+}
+
 async function validateResponseMetadata(
   asset: ImmutableAsset,
   response: Response,
@@ -571,10 +580,13 @@ export class AssetPreparationManager {
         try {
           cached.push(await this.store.has(asset.cacheKey, asset.sha256, asset.bytes));
         } catch (error) {
+          throwIfAborted(controller.signal);
           throw classifyStorageError(error);
         }
+        throwIfAborted(controller.signal);
       }
       const storage = await this.prepareStorage(assetSet, cached, controller.signal);
+      throwIfAborted(controller.signal);
       const assets: AssetPreparationAssetEvidence[] = [];
       for (const [index, asset] of assetSet.assets.entries()) {
         throwIfAborted(controller.signal);
@@ -586,6 +598,7 @@ export class AssetPreparationManager {
             totalBytes: assetSet.totalBytes,
             percent: Math.round((completedBytes / assetSet.totalBytes) * 100),
           });
+          throwIfAborted(controller.signal);
           assets.push({
             assetId: asset.id,
             cacheKey: asset.cacheKey,
@@ -603,18 +616,19 @@ export class AssetPreparationManager {
           continue;
         }
 
-        assets.push(
-          await this.downloadAndStore(
-            asset,
-            controller.signal,
-            completedBytes,
-            assetSet.totalBytes,
-            options.onProgress,
-          ),
+        const evidence = await this.downloadAndStore(
+          asset,
+          controller.signal,
+          completedBytes,
+          assetSet.totalBytes,
+          options.onProgress,
         );
+        throwIfAborted(controller.signal);
+        assets.push(evidence);
         completedBytes += asset.bytes;
       }
-      return {
+      throwIfAborted(controller.signal);
+      const evidence: AssetPreparationEvidence = {
         schemaVersion: 1,
         kind: 'open-voice-browser-runtime-s0',
         assetSetId: assetSet.id,
@@ -628,6 +642,7 @@ export class AssetPreparationManager {
         storage,
         assets,
       };
+      return parseBrowserRuntimeS0Evidence(evidence, assetSet);
     } finally {
       options.signal?.removeEventListener('abort', abort);
     }
@@ -646,8 +661,10 @@ export class AssetPreparationManager {
       try {
         bytes = await this.store.readVerified(asset.cacheKey, asset.sha256, asset.bytes);
       } catch (error) {
+        if (options.signal !== undefined) throwIfAborted(options.signal);
         throw classifyStorageError(error);
       }
+      if (options.signal !== undefined) throwIfAborted(options.signal);
       if (bytes === null || bytes.byteLength !== asset.bytes) {
         throw new AssetPreparationError(
           'asset-unavailable',
@@ -662,6 +679,7 @@ export class AssetPreparationManager {
         bytes,
       });
     }
+    if (options.signal !== undefined) throwIfAborted(options.signal);
     return result;
   }
 
@@ -746,10 +764,15 @@ export class AssetPreparationManager {
     let sink: AssetTemporarySink | null = null;
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
     let readerFinished = false;
+    let readerCancellation: Promise<void> | null = null;
+    const cancelReaderBestEffort = (reason?: unknown): Promise<void> => {
+      if (readerCancellation !== null) return readerCancellation;
+      if (reader === null || readerFinished) return Promise.resolve();
+      readerCancellation = bestEffortCleanup(() => reader!.cancel(reason));
+      return readerCancellation;
+    };
     const cancelReader = () => {
-      if (reader !== null && !readerFinished) {
-        void reader.cancel(signal.reason).catch(() => undefined);
-      }
+      void cancelReaderBestEffort(signal.reason);
     };
 
     try {
@@ -772,9 +795,12 @@ export class AssetPreparationManager {
           cause: error,
         });
       }
+      throwIfAborted(signal);
 
       const responseMetadata = await validateResponseMetadata(asset, networkResponse);
+      throwIfAborted(signal);
       const declaredLength = await contentLength(networkResponse, asset);
+      throwIfAborted(signal);
       if (declaredLength !== null && declaredLength !== asset.bytes) {
         const relation = declaredLength > asset.bytes ? 'larger' : 'truncated';
         await rejectResponse(
@@ -803,8 +829,10 @@ export class AssetPreparationManager {
         sink = await this.store.createTemporary(temporaryKey);
         temporaryCreated = true;
       } catch (error) {
+        throwIfAborted(signal);
         throw classifyStorageError(error);
       }
+      throwIfAborted(signal);
       try {
         reader = body.getReader();
       } catch (error) {
@@ -849,14 +877,17 @@ export class AssetPreparationManager {
         try {
           await sink.write(chunk);
         } catch (error) {
+          throwIfAborted(signal);
           throw classifyStorageError(error);
         }
+        throwIfAborted(signal);
         onProgress?.({
           assetId: asset.id,
           completedBytes: completedBeforeAsset + receivedBytes,
           totalBytes,
           percent: Math.round(((completedBeforeAsset + receivedBytes) / totalBytes) * 100),
         });
+        throwIfAborted(signal);
       }
       if (receivedBytes !== asset.bytes) {
         throw new AssetPreparationError(
@@ -867,8 +898,10 @@ export class AssetPreparationManager {
       try {
         await sink.close();
       } catch (error) {
+        throwIfAborted(signal);
         throw classifyStorageError(error);
       }
+      throwIfAborted(signal);
 
       const actualHash = await digest.digest();
       throwIfAborted(signal);
@@ -886,8 +919,10 @@ export class AssetPreparationManager {
         });
         promoted = true;
       } catch (error) {
+        throwIfAborted(signal);
         throw classifyStorageError(error);
       }
+      throwIfAborted(signal);
       return {
         assetId: asset.id,
         cacheKey: asset.cacheKey,
@@ -905,12 +940,13 @@ export class AssetPreparationManager {
     } finally {
       signal.removeEventListener('abort', cancelReader);
       if (reader !== null) {
-        if (!readerFinished) await reader.cancel().catch(() => undefined);
-        reader.releaseLock();
+        if (readerCancellation !== null) await readerCancellation;
+        else if (!readerFinished) await cancelReaderBestEffort();
+        await bestEffortCleanup(() => reader!.releaseLock());
       }
       if (temporaryCreated && !promoted) {
-        await sink?.abort().catch(() => undefined);
-        await this.store.deleteTemporary(temporaryKey).catch(() => undefined);
+        if (sink !== null) await bestEffortCleanup(() => sink!.abort());
+        await bestEffortCleanup(() => this.store.deleteTemporary(temporaryKey));
       }
     }
   }

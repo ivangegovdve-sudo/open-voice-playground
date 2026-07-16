@@ -16,8 +16,79 @@ const LAUNCH_CATALOG_ASSET_PATTERN = /^assets\/launch-catalog\.public-[A-Za-z0-9
 const MAX_INITIAL_JAVASCRIPT_GZIP_BYTES = 250 * 1024;
 const FORBIDDEN_INITIAL_ASSET_PATTERN =
   /(?:worker|inference|model|tokenizer|\.wasm$|\.onnx$|\.bin$|\.safetensors$|\.npz$)/i;
-const FORBIDDEN_INITIAL_MODULE_PATTERN =
-  /(?:^|[\\/])(?:inference(?:[\\/]|\.|$)|runtime[\\/]workers[\\/])/i;
+const FORBIDDEN_INITIAL_MODULE_PATTERNS = [
+  /(?:^|[\\/])(?:onnxruntime-web|onnxruntime-web-use-extern-wasm|sherpa-onnx-web)(?:[\\/]|$)/i,
+  /(?:^|[\\/])@huggingface[\\/]transformers(?:[\\/]|$)/i,
+  /(?:^|[\\/])runtime[\\/](?:workers|supertonic|inference)(?:[\\/]|$)/i,
+  /(?:^|[\\/])[^\\/]*\.worker\.(?:[cm]?[jt]s|[jt]sx)(?:$|[?&])/i,
+];
+const SCRIPT_ELEMENT_PATTERN = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+
+function htmlAttributeValue(attributes: string, name: string): string | null {
+  const expectedName = name.toLowerCase();
+  let offset = 0;
+  while (offset < attributes.length) {
+    while (offset < attributes.length && /[\s/]/.test(attributes[offset]!)) offset += 1;
+    const nameStart = offset;
+    while (offset < attributes.length && !/[\s=/>]/.test(attributes[offset]!)) offset += 1;
+    if (nameStart === offset) {
+      offset += 1;
+      continue;
+    }
+    const attributeName = attributes.slice(nameStart, offset).toLowerCase();
+    while (offset < attributes.length && /\s/.test(attributes[offset]!)) offset += 1;
+    let value = '';
+    if (attributes[offset] === '=') {
+      offset += 1;
+      while (offset < attributes.length && /\s/.test(attributes[offset]!)) offset += 1;
+      const quote =
+        attributes[offset] === '"' || attributes[offset] === "'" ? attributes[offset] : null;
+      if (quote !== null) {
+        offset += 1;
+        const valueStart = offset;
+        while (offset < attributes.length && attributes[offset] !== quote) offset += 1;
+        value = attributes.slice(valueStart, offset);
+        if (attributes[offset] === quote) offset += 1;
+      } else {
+        const valueStart = offset;
+        while (offset < attributes.length && !/\s/.test(attributes[offset]!)) offset += 1;
+        value = attributes.slice(valueStart, offset);
+      }
+    }
+    if (attributeName === expectedName) return value;
+  }
+  return null;
+}
+
+function isExecutableScriptType(type: string | null): boolean {
+  if (type === null || type.trim() === '') return true;
+  const normalized = type.trim().toLowerCase();
+  return (
+    normalized === 'module' ||
+    /^(?:text|application)\/(?:x-)?(?:java|ecma)script$/.test(normalized) ||
+    normalized === 'text/jscript'
+  );
+}
+
+function assertNoInlineExecutableScripts(html: string): void {
+  for (const match of html.matchAll(SCRIPT_ELEMENT_PATTERN)) {
+    const attributes = match[1]!;
+    const body = match[2]!;
+    if (
+      body.trim() !== '' &&
+      htmlAttributeValue(attributes, 'src') === null &&
+      isExecutableScriptType(htmlAttributeValue(attributes, 'type'))
+    ) {
+      throw new Error(
+        'The production shell contains an inline executable script; executable JavaScript must be emitted as a budgeted module.',
+      );
+    }
+  }
+}
+
+function isGuardedInitialModule(moduleId: string): boolean {
+  return FORBIDDEN_INITIAL_MODULE_PATTERNS.some((pattern) => pattern.test(moduleId));
+}
 
 function assertUniqueInjectionMarker(
   serviceWorker: string,
@@ -34,6 +105,13 @@ function injectServiceWorkerShellAssets(): Plugin {
   return {
     name: 'inject-service-worker-shell-assets',
     apply: 'build',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        assertNoInlineExecutableScripts(html);
+        return html;
+      },
+    },
     async writeBundle(outputOptions, bundle) {
       if (outputOptions.dir === undefined) {
         throw new Error('The web build must write to a directory for PWA asset injection.');
@@ -66,6 +144,7 @@ function injectServiceWorkerShellAssets(): Plugin {
         readFile(resolve(outputOptions.dir, 'manifest.webmanifest')),
         readFile(resolve(outputOptions.dir, 'icon.svg')),
       ]);
+      assertNoInlineExecutableScripts(indexBytes.toString('utf8'));
       const pendingShellFiles: string[] = [];
       const shellFileNames = new Set<string>();
       const enqueueShellFile = (reference: string): void => {
@@ -122,10 +201,10 @@ function injectServiceWorkerShellAssets(): Plugin {
       for (const output of shellOutputs) {
         if (
           output.type === 'chunk' &&
-          output.moduleIds.some((moduleId) => FORBIDDEN_INITIAL_MODULE_PATTERN.test(moduleId))
+          output.moduleIds.some((moduleId) => isGuardedInitialModule(moduleId))
         ) {
           throw new Error(
-            `The initial production module graph contains inference or Worker implementation code: ${output.fileName}`,
+            `The initial production module graph contains guarded runtime implementation code: ${output.fileName}`,
           );
         }
       }

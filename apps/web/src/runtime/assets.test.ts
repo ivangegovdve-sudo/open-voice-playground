@@ -453,6 +453,117 @@ describe('consent-gated immutable asset preparation', () => {
     expect(quotaStore.temporary.size).toBe(0);
   });
 
+  it.each(['synchronous throws', 'asynchronous rejections'] as const)(
+    'preserves the owned failure and attempts every cleanup step after %s',
+    async (failureMode) => {
+      const store = new MemoryAssetStore();
+      const cleanupEvents: string[] = [];
+      let temporaryKey = '';
+      const hostileCleanup = (step: string) =>
+        (() => {
+          cleanupEvents.push(step);
+          const error = new Error(`hostile ${step}`);
+          if (failureMode === 'synchronous throws') throw error;
+          return Promise.reject(error);
+        }) as () => Promise<void>;
+      store.createTemporary = vi.fn(async (key) => {
+        temporaryKey = key;
+        store.temporary.set(key, new Uint8Array([1]));
+        return {
+          write: async () => {
+            throw new DOMException('Quota full', 'QuotaExceededError');
+          },
+          close: async () => undefined,
+          abort: hostileCleanup('sink.abort'),
+        };
+      });
+      store.deleteTemporary = vi.fn(hostileCleanup('store.deleteTemporary'));
+
+      const network = response(BYTES);
+      const reader = {
+        read: vi.fn(async () => ({ done: false as const, value: BYTES.subarray(0, 1) })),
+        cancel: vi.fn(hostileCleanup('reader.cancel')),
+        releaseLock: vi.fn(hostileCleanup('reader.releaseLock')),
+      };
+      Object.defineProperty(network.body!, 'getReader', {
+        configurable: true,
+        value: () => reader,
+      });
+      const instance = new AssetPreparationManager({
+        store,
+        fetcher: vi.fn(async () => network),
+        createDigest: fixedDigest(HASH),
+      });
+      const set = manifest();
+
+      await expect(
+        instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+      ).rejects.toMatchObject({ code: 'quota-exceeded' });
+      expect(cleanupEvents).toEqual([
+        'reader.cancel',
+        'reader.releaseLock',
+        'sink.abort',
+        'store.deleteTemporary',
+      ]);
+      expect(store.temporary.has(temporaryKey)).toBe(true);
+    },
+  );
+
+  it('deletes a persistent partial when the store permits it despite earlier cleanup failures', async () => {
+    const store = new MemoryAssetStore();
+    const cleanupEvents: string[] = [];
+    let temporaryKey = '';
+    const throws = (step: string) =>
+      (() => {
+        cleanupEvents.push(step);
+        throw new Error(`hostile ${step}`);
+      }) as () => Promise<void>;
+    store.createTemporary = vi.fn(async (key) => {
+      temporaryKey = key;
+      store.temporary.set(key, new Uint8Array([1]));
+      return {
+        write: async () => {
+          throw new DOMException('Quota full', 'QuotaExceededError');
+        },
+        close: async () => undefined,
+        abort: throws('sink.abort'),
+      };
+    });
+    const deleteTemporary = store.deleteTemporary.bind(store);
+    store.deleteTemporary = vi.fn(async (key) => {
+      cleanupEvents.push('store.deleteTemporary');
+      await deleteTemporary(key);
+    });
+
+    const network = response(BYTES);
+    const reader = {
+      read: vi.fn(async () => ({ done: false as const, value: BYTES.subarray(0, 1) })),
+      cancel: vi.fn(throws('reader.cancel')),
+      releaseLock: vi.fn(throws('reader.releaseLock')),
+    };
+    Object.defineProperty(network.body!, 'getReader', {
+      configurable: true,
+      value: () => reader,
+    });
+    const instance = new AssetPreparationManager({
+      store,
+      fetcher: vi.fn(async () => network),
+      createDigest: fixedDigest(HASH),
+    });
+    const set = manifest();
+
+    await expect(
+      instance.prepare(set, createConsentReceipt(set, ['test-license'])),
+    ).rejects.toMatchObject({ code: 'quota-exceeded' });
+    expect(cleanupEvents).toEqual([
+      'reader.cancel',
+      'reader.releaseLock',
+      'sink.abort',
+      'store.deleteTemporary',
+    ]);
+    expect(store.temporary.has(temporaryKey)).toBe(false);
+  });
+
   it('estimates and requests persistent storage only after consent, before network I/O', async () => {
     const store = new MemoryAssetStore();
     const storageEvents: string[] = [];
@@ -752,6 +863,49 @@ describe('consent-gated immutable asset preparation', () => {
     await expect(preparing).rejects.toMatchObject({ name: 'AbortError' });
     expect(store.final.size).toBe(0);
     expect(store.temporary.size).toBe(0);
+  });
+
+  it('rejects an abort that lands during promotion without reporting successful evidence', async () => {
+    const store = new MemoryAssetStore();
+    const controller = new AbortController();
+    const reason = new DOMException('Cancelled during promotion', 'AbortError');
+    const promote = store.promote.bind(store);
+    store.promote = vi.fn(async (temporaryKey, cacheKey, identity) => {
+      await promote(temporaryKey, cacheKey, identity);
+      controller.abort(reason);
+    });
+    const ports = manager(store);
+    const set = manifest();
+
+    await expect(
+      ports.instance.prepare(set, createConsentReceipt(set, ['test-license']), {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(store.final.get(set.assets[0]!.cacheKey)).toEqual(BYTES);
+    expect(store.temporary.size).toBe(0);
+  });
+
+  it('rejects an abort that lands during the sole verified read before returning transferable bytes', async () => {
+    const store = new MemoryAssetStore();
+    const set = manifest();
+    store.final.set(set.assets[0]!.cacheKey, BYTES);
+    const controller = new AbortController();
+    const reason = new DOMException('Cancelled during verified read', 'AbortError');
+    const readVerified = store.readVerified.bind(store);
+    store.readVerified = vi.fn(async (cacheKey, sha256, bytes) => {
+      const verified = await readVerified(cacheKey, sha256, bytes);
+      controller.abort(reason);
+      return verified;
+    });
+    const ports = manager(store);
+
+    await expect(
+      ports.instance.readPreparedAssets(set, createConsentReceipt(set, ['test-license']), {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('streams chunks into temporary storage, incrementally enforces size, and reports progress', async () => {

@@ -572,7 +572,7 @@ const BrowserRuntimeS0DownloadEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase
     }
   });
 
-export const BrowserRuntimeS0EvidenceSchema = z
+export const BrowserRuntimeS0EvidenceStructureSchema = z
   .object({
     schemaVersion: z.literal(1),
     kind: z.literal('open-voice-browser-runtime-s0'),
@@ -605,6 +605,133 @@ export const BrowserRuntimeS0EvidenceSchema = z
       });
     }
   });
+
+export function parseBrowserRuntimeS0Evidence(
+  value: unknown,
+  trustedAssetSetInput: AssetSetManifest,
+): BrowserRuntimeS0Evidence {
+  const trustedAssetSet = AssetSetManifestSchema.parse(trustedAssetSetInput);
+  const boundSchema = BrowserRuntimeS0EvidenceStructureSchema.superRefine((evidence, context) => {
+    const addBindingIssue = (path: Array<string | number>, message: string): void => {
+      context.addIssue({ code: 'custom', path, message });
+    };
+    if (evidence.assetSetId !== trustedAssetSet.id) {
+      addBindingIssue(
+        ['assetSetId'],
+        'S0 evidence asset-set ID does not match the trusted manifest',
+      );
+    }
+    if (evidence.manifestDigest !== trustedAssetSet.manifestDigest) {
+      addBindingIssue(
+        ['manifestDigest'],
+        'S0 evidence digest does not match the trusted manifest digest',
+      );
+    }
+    for (const licenseId of trustedAssetSet.requiredAcceptanceLicenseIds) {
+      if (!evidence.consent.acceptedLicenseIds.includes(licenseId)) {
+        addBindingIssue(
+          ['consent', 'acceptedLicenseIds'],
+          `S0 evidence is missing required license acceptance ${licenseId}`,
+        );
+      }
+    }
+    const requiredTermsHashes = [
+      ...new Set(
+        trustedAssetSet.assets.flatMap((asset) =>
+          asset.requiredAcceptance === null ? [] : [asset.requiredAcceptance.termsHash],
+        ),
+      ),
+    ];
+    for (const termsHash of requiredTermsHashes) {
+      if (!evidence.consent.acceptedTermsHashes.includes(termsHash)) {
+        addBindingIssue(
+          ['consent', 'acceptedTermsHashes'],
+          `S0 evidence is missing required terms acceptance ${termsHash}`,
+        );
+      }
+    }
+
+    if (evidence.assets.length !== trustedAssetSet.assets.length) {
+      addBindingIssue(
+        ['assets'],
+        'S0 evidence assets must have the exact trusted manifest length and order',
+      );
+    }
+    for (const [index, trustedAsset] of trustedAssetSet.assets.entries()) {
+      const assetEvidence = evidence.assets[index];
+      if (assetEvidence === undefined) continue;
+      const expectedIdentity = [
+        ['assetId', assetEvidence.assetId, trustedAsset.id],
+        ['cacheKey', assetEvidence.cacheKey, trustedAsset.cacheKey],
+        ['expectedBytes', assetEvidence.expectedBytes, trustedAsset.bytes],
+        ['observedBytes', assetEvidence.observedBytes, trustedAsset.bytes],
+        ['expectedSha256', assetEvidence.expectedSha256, trustedAsset.sha256],
+        ['observedSha256', assetEvidence.observedSha256, trustedAsset.sha256],
+      ] as const;
+      for (const [field, observed, expected] of expectedIdentity) {
+        if (observed !== expected) {
+          addBindingIssue(
+            ['assets', index, field],
+            `S0 evidence ${field} does not match trusted manifest asset ${trustedAsset.id}`,
+          );
+        }
+      }
+      if (assetEvidence.disposition === 'downloaded') {
+        if (assetEvidence.requestUrl !== trustedAsset.url) {
+          addBindingIssue(
+            ['assets', index, 'requestUrl'],
+            `S0 evidence request URL does not match trusted manifest asset ${trustedAsset.id}`,
+          );
+        }
+        if (!trustedAsset.approvedFinalOrigins.includes(assetEvidence.finalOrigin)) {
+          addBindingIssue(
+            ['assets', index, 'finalOrigin'],
+            `S0 evidence final origin is not approved for trusted manifest asset ${trustedAsset.id}`,
+          );
+        }
+      }
+    }
+
+    const safetyMarginBytes = Math.min(
+      64 * 1024 * 1024,
+      Math.max(8 * 1024 * 1024, Math.ceil(trustedAssetSet.totalBytes * 0.05)),
+    );
+    const largestAssetBytes = Math.max(...trustedAssetSet.assets.map((asset) => asset.bytes));
+    let retainedBytes = 0;
+    let candidateBytes = 0;
+    let largestTemporaryBytes = 0;
+    for (const [index, trustedAsset] of trustedAssetSet.assets.entries()) {
+      if (evidence.assets[index]?.disposition === 'cache-hit') {
+        retainedBytes += trustedAsset.bytes;
+      } else {
+        candidateBytes += trustedAsset.bytes;
+        largestTemporaryBytes = Math.max(largestTemporaryBytes, trustedAsset.bytes);
+      }
+    }
+    const additionalRequiredBytes =
+      candidateBytes === 0 ? 0 : candidateBytes + largestTemporaryBytes + safetyMarginBytes;
+    const expectedStorage = {
+      selectedBytes: trustedAssetSet.totalBytes,
+      largestAssetBytes,
+      safetyMarginBytes,
+      upperBoundBytes: trustedAssetSet.totalBytes + largestAssetBytes + safetyMarginBytes,
+      retainedBytes,
+      candidateBytes,
+      largestTemporaryBytes,
+      additionalRequiredBytes,
+      requiredCapacityBytes: retainedBytes + additionalRequiredBytes,
+    } as const;
+    for (const [field, expected] of Object.entries(expectedStorage)) {
+      if (evidence.storage[field as keyof typeof expectedStorage] !== expected) {
+        addBindingIssue(
+          ['storage', field],
+          `S0 storage ${field} does not match the trusted manifest and asset dispositions`,
+        );
+      }
+    }
+  });
+  return boundSchema.parse(value);
+}
 
 export const FeatureFlagSchema = z
   .object({
@@ -1099,7 +1226,7 @@ export type ImmutableAsset = z.infer<typeof ImmutableAssetSchema>;
 export type PinnedReleaseAssetEvidence = z.infer<typeof PinnedReleaseAssetEvidenceSchema>;
 export type AssetDeliveryEvidence = z.infer<typeof AssetDeliveryEvidenceSchema>;
 export type AssetSetManifest = z.infer<typeof AssetSetManifestSchema>;
-export type BrowserRuntimeS0Evidence = z.infer<typeof BrowserRuntimeS0EvidenceSchema>;
+export type BrowserRuntimeS0Evidence = z.infer<typeof BrowserRuntimeS0EvidenceStructureSchema>;
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type WorkerCommand = z.infer<typeof WorkerCommandSchema>;
 export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;
