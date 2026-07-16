@@ -609,7 +609,7 @@ describe('direct dependency policy', () => {
   it('aggregates the complete actual dependency policy', () => {
     expect(auditRepository(root)).toEqual({
       npmManifests: 5,
-      npmLockedRegistryPackages: 295,
+      npmLockedRegistryPackages: 311,
       cargoDirectRequirements: 23,
       cargoLockedPackages: 526,
       violations: [],
@@ -1236,7 +1236,7 @@ describe('direct dependency policy', () => {
       'packages/catalog/package.json',
       'packages/contracts/package.json',
     ]);
-    expect(result.lockedRegistryPackages).toBe(295);
+    expect(result.lockedRegistryPackages).toBe(311);
     expect(result.violations).toEqual([]);
   });
 
