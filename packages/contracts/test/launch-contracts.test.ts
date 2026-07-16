@@ -1168,8 +1168,9 @@ const pocketCoverageManifest = {
 };
 
 describe('Pocket multilingual coverage contracts', () => {
-  it('exports the exact closed selector, rights-family, and listing-policy domains', () => {
+  it('exports the exact closed selector, label, rights-family, and listing-policy domains', () => {
     expect(api.POCKET_SELECTOR_IDS).toEqual(pocketSelectors.map(([selectorId]) => selectorId));
+    expect(api.POCKET_LABELS).toEqual(pocketLabels);
     expect(api.POCKET_RIGHTS_FAMILIES).toEqual([
       'alba-mackenna',
       'unmute-estelle',
@@ -1189,6 +1190,18 @@ describe('Pocket multilingual coverage contracts', () => {
 
   it('accepts a closed catalog-only variant with exact derived identity and evidence', () => {
     expect(schema('PocketPresetVariantSchema').safeParse(pocketVariant).success).toBe(true);
+  });
+
+  it('rejects a rogue standalone label with internally consistent derived identity and path', () => {
+    const rogueVariant = {
+      ...pocketVariant,
+      id: 'pocket:german_24l.rogue_label',
+      upstreamId: 'german_24l.rogue_label',
+      label: 'rogue_label',
+      upstreamPath: 'languages/german_24l/embeddings/rogue_label.safetensors',
+    };
+
+    expect(schema('PocketPresetVariantSchema').safeParse(rogueVariant).success).toBe(false);
   });
 
   it.each([
@@ -1382,6 +1395,31 @@ describe('Pocket multilingual coverage contracts', () => {
     ).toBe(false);
     expect(
       manifestSchema.safeParse({ ...pocketCoverageManifest, variants: duplicateVariant }).success,
+    ).toBe(false);
+  });
+
+  it('rejects replacing all 12 occurrences of one exact label with a consistent rogue label', () => {
+    const rogueVariants = pocketVariants.map((variant) =>
+      variant.label === 'alba'
+        ? {
+            ...variant,
+            id: `pocket:${variant.selectorId}.rogue_label`,
+            upstreamId: `${variant.selectorId}.rogue_label`,
+            label: 'rogue_label',
+            upstreamPath: `languages/${variant.selectorId}/embeddings/rogue_label.safetensors`,
+          }
+        : variant,
+    );
+
+    expect(rogueVariants).toHaveLength(312);
+    expect(new Set(rogueVariants.map(({ id }) => id))).toHaveLength(312);
+    expect(new Set(rogueVariants.map(({ upstreamPath }) => upstreamPath))).toHaveLength(312);
+    expect(new Set(rogueVariants.map(({ label }) => label))).toHaveLength(26);
+    expect(
+      schema('PocketCoverageManifestSchema').safeParse({
+        ...pocketCoverageManifest,
+        variants: rogueVariants,
+      }).success,
     ).toBe(false);
   });
 

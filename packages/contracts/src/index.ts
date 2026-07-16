@@ -216,6 +216,35 @@ export const POCKET_SELECTOR_IDS = [
   'spanish_24l',
 ] as const;
 
+export const POCKET_LABELS = [
+  'alba',
+  'anna',
+  'azelma',
+  'bill_boerst',
+  'caro_davy',
+  'charles',
+  'cosette',
+  'eponine',
+  'estelle',
+  'eve',
+  'fantine',
+  'george',
+  'giovanni',
+  'jane',
+  'javert',
+  'jean',
+  'juergen',
+  'lola',
+  'marius',
+  'mary',
+  'michael',
+  'paul',
+  'peter_yearsley',
+  'rafael',
+  'stuart_bell',
+  'vera',
+] as const;
+
 export const POCKET_RIGHTS_FAMILIES = [
   'alba-mackenna',
   'unmute-estelle',
@@ -234,6 +263,7 @@ export const POCKET_LISTING_POLICIES = [
 ] as const;
 
 const PocketSelectorIdSchema = z.enum(POCKET_SELECTOR_IDS);
+const PocketLabelSchema = z.enum(POCKET_LABELS);
 const PocketRightsFamilySchema = z.enum(POCKET_RIGHTS_FAMILIES);
 const PocketListingPolicySchema = z.enum(POCKET_LISTING_POLICIES);
 const PocketLanguageTagSchema = z.enum(['en', 'fr', 'de', 'it', 'pt', 'es']);
@@ -270,7 +300,7 @@ export const PocketPresetVariantSchema = z
     engineId: z.literal('pocket'),
     upstreamId: UpstreamIdSchema,
     selectorId: PocketSelectorIdSchema,
-    label: UpstreamIdSchema,
+    label: PocketLabelSchema,
     upstreamPath: z.string().min(1),
     languageTag: PocketLanguageTagSchema,
     countryCode: z.null(),
