@@ -1,10 +1,10 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import process from 'node:process';
-import { parse } from 'yaml';
+
+import { loadOpenApiDocument } from './openapi-loader.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const sourcePath = resolve(root, 'openapi/openapi.yaml');
 const outputPath = resolve(root, 'src/generated/protocol.ts');
 
 function schemaType(schema) {
@@ -50,7 +50,7 @@ function generate(document) {
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
-const document = parse(await readFile(sourcePath, 'utf8'));
+const document = await loadOpenApiDocument();
 const output = generate(document);
 if (process.argv.includes('--write')) {
   await mkdir(resolve(root, 'src/generated'), { recursive: true });

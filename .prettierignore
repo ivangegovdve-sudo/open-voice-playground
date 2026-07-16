@@ -14,3 +14,5 @@ packages/catalog/src/launch-piper-evidence.ts
 # Tool-owned output: OpenAPI drift has its own check; Tauri owns schema formatting.
 apps/companion/src-tauri/gen/schemas/*.json
 apps/companion/src/generated/protocol.ts
+# Immutable upstream OAI bytes are guarded by an explicit length and SHA-256 check.
+apps/companion/openapi/vendor/oas-3.1-schema-2025-11-23.json

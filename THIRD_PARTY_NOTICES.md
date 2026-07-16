@@ -9,6 +9,16 @@ revisions, digests, review status, scopes, attribution, and recorded permissions
 `packages/catalog/data/launch-catalog.public.json`. A missing permission is treated as unestablished,
 not inferred.
 
+## OpenAPI structural schema
+
+The unchanged OpenAPI 3.1 structural schema revision dated 2025-11-23 is vendored from the OpenAPI
+Initiative's `spec.openapis.org` repository under Apache-2.0. Source:
+`https://spec.openapis.org/oas/3.1/schema/2025-11-23`. The retained file is exactly 33,452 bytes with
+SHA-256 `1b8ccc6e34234b17536f2dd0eb3597142a32bd108438cd42471a5fca4c1a07ef`. The upstream
+repository has no `NOTICE` file and the schema carries no separate embedded attribution notice. A
+complete copy of its license is retained at
+`apps/companion/openapi/vendor/LICENSE-OAI-APACHE-2.0.txt`.
+
 ## Preset engines
 
 ### Edge voice metadata

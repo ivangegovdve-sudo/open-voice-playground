@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { describe, expect, it } from 'vitest';
-import { parse } from 'yaml';
+
+import { loadOpenApiDocument } from '../scripts/openapi-loader.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const openApiPath = resolve(root, 'openapi/openapi.yaml');
@@ -109,9 +110,9 @@ function assertStrictObjects(value: unknown): void {
 }
 
 describe('authoritative companion OpenAPI', () => {
-  it('defines the strict fail-closed v1 surface and validates shared fixtures', () => {
+  it('defines the strict fail-closed v1 surface and validates shared fixtures', async () => {
     expect(existsSync(openApiPath), 'authoritative OpenAPI document is missing').toBe(true);
-    const document = parse(readFileSync(openApiPath, 'utf8')) as OpenApiDocument;
+    const document = (await loadOpenApiDocument()) as OpenApiDocument;
     expect(document.openapi).toBe('3.1.2');
     expect(document.jsonSchemaDialect).toBe('https://json-schema.org/draft/2020-12/schema');
     expect(document.servers).toEqual([{ url: 'http://127.0.0.1:17843' }]);
