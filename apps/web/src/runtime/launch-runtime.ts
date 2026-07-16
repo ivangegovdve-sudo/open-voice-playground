@@ -14,10 +14,10 @@ import {
 } from './runtime';
 
 export type LaunchWorkerFactories = {
-  kokoro: () => WorkerPort;
-  kitten: () => WorkerPort;
-  supertonic: () => WorkerPort;
-  piper: () => WorkerPort;
+  kokoro: () => WorkerPort | Promise<WorkerPort>;
+  kitten: () => WorkerPort | Promise<WorkerPort>;
+  supertonic: () => WorkerPort | Promise<WorkerPort>;
+  piper: () => WorkerPort | Promise<WorkerPort>;
 };
 
 export type LaunchRuntimeRegistryOptions = {
@@ -32,26 +32,10 @@ export type LaunchRuntimeRegistryOptions = {
 };
 
 const defaultWorkerFactories: LaunchWorkerFactories = {
-  kokoro: () =>
-    new Worker(new URL('./workers/kokoro.worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'open-voice-kokoro',
-    }),
-  kitten: () =>
-    new Worker(new URL('./workers/kitten.worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'open-voice-kitten',
-    }),
-  supertonic: () =>
-    new Worker(new URL('./workers/supertonic.worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'open-voice-supertonic',
-    }),
-  piper: () =>
-    new Worker(new URL('./workers/piper.worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'open-voice-piper',
-    }),
+  kokoro: async () => (await import('./workers/factories/kokoro')).createWorker(),
+  kitten: async () => (await import('./workers/factories/kitten')).createWorker(),
+  supertonic: async () => (await import('./workers/factories/supertonic')).createWorker(),
+  piper: async () => (await import('./workers/factories/piper')).createWorker(),
 };
 
 /**

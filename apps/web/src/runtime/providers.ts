@@ -34,7 +34,7 @@ type WorkerRuntimeAdapterOptions = {
     voice: CatalogVoice,
     context: RuntimeOperationContext,
   ) => Promise<void>;
-  workerFactory: () => WorkerPort;
+  workerFactory: () => WorkerPort | Promise<WorkerPort>;
   browserRuntimeEnabled: boolean;
   cancelTimeoutMs?: number;
 };
@@ -220,8 +220,12 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
         throw abortError();
       }
 
-      const generation = this.ensureGeneration();
+      const generation = await this.ensureGeneration(preparation.controller.signal);
       preparation.generation = generation;
+      if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
+        await this.cancelPreparation(preparation, abortError());
+        throw abortError();
+      }
       const operationId = ++this.nextOperationId;
       const command = WorkerCommandSchema.parse({
         command: 'prepare',
@@ -357,9 +361,42 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     return voice;
   }
 
-  private ensureGeneration(): WorkerGeneration {
+  private async ensureGeneration(signal: AbortSignal): Promise<WorkerGeneration> {
     if (this.generation !== null) return this.generation;
-    const port = this.workerFactory();
+    if (signal.aborted) throw abortError();
+
+    let abortFactoryWait: (() => void) | null = null;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abortFactoryWait = () => reject(abortError());
+      if (signal.aborted) abortFactoryWait();
+      else signal.addEventListener('abort', abortFactoryWait, { once: true });
+    });
+    const portPromise = Promise.resolve().then(() => {
+      if (signal.aborted) throw abortError();
+      return this.workerFactory();
+    });
+    void portPromise.then(
+      (latePort) => {
+        if (!signal.aborted) return;
+        try {
+          latePort.terminate();
+        } catch {
+          // A cancelled owner cannot recover a late port; termination is best effort.
+        }
+      },
+      () => undefined,
+    );
+
+    let port: WorkerPort;
+    try {
+      port = await Promise.race([portPromise, aborted]);
+    } finally {
+      if (abortFactoryWait !== null) signal.removeEventListener('abort', abortFactoryWait);
+    }
+    if (signal.aborted) {
+      port.terminate();
+      throw abortError();
+    }
     const generation = {
       id: ++this.nextGenerationId,
       port,

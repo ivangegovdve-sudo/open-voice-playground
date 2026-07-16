@@ -141,7 +141,11 @@ function deterministicBase64Payload(bytes: number): string {
   return Buffer.from(payload).toString('base64');
 }
 
-async function buildMetadata(root: string): Promise<BuildMetadata> {
+async function buildMetadata(
+  root: string,
+  manualChunks?: (id: string) => string | undefined,
+  modulePreload = true,
+): Promise<BuildMetadata> {
   await build({
     root,
     configFile: join(APP_ROOT, 'vite.config.ts'),
@@ -149,12 +153,14 @@ async function buildMetadata(root: string): Promise<BuildMetadata> {
     build: {
       assetsInlineLimit: 0,
       emptyOutDir: true,
+      modulePreload,
       outDir: 'dist',
       rollupOptions: {
         output: {
           assetFileNames: 'assets/[name]-[hash][extname]',
           chunkFileNames: 'assets/[name].js',
           entryFileNames: 'assets/[name].js',
+          ...(manualChunks === undefined ? {} : { manualChunks }),
         },
       },
     },
@@ -314,6 +320,10 @@ test('shell injection excludes Worker entries, dynamic inference chunks, and run
   const root = await createBuildFixture();
   await Promise.all([
     writeFile(join(root, 'runtime.worker.js'), "self.postMessage('worker loaded');"),
+    writeFile(
+      join(root, 'worker-factory.js'),
+      "export const createWorker = () => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+    ),
     writeFile(join(root, 'inference.js'), "document.body.dataset.inference = 'loaded';"),
     writeFile(join(root, 'runtime.wasm'), new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])),
     writeFile(join(root, 'model.bin'), new Uint8Array([1, 2, 3, 4])),
@@ -323,7 +333,7 @@ test('shell injection excludes Worker entries, dynamic inference chunks, and run
         "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
         "document.body.dataset.wasm = new URL('./runtime.wasm', import.meta.url).href;",
         "document.body.dataset.model = new URL('./model.bin', import.meta.url).href;",
-        "new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+        "globalThis.__fixtureWorkerFactory = async () => (await import('./worker-factory.js')).createWorker();",
         "void import('./inference.js');",
       ].join('\n'),
     ),
@@ -455,7 +465,7 @@ test('permits arbitrary engine filenames outside guarded namespaces', async () =
   await expect(buildMetadata(root)).resolves.toBeDefined();
 });
 
-test('permits guarded runtime packages and Workers only through genuinely lazy graphs', async () => {
+test('permits guarded runtime packages and Worker factories only through dynamic imports', async () => {
   const root = await createBuildFixture();
   await installFixtureInferencePackages(root);
   await mkdir(join(root, 'runtime', 'supertonic'), { recursive: true });
@@ -464,15 +474,686 @@ test('permits guarded runtime packages and Workers only through genuinely lazy g
     "self.postMessage('lazy runtime');",
   );
   await writeFile(
+    join(root, 'runtime', 'supertonic', 'create-worker.mjs'),
+    "export const createWorker = () => new Worker(new URL('./lazy.worker.mjs', import.meta.url), { type: 'module' });",
+  );
+  await writeFile(
     join(root, 'main.js'),
     [
       "void import('onnxruntime-web/webgpu');",
-      "new Worker(new URL('./runtime/supertonic/lazy.worker.mjs', import.meta.url), { type: 'module' });",
+      "globalThis.__lazyRuntimeFactory = async () => (await import('./runtime/supertonic/create-worker.mjs')).createWorker();",
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  const { buildAssets } = await buildMetadata(root);
+  expect(buildAssets).not.toEqual(
+    expect.arrayContaining([expect.stringMatching(/create-worker|lazy\.worker|webgpu/i)]),
+  );
+});
+
+test.each([
+  ['data URL', 'data:text/javascript,globalThis.__remoteScript=true'],
+  ['remote HTTPS URL', 'https://example.com/runtime.js'],
+  ['sentinel-origin absolute HTTPS URL', 'https://open-voice.invalid/assets/index.js'],
+  ['sentinel-origin protocol-relative URL', '//open-voice.invalid/assets/index.js'],
+  ['blob URL', 'blob:https://open-voice.invalid/01234567-89ab-cdef-0123-456789abcdef'],
+  ['javascript URL', 'javascript:globalThis.__remoteScript=true'],
+] as const)('rejects a %s script source', async (_label, source) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body><script src="${source}"></script><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/script source|same-origin|build-owned/i);
+});
+
+test.each([
+  ['an absolute href', '<base href="https://open-voice.invalid/">'],
+  ['a relative href', '<base href="/nested/">'],
+  ['only a target', '<base target="_blank">'],
+] as const)('rejects a base element with %s', async (_label, baseElement) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head>${baseElement}<title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/base element/i);
+});
+
+test.each([
+  ['remote modulepreload', '<link rel="modulepreload" href="https://example.com/runtime.js">'],
+  [
+    'remote fetch preload',
+    '<link rel="preload" as="fetch" href="https://huggingface.co/model.onnx">',
+  ],
+  ['local prefetch', '<link rel="prefetch" href="/later.js">'],
+  ['remote preconnect', '<link rel="preconnect" href="https://example.com">'],
+  ['remote DNS prefetch', '<link rel="dns-prefetch" href="//example.com">'],
+  ['remote prerender', '<link rel="prerender" href="https://example.com/next">'],
+  ['protocol-relative preload', '<link rel="preload" href="//example.com/runtime.js">'],
+  ['data preload', '<link rel="preload" href="data:text/javascript,void 0">'],
+  [
+    'blob prefetch',
+    '<link rel="prefetch" href="blob:https://open-voice.invalid/01234567-89ab-cdef-0123-456789abcdef">',
+  ],
+  [
+    'javascript modulepreload',
+    '<link rel="modulepreload" href="javascript:globalThis.__hint=true">',
+  ],
+  [
+    'case-varied resource-hint token among multiple rel tokens',
+    '<link rel="stylesheet MoDuLePrElOaD" href="/style.css">',
+  ],
+] as const)('rejects a production link with %s', async (_label, link) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head>${link}<title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/resource hint|link relation/i);
+});
+
+test('rejects a local modulepreload that exposes a public raw Worker factory', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'public', 'factory.js'),
+    "export const createWorker = () => new Worker('./runtime.worker.js');",
+  );
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><link rel="modulepreload" href="/factory.js"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/resource hint|link relation/i);
+});
+
+test('rejects an unreviewed request-bearing production link relation', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><link rel="apple-touch-icon-precomposed" href="https://example.com/icon.png"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/reviewed link relation|unreviewed.*link/i);
+});
+
+test.each([
+  ['remote stylesheet', 'stylesheet', 'https://example.com/style.css'],
+  ['protocol-relative stylesheet', 'stylesheet', '//example.com/style.css'],
+  ['data stylesheet', 'stylesheet', 'data:text/css,body{}'],
+  [
+    'blob stylesheet',
+    'stylesheet',
+    'blob:https://open-voice.invalid/01234567-89ab-cdef-0123-456789abcdef',
+  ],
+  ['javascript stylesheet', 'stylesheet', 'javascript:globalThis.__style=true'],
+  ['absolute same-origin stylesheet', 'stylesheet', 'https://open-voice.invalid/style.css'],
+  ['credentialed stylesheet', 'stylesheet', 'https://user:pass@open-voice.invalid/style.css'],
+  ['query-bearing icon', 'icon', '/icon.svg?v=1'],
+  ['fragment-bearing manifest', 'manifest', '/manifest.webmanifest#install'],
+  ['unreviewed public icon', 'icon', '/other.svg'],
+  ['unreviewed public manifest', 'manifest', '/other.webmanifest'],
+] as const)('rejects a production link with a %s target', async (_label, relation, target) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><link rel="${relation}" href="${target}"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/local|same-origin|reviewed|query|hash/i);
+});
+
+test('rejects a local stylesheet that is not an exact build-owned emitted CSS asset', async () => {
+  const root = await createBuildFixture();
+  await writeFile(join(root, 'public', 'unowned.css'), 'body { color: red; }');
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><link rel="stylesheet" href="/unowned.css"><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/stylesheet|build-owned|emitted CSS/i);
+});
+
+test.each(['js', 'mjs'] as const)(
+  'rejects a raw .%s asset that enters the initial shell through emitted CSS',
+  async (extension) => {
+    const root = await createBuildFixture();
+    await Promise.all([
+      writeFile(join(root, `shell-code.${extension}`), "new Worker('./runtime.worker.js');"),
+      writeFile(
+        join(root, 'shell.css'),
+        `.fixture { background-image: url('./shell-code.${extension}'); }`,
+      ),
+      writeFile(
+        join(root, 'main.js'),
+        [
+          "import './shell.css';",
+          "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+        ].join('\n'),
+      ),
+    ]);
+
+    await expect(buildMetadata(root)).rejects.toThrow(/JavaScript.*Rollup chunk|raw.*asset/i);
+  },
+);
+
+test('permits the reviewed icon, manifest, emitted stylesheet, and ordinary anchor hrefs', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(join(root, 'shell.css'), '.fixture { color: CanvasText; }'),
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import './shell.css';",
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+    writeFile(
+      join(root, 'index.html'),
+      '<!doctype html><html><head><link rel="icon" href="/icon.svg"><link rel="manifest" href="/manifest.webmanifest"><link rel="canonical"><title>Fixture</title></head><body><a href="https://example.com/voices?language=en#demo">Ordinary link</a><script type="module" src="/main.js"></script></body></html>',
+    ),
+  ]);
+
+  const { buildAssets } = await buildMetadata(root);
+  expect(buildAssets).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/\/assets\/index\.js$/),
+      expect.stringMatching(/\/assets\/index-[A-Za-z0-9_-]+\.css$/),
+    ]),
+  );
+  expect(buildAssets).not.toEqual(expect.arrayContaining(['/icon.svg', '/manifest.webmanifest']));
+});
+
+test.each([
+  ['remote image src', '<img src="https://example.com/voice.png" alt="">'],
+  ['remote iframe src', '<iframe src="https://example.com/runtime.html" title="Runtime"></iframe>'],
+  [
+    'remote image srcset',
+    '<img srcset="https://example.com/voice-1x.png 1x, https://example.com/voice-2x.png 2x" alt="">',
+  ],
+  ['local non-script src', '<img src="/voice.png" alt="">'],
+  ['remote video poster', '<video poster="https://example.com/poster.png"></video>'],
+  ['remote object data', '<object data="https://example.com/runtime.bin"></object>'],
+  ['legacy background attribute', '<body background="https://example.com/background.png">'],
+  ['meta refresh', '<meta http-equiv="refresh" content="0; url=https://example.com/runtime.html">'],
+  [
+    'remote SVG image href',
+    '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.com/voice.png"></image></svg>',
+  ],
+  [
+    'request-bearing inline style',
+    '<div style="background-image: url(https://example.com/voice.png)"></div>',
+  ],
+  ['request-bearing style element', '<style>@import url(https://example.com/runtime.css);</style>'],
+] as const)('rejects an automatic request from production HTML: %s', async (_label, markup) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body>${markup}<script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/automatic request|request-capable CSS/i);
+});
+
+test('rejects an automatic request from an HTML application-cache manifest', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html manifest="https://example.com/application.appcache"><head><title>Fixture</title></head><body><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/automatic request/i);
+});
+
+test.each([
+  ['remote model URL', '.fixture { background-image: url(https://huggingface.co/model.onnx); }'],
+  ['remote import', '@import url(https://example.com/runtime.css);'],
+  [
+    'case-varied URL function',
+    '.fixture { background-image: UrL(https://example.com/voice.png); }',
+  ],
+  ['comment-separated import', '@IMPORT/**/url(https://example.com/runtime.css);'],
+  [
+    'escaped URL function',
+    String.raw`.fixture { background-image: u\72l(https://example.com/voice.png); }`,
+  ],
+] as const)('rejects an initial emitted CSS request through %s', async (_label, css) => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(join(root, 'shell.css'), css),
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import './shell.css';",
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+  ]);
+
+  await expect(buildMetadata(root)).rejects.toThrow(/request-capable CSS|initial.*CSS/i);
+});
+
+test('permits request-looking CSS text that is inert inside strings and comments', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(
+      join(root, 'shell.css'),
+      '.fixture::before { content: "url(https://example.com/inert.png)"; } /* URL(https://example.com/inert.png) */',
+    ),
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import './shell.css';",
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+  ]);
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('rejects a same-origin script that is not a build-owned emitted entry', async () => {
+  const root = await createBuildFixture();
+  await writeFile(join(root, 'public', 'unowned.js'), 'globalThis.__unownedScript = true;');
+  await writeFile(
+    join(root, 'index.html'),
+    '<!doctype html><html><head><title>Fixture</title></head><body><script src="/unowned.js"></script><script type="module" src="/main.js"></script></body></html>',
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/script source|build-owned|emitted entry/i);
+});
+
+test.each([
+  ['remote SVG href', 'href', 'https://example.com/runtime.js'],
+  ['data SVG href', 'href', 'data:text/javascript,globalThis.__svgScript=true'],
+  ['non-owned SVG href', 'href', '/unowned.js'],
+  ['remote SVG xlink:href', 'xlink:href', 'https://example.com/runtime.js'],
+  ['data SVG xlink:href', 'xlink:href', 'data:text/javascript,globalThis.__svgScript=true'],
+  ['non-owned SVG xlink:href', 'xlink:href', '/unowned.js'],
+] as const)('rejects a %s executable source', async (_label, attribute, source) => {
+  const root = await createBuildFixture();
+  await writeFile(join(root, 'public', 'unowned.js'), 'globalThis.__unownedSvgScript = true;');
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><script ${attribute}="${source}"></script></svg><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/script source|build-owned|emitted entry/i);
+});
+
+test.each([
+  ['body onload', '<body onload="globalThis.__inlineHandler=true">'],
+  ['button onclick', '<body><button onclick="globalThis.__inlineHandler=true">Run</button>'],
+  [
+    'template SVG onload',
+    '<body><template><svg onload="globalThis.__inlineHandler=true"></svg></template>',
+  ],
+] as const)('rejects a nonempty inline event handler on %s', async (_label, openingBody) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head>${openingBody}<script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/inline event handler/i);
+});
+
+test.each([
+  ['an empty source document', ''],
+  ['executable markup', '&lt;script&gt;globalThis.__srcdoc=true;&lt;/script&gt;'],
+  ['arbitrary markup', '&lt;p&gt;reviewed-looking data&lt;/p&gt;'],
+] as const)('rejects iframe srcdoc containing %s', async (_label, sourceDocument) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'index.html'),
+    `<!doctype html><html><head><title>Fixture</title></head><body><iframe srcdoc="${sourceDocument}"></iframe><script type="module" src="/main.js"></script></body></html>`,
+  );
+
+  await expect(buildMetadata(root)).rejects.toThrow(/srcdoc/i);
+});
+
+test.each([
+  [
+    'direct construction',
+    "new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+  ],
+  [
+    'arrow IIFE construction',
+    "(() => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }))();",
+  ],
+  [
+    'scheduled inline callback construction',
+    "queueMicrotask(() => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }));",
+  ],
+  [
+    'invoked factory construction',
+    "const startRuntime = () => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); startRuntime();",
+  ],
+  [
+    'factory passed through an invoked wrapper',
+    "const invoke = (factory) => factory(); invoke(() => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }));",
+  ],
+  [
+    'scheduled named factory construction',
+    "const startRuntime = () => new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); setTimeout(startRuntime, 0);",
+  ],
+  [
+    'aliased Worker constructor construction',
+    "const RuntimeWorker = globalThis.Worker; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+  ],
+  [
+    'computed Worker member construction',
+    "const RuntimeWorker = globalThis['Worker']; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+  ],
+  [
+    'destructured Worker constructor construction',
+    "const { Worker: RuntimeWorker } = globalThis; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });",
+  ],
+  [
+    'Function.prototype.call IIFE construction',
+    "(function () { new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); }).call(null);",
+  ],
+  [
+    'object getter construction',
+    "({ get worker() { return new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); } }).worker;",
+  ],
+  ['computed ordinary object key', "globalThis.__displayMetadata = { [Worker]: 'not metadata' };"],
+  ...(['globalThis', 'window', 'self'] as const).map(
+    (globalName) =>
+      [
+        `Reflect.get ${globalName} construction`,
+        `const RuntimeWorker = Reflect.get(${globalName}, 'Worker'); new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+      ] as const,
+  ),
+  ...(['globalThis', 'window', 'self'] as const).flatMap((globalName) => [
+    [
+      `Reflect.get ${globalName} dynamic-key construction`,
+      `const runtimeKey = location.hash.slice(1) || 'Worker'; const RuntimeWorker = Reflect.get(${globalName}, runtimeKey); new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+    ] as const,
+    [
+      `Reflect['get'] ${globalName} construction`,
+      `const RuntimeWorker = Reflect['get'](${globalName}, 'Worker'); new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+    ] as const,
+    [
+      `Reflect['get'] ${globalName} dynamic-key construction`,
+      `const runtimeKey = location.hash.slice(1) || 'Worker'; const RuntimeWorker = Reflect['get'](${globalName}, runtimeKey); new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+    ] as const,
+  ]),
+  ...(['globalThis', 'window', 'self'] as const).map(
+    (globalName) =>
+      [
+        `computed ObjectPattern ${globalName} construction`,
+        `const runtimeKey = location.hash.slice(1) || 'Worker'; const { [runtimeKey]: RuntimeWorker } = ${globalName}; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+      ] as const,
+  ),
+  ...(['globalThis', 'window', 'self'] as const).map(
+    (globalName) =>
+      [
+        `computed exact-Worker ObjectPattern ${globalName} construction`,
+        `const { ['Worker']: RuntimeWorker } = ${globalName}; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+      ] as const,
+  ),
+  ...(['globalThis', 'window', 'self'] as const).map(
+    (globalName) =>
+      [
+        `dynamic computed ${globalName} construction`,
+        `const workerKey = location.hash.slice(1) || 'Worker'; const RuntimeWorker = ${globalName}[workerKey]; new RuntimeWorker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' });`,
+      ] as const,
+  ),
+] as const)(
+  'rejects Worker %s anywhere in the initial static shell',
+  async (_label, workerCode) => {
+    const root = await createBuildFixture();
+    await writeFile(join(root, 'runtime.worker.js'), "self.postMessage('worker loaded');");
+    await writeFile(
+      join(root, 'main.js'),
+      [
+        workerCode,
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(/static shell.*Worker|Worker.*static shell/i);
+  },
+);
+
+test('permits non-reference Worker display text in a static shell chunk', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "document.body.dataset.label = 'Worker';",
       "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
     ].join('\n'),
   );
 
   await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('permits a non-reference Worker metadata key in an ordinary object', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "globalThis.__displayMetadata = { Worker: 'not a constructor' };",
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('permits benign Reflect.get metadata access on a non-global target', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "const metadata = { Worker: 'display only' };",
+      "document.body.dataset.label = Reflect.get(metadata, 'Worker');",
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('permits computed destructuring from an ordinary non-global object', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "const metadata = { label: 'display only' };",
+      "const metadataKey = location.hash.slice(1) || 'label';",
+      'const { [metadataKey]: displayValue } = metadata;',
+      'document.body.dataset.label = displayValue;',
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('permits an exact Worker display key destructured from an ordinary object', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      `const { Worker: displayValue } = JSON.parse('{"Worker":"display only"}');`,
+      'document.body.dataset.label = displayValue;',
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test.each([
+  ['direct construction', "new SharedWorker('/runtime.js');"],
+  [
+    'aliased global constructor',
+    "const RuntimeWorker = globalThis.SharedWorker; new RuntimeWorker('/runtime.js');",
+  ],
+  [
+    'computed global constructor',
+    "const RuntimeWorker = window['SharedWorker']; new RuntimeWorker('/runtime.js');",
+  ],
+  [
+    'destructured global constructor',
+    "const { SharedWorker: RuntimeWorker } = self; new RuntimeWorker('/runtime.js');",
+  ],
+  [
+    'reflected global constructor',
+    "const RuntimeWorker = Reflect.get(globalThis, 'SharedWorker'); new RuntimeWorker('/runtime.js');",
+  ],
+  [
+    'scheduled factory construction',
+    "const startRuntime = () => new SharedWorker('/runtime.js'); setTimeout(startRuntime, 0);",
+  ],
+  [
+    'object getter construction',
+    "({ get runtime() { return new SharedWorker('/runtime.js'); } }).runtime;",
+  ],
+] as const)(
+  'rejects SharedWorker %s anywhere in the initial static shell',
+  async (_label, sharedWorkerCode) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'main.js'),
+      [
+        sharedWorkerCode,
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(
+      /static shell.*SharedWorker|SharedWorker.*static shell/i,
+    );
+  },
+);
+
+test.each([
+  ['direct eval', `eval("new Worker('/runtime.js')")`],
+  ['indirect eval', `(0, eval)("new Worker('/runtime.js')")`],
+  ['global eval', `globalThis.eval("new Worker('/runtime.js')")`],
+  ['computed global eval', `window['eval']("new Worker('/runtime.js')")`],
+  ['Function call', `Function("return new Worker('/runtime.js')")()`],
+  ['Function constructor', `new Function("return new Worker('/runtime.js')")()`],
+  [
+    'Function.prototype.toString constructor chain',
+    `Function.prototype.toString.constructor("return new Worker('/runtime.js')")()`,
+  ],
+  [
+    'Function.prototype.bind constructor chain',
+    `Function.prototype.bind.constructor("return new SharedWorker('/runtime.js')")()`,
+  ],
+  [
+    'computed Function.prototype constructor chain',
+    `Function.prototype['toString']['constructor']("return (0, eval)('1')")()`,
+  ],
+  ['global Function reference', `globalThis.__runtimeFunction = self.Function`],
+  [
+    'reflected Function reference',
+    `globalThis.__runtimeFunction = Reflect.get(globalThis, 'Function')`,
+  ],
+] as const)(
+  'rejects the %s executable-string seam in the initial static shell',
+  async (_label, executableStringCode) => {
+    const root = await createBuildFixture();
+    await writeFile(
+      join(root, 'main.js'),
+      [
+        executableStringCode,
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    );
+
+    await expect(buildMetadata(root)).rejects.toThrow(
+      /static shell.*(?:eval|Function)|executable-string/i,
+    );
+  },
+);
+
+test('permits inert SharedWorker, eval, and Function metadata keys in an ordinary object', async () => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "globalThis.__displayMetadata = { SharedWorker: 'display', eval: 'display', Function: 'display' };",
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test.each([
+  ['direct toString call', `Function.prototype.toString()`],
+  ['direct bind call', `Function.prototype.bind()`],
+  ['toString.call invocation', `Function.prototype.toString.call(() => undefined)`],
+  ['toString.apply invocation', `Function.prototype.toString.apply(() => undefined, [])`],
+  ['bind.call invocation', `Function.prototype.bind.call(() => undefined)`],
+  ['bind.apply invocation', `Function.prototype.bind.apply(() => undefined, [])`],
+] as const)('permits a reviewed Function.prototype utility through %s', async (_label, code) => {
+  const root = await createBuildFixture();
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      code,
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  await expect(buildMetadata(root)).resolves.toBeDefined();
+});
+
+test('rejects a Worker factory invoked across initial static chunks', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import { start } from './factory.js';",
+        'start();',
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+    writeFile(
+      join(root, 'factory.js'),
+      "export function start() { new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); }",
+    ),
+    writeFile(join(root, 'runtime.worker.js'), "self.postMessage('worker loaded');"),
+  ]);
+
+  await expect(
+    buildMetadata(root, (id) => (/[\\/]factory\.js$/.test(id) ? 'factory' : undefined), false),
+  ).rejects.toThrow(/static shell.*Worker|Worker.*static shell/i);
+});
+
+test('rejects an imported but uninvoked Worker factory across initial static chunks', async () => {
+  const root = await createBuildFixture();
+  await Promise.all([
+    writeFile(
+      join(root, 'main.js'),
+      [
+        "import { start } from './factory.js';",
+        'globalThis.__lazyRuntimeFactory = start;',
+        "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+      ].join('\n'),
+    ),
+    writeFile(
+      join(root, 'factory.js'),
+      "export function start() { return new Worker(new URL('./runtime.worker.js', import.meta.url), { type: 'module' }); }",
+    ),
+    writeFile(join(root, 'runtime.worker.js'), "self.postMessage('worker loaded');"),
+  ]);
+
+  await expect(
+    buildMetadata(root, (id) => (/[\\/]factory\.js$/.test(id) ? 'factory' : undefined), false),
+  ).rejects.toThrow(/static shell.*Worker|Worker.*static shell/i);
 });
 
 test.each(['classic', 'module'] as const)(
@@ -692,6 +1373,9 @@ test('the actual production entry graph stays small and excludes emitted inferen
     root: APP_ROOT,
     configFile: join(APP_ROOT, 'vite.config.ts'),
     logLevel: 'silent',
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    },
     resolve: {
       alias: {
         '@open-voice/contracts': resolve(APP_ROOT, '../../packages/contracts/src/index.ts'),
@@ -712,6 +1396,7 @@ test('the actual production entry graph stays small and excludes emitted inferen
     {
       file: string;
       imports?: string[];
+      isDynamicEntry?: boolean;
       isEntry?: boolean;
       src?: string;
     }
@@ -737,6 +1422,16 @@ test('the actual production entry graph stays small and excludes emitted inferen
     )
   ).reduce((total, bytes) => total + bytes, 0);
   expect(initialGzipBytes).toBeLessThan(250 * 1024);
+
+  const factoryEntries = Object.entries(manifest).filter(([key, record]) =>
+    /runtime[\\/]workers[\\/]factories[\\/](?:kokoro|kitten|supertonic|piper)\.ts$/.test(
+      record.src ?? key,
+    ),
+  );
+  expect(factoryEntries).toHaveLength(4);
+  expect(factoryEntries.every(([, record]) => record.isDynamicEntry === true)).toBe(true);
+  expect(new Set(factoryEntries.map(([, record]) => record.file)).size).toBe(4);
+  for (const [key] of factoryEntries) expect(initialKeys).not.toContain(key);
 
   for (const file of initialJavaScriptFiles) {
     const sourceMap = JSON.parse(await readFile(join(outDir, `${file}.map`), 'utf8')) as {
@@ -764,6 +1459,10 @@ test('the actual production entry graph stays small and excludes emitted inferen
   );
   for (const workerFile of workerFiles) {
     expect(buildAssets).not.toContain(`/${workerFile}`);
+  }
+  for (const [, factory] of factoryEntries) {
+    expect(buildAssets).not.toContain(`/${factory.file}`);
+    expect(initialJavaScriptFiles).not.toContain(factory.file);
   }
 });
 

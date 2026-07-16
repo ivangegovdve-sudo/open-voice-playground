@@ -171,6 +171,159 @@ describe('lazy preset-only provider boundaries', () => {
     await prepared;
   });
 
+  it('awaits an asynchronous Worker factory only after consent-gated asset preparation', async () => {
+    let releaseAssets!: () => void;
+    let resolveWorker!: (worker: WorkerPort) => void;
+    const worker = new FakeWorker();
+    const preset = voice();
+    const prepareAssets = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseAssets = resolve;
+        }),
+    );
+    const workerFactory = vi.fn(
+      () =>
+        new Promise<WorkerPort>((resolve) => {
+          resolveWorker = resolve;
+        }),
+    );
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets,
+      workerFactory,
+      browserRuntimeEnabled: true,
+    });
+
+    const prepared = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Load the selected runtime only after consent.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(prepareAssets).toHaveBeenCalledOnce());
+    expect(workerFactory).not.toHaveBeenCalled();
+
+    releaseAssets();
+    await vi.waitFor(() => expect(workerFactory).toHaveBeenCalledOnce());
+    expect(worker.messages).toHaveLength(0);
+
+    resolveWorker(worker);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await prepared;
+  });
+
+  it('terminates a Worker that resolves after its asynchronous factory was cancelled', async () => {
+    let resolveWorker!: (worker: WorkerPort) => void;
+    const worker = new FakeWorker();
+    const preset = voice();
+    const workerFactory = vi.fn(
+      () =>
+        new Promise<WorkerPort>((resolve) => {
+          resolveWorker = resolve;
+        }),
+    );
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory,
+      browserRuntimeEnabled: true,
+    });
+    const prepared = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Cancel while the selected runtime module loads.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(workerFactory).toHaveBeenCalledOnce());
+
+    await adapter.cancel();
+    resolveWorker(worker);
+
+    await expect(prepared).rejects.toMatchObject({ name: 'AbortError' });
+    expect(worker.messages).toHaveLength(0);
+    expect(worker.terminated).toBe(true);
+  });
+
+  it.each(['cancel', 'dispose'] as const)(
+    '%s promptly rejects preparation when an asynchronous Worker factory never settles',
+    async (cleanupMethod) => {
+      const preset = voice();
+      const workerFactory = vi.fn(() => new Promise<WorkerPort>(() => {}));
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets: async () => {},
+        workerFactory,
+        browserRuntimeEnabled: true,
+      });
+      const prepared = adapter.prepare({
+        voice: preset,
+        mode: 'browser',
+        text: 'Cancel without waiting for a stalled runtime module.',
+        controls: { speed: 1 },
+      });
+      const settled = prepared.catch((error: unknown) => error);
+      await vi.waitFor(() => expect(workerFactory).toHaveBeenCalledOnce());
+
+      await adapter[cleanupMethod]();
+
+      await expect(Promise.race([settled, stillPendingAfter()])).resolves.toMatchObject({
+        name: 'AbortError',
+      });
+    },
+  );
+
+  it('consumes a late asynchronous Worker factory rejection after prompt cancellation', async () => {
+    let rejectWorker!: (reason: unknown) => void;
+    const preset = voice();
+    const nextWorker = new FakeWorker();
+    const workerFactory = vi
+      .fn<() => WorkerPort | Promise<WorkerPort>>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<WorkerPort>((_resolve, reject) => {
+            rejectWorker = reject;
+          }),
+      )
+      .mockImplementationOnce(() => nextWorker);
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory,
+      browserRuntimeEnabled: true,
+    });
+    const request = {
+      voice: preset,
+      mode: 'browser' as const,
+      text: 'A late module failure must not escape cancelled ownership.',
+      controls: { speed: 1 },
+    };
+    const cancelledPreparation = adapter.prepare(request);
+    const cancelledOutcome = cancelledPreparation.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(workerFactory).toHaveBeenCalledOnce());
+
+    await adapter.cancel();
+    await expect(Promise.race([cancelledOutcome, stillPendingAfter()])).resolves.toMatchObject({
+      name: 'AbortError',
+    });
+
+    rejectWorker(new Error('The cancelled module failed later.'));
+    await Promise.resolve();
+    const nextPreparation = adapter.prepare(request);
+    await vi.waitFor(() => expect(nextWorker.messages).toHaveLength(1));
+    nextWorker.emit({ type: 'ready', operationId: 1 });
+    await nextPreparation;
+  });
+
   it('resolves forged caller voice objects through the adapter-owned canonical map', async () => {
     const worker = new FakeWorker();
     const canonical = voice();
