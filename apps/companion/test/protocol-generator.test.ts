@@ -813,7 +813,7 @@ export type SyntheticTypeContract = readonly [
       (document: OpenApiDocument) => {
         const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
         (operation.responses as Record<string, unknown>)['400'] = {
-          $ref: '#/components/headers/CacheControl',
+          $ref: '#/components/headers/NoStore',
         };
       },
     ],
@@ -898,7 +898,7 @@ export type SyntheticTypeContract = readonly [
           }
         ).responses.HealthOkResponse!;
         response.headers['Cache-Control'] = {
-          $ref: '#/components/headers/CacheControl',
+          $ref: '#/components/headers/NoStore',
           required: true,
         };
       },
@@ -922,7 +922,7 @@ export type SyntheticTypeContract = readonly [
       (document: OpenApiDocument) => {
         const operation = document.paths['/v1/health']!.get as Record<string, unknown>;
         (operation.parameters as Record<string, unknown>[])[0] = {
-          $ref: '#/components/headers/CacheControl',
+          $ref: '#/components/headers/NoStore',
         };
       },
     ],

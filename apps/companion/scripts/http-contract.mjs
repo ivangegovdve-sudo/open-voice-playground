@@ -185,6 +185,50 @@ const preflightIds = {
   '/v1/packs/{id}/actions': 'preflightPackActions',
 };
 
+const expectedProblemCodes = [
+  'host-invalid',
+  'origin-missing',
+  'origin-denied',
+  'version-missing',
+  'version-unsupported',
+  'auth-missing',
+  'auth-invalid',
+  'auth-origin-mismatch',
+  'scope-denied',
+  'rate-limited',
+  'request-line-too-large',
+  'headers-too-large',
+  'body-too-large',
+  'body-timeout',
+  'header-timeout',
+  'schema-invalid',
+  'queue-full',
+  'ownership-denied',
+  'resource-not-found',
+  'conflict',
+  'handler-timeout',
+  'listener-conflict',
+  'pairing-not-found',
+  'pairing-denied',
+  'pairing-expired',
+  'pairing-consumed',
+  'pairing-attempts-exhausted',
+  'pack-unverified',
+  'runtime-unavailable',
+  'method-not-allowed',
+  'content-type-unsupported',
+  'transfer-encoding-invalid',
+  'duplicate-header',
+  'text-invalid',
+  'action-invalid',
+];
+
+const expectedServers = [{ url: 'http://127.0.0.1:17843' }];
+const expectedSecuritySchemes = {
+  bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'OVP-43' },
+};
+const componentKeys = ['securitySchemes', 'parameters', 'headers', 'responses', 'schemas'];
+
 const expectedSourcePolicy = {
   version: 1,
   allowedOriginSource: 'compiled-exact-allowlist',
@@ -330,6 +374,22 @@ function assertKeys(value, keys, path) {
     !jsonEqual(Object.keys(value).sort(compareCodeUnits), [...keys].sort(compareCodeUnits))
   ) {
     fail(`${path} has an unsupported shape.`);
+  }
+}
+
+function assertSourceClosure(document) {
+  if (Object.prototype.hasOwnProperty.call(document, 'webhooks')) {
+    fail('root webhooks are not owned by the HTTP contract.');
+  }
+  if (!jsonEqual(document.servers, expectedServers)) {
+    fail('root servers do not match the exact loopback authority.');
+  }
+  assertKeys(document.components, componentKeys, 'components');
+  for (const key of componentKeys) {
+    if (!isObject(document.components[key])) fail(`components.${key} must be an object.`);
+  }
+  if (!jsonEqual(document.components.securitySchemes, expectedSecuritySchemes)) {
+    fail('components.securitySchemes does not match the exact bearer scheme.');
   }
 }
 
@@ -547,6 +607,21 @@ function normalizeRequestBody(document, candidate, path) {
   };
 }
 
+function assertOperationSourceKeys(operation, hasRequestBody, path) {
+  assertKeys(
+    operation,
+    [
+      'operationId',
+      'tags',
+      'security',
+      'parameters',
+      'responses',
+      ...(hasRequestBody ? ['requestBody'] : []),
+    ],
+    path,
+  );
+}
+
 function assertSecurity(operation, access, path) {
   if (!Object.prototype.hasOwnProperty.call(operation, 'security'))
     fail(`${path} must declare security explicitly.`);
@@ -587,6 +662,7 @@ function normalizePolicy(document) {
   if (!Array.isArray(problemCodes)) fail('ProblemCode enum is missing.');
   const { http, nonHttp } = policy.problemCodes;
   if (
+    !jsonEqual(problemCodes, expectedProblemCodes) ||
     !jsonEqual(
       problemCodes.filter((code) => http.includes(code)),
       http,
@@ -695,6 +771,107 @@ function prevalidateComponents(document) {
   for (const [name, response] of sortedEntries(document.components.responses ?? {})) {
     normalizeResponse(document, response, 200, `components.responses.${name}`);
   }
+}
+
+function collectSameNamespaceReferences(document, candidate, namespace, reachable, path) {
+  if (!isObject(candidate) || !Object.prototype.hasOwnProperty.call(candidate, '$ref')) return;
+  assertKeys(candidate, ['$ref'], path);
+  const name = canonicalRefName(candidate.$ref, namespace, document, `${path}.$ref`);
+  if (reachable.has(name)) return;
+  reachable.add(name);
+  collectSameNamespaceReferences(
+    document,
+    document.components[namespace][name],
+    namespace,
+    reachable,
+    `components.${namespace}.${name}`,
+  );
+}
+
+function collectResponseReferences(document, candidate, responses, headers, path) {
+  if (!isObject(candidate)) return;
+  if (Object.prototype.hasOwnProperty.call(candidate, '$ref')) {
+    assertKeys(candidate, ['$ref'], path);
+    const name = canonicalRefName(candidate.$ref, 'responses', document, `${path}.$ref`);
+    if (responses.has(name)) return;
+    responses.add(name);
+    collectResponseReferences(
+      document,
+      document.components.responses[name],
+      responses,
+      headers,
+      `components.responses.${name}`,
+    );
+    return;
+  }
+  if (!isObject(candidate.headers)) return;
+  for (const [name, header] of sortedEntries(candidate.headers)) {
+    collectSameNamespaceReferences(document, header, 'headers', headers, `${path}.headers.${name}`);
+  }
+}
+
+function collectParameterList(document, candidates, reachable, path) {
+  if (candidates === undefined) return;
+  if (!Array.isArray(candidates)) fail(`${path} must be an array.`);
+  candidates.forEach((candidate, index) =>
+    collectSameNamespaceReferences(
+      document,
+      candidate,
+      'parameters',
+      reachable,
+      `${path}[${index}]`,
+    ),
+  );
+}
+
+function assertNamespaceClosure(document, namespace, reachable, expectedCount) {
+  const names = Object.keys(document.components[namespace]);
+  if (
+    names.length !== expectedCount ||
+    reachable.size !== expectedCount ||
+    names.some((name) => !reachable.has(name))
+  ) {
+    fail(
+      `components.${namespace} reference closure must contain exactly ${expectedCount} standard-slot-reachable components.`,
+    );
+  }
+}
+
+function assertExactComponentReferenceClosures(document) {
+  const parameters = new Set();
+  const headers = new Set();
+  const responses = new Set();
+  for (const path of Object.keys(preflightIds)) {
+    const pathItem = document.paths[path];
+    collectParameterList(document, pathItem.parameters, parameters, `${path}.parameters`);
+    const methods = [
+      ...operationSpecs
+        .filter((spec) => spec.path === path)
+        .map((spec) => spec.method.toLowerCase()),
+      'options',
+    ];
+    for (const method of methods) {
+      const operation = pathItem[method];
+      collectParameterList(
+        document,
+        operation.parameters,
+        parameters,
+        `${method.toUpperCase()} ${path}.parameters`,
+      );
+      for (const [status, response] of Object.entries(operation.responses)) {
+        collectResponseReferences(
+          document,
+          response,
+          responses,
+          headers,
+          `${method.toUpperCase()} ${path}.responses.${status}`,
+        );
+      }
+    }
+  }
+  assertNamespaceClosure(document, 'parameters', parameters, 10);
+  assertNamespaceClosure(document, 'headers', headers, 21);
+  assertNamespaceClosure(document, 'responses', responses, 28);
 }
 
 function expectedSuccessBody(id, status) {
@@ -1022,6 +1199,7 @@ function assertExactPreflight(operation, path) {
 export function buildHttpContract(document) {
   if (!isObject(document) || !isObject(document.paths) || !isObject(document.components))
     fail('document roots are missing.');
+  assertSourceClosure(document);
   validateConditionLocations(document);
   prevalidateComponents(document);
   const policy = normalizePolicy(document);
@@ -1059,6 +1237,7 @@ export function buildHttpContract(document) {
         fail(`${spec.method} ${path} has the wrong operationId.`);
       if (seenIds.has(spec.id)) fail(`duplicate operationId ${spec.id}.`);
       seenIds.add(spec.id);
+      assertOperationSourceKeys(operation, spec.bodySchema !== null, `${spec.method} ${path}`);
       assertSecurity(operation, spec.access, `${spec.method} ${path}`);
       const parameters = operationParameters(
         document,
@@ -1102,6 +1281,7 @@ export function buildHttpContract(document) {
     if (!isObject(optionSource) || optionSource.operationId !== optionId || seenIds.has(optionId))
       fail(`OPTIONS ${path} has the wrong or duplicate operationId.`);
     seenIds.add(optionId);
+    assertOperationSourceKeys(optionSource, false, `OPTIONS ${path}`);
     assertSecurity(optionSource, { auth: 'preflight' }, `OPTIONS ${path}`);
     const methodParameter =
       pathSpecs.length === 2
@@ -1181,6 +1361,7 @@ export function buildHttpContract(document) {
     ]);
   }
   if (seenIds.size !== 26) fail('operation inventory is not exactly twenty-six.');
+  assertExactComponentReferenceClosures(document);
   return {
     version: 1,
     policy,

@@ -770,7 +770,7 @@ components:
       required: false
       schema: { type: string, const: 'true' }
   headers:
-    CacheControl:
+    NoStore:
       required: true
       schema: { type: string, const: no-store }
     NoSniff:
@@ -850,7 +850,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -862,7 +862,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         WWW-Authenticate: { $ref: '#/components/headers/WWWAuthenticate' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -876,7 +876,7 @@ components:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
         Allow: { $ref: '#/components/headers/AllowGet' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -889,7 +889,7 @@ components:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
         Allow: { $ref: '#/components/headers/AllowPost' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -902,7 +902,7 @@ components:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
         Allow: { $ref: '#/components/headers/AllowGetDelete' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -914,7 +914,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After: { $ref: '#/components/headers/RetryAfter' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -927,7 +927,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After: { $ref: '#/components/headers/ConditionalRetryAfter' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -938,7 +938,7 @@ components:
     PreflightProblemResponse:
       description: Safe preflight problem without allow headers.
       headers:
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/FailedPreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -949,7 +949,7 @@ components:
       description: Safe preflight method problem for a GET-only route.
       headers:
         Allow: { $ref: '#/components/headers/AllowGet' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/FailedPreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -960,7 +960,7 @@ components:
       description: Safe preflight method problem for a POST-only route.
       headers:
         Allow: { $ref: '#/components/headers/AllowPost' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/FailedPreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -971,7 +971,7 @@ components:
       description: Safe preflight method problem for a GET and DELETE route.
       headers:
         Allow: { $ref: '#/components/headers/AllowGetDelete' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/FailedPreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -981,7 +981,7 @@ components:
     PreflightOverloadResponse:
       description: Safe preflight admission-overload problem.
       headers:
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After: { $ref: '#/components/headers/RetryAfter' }
         Vary: { $ref: '#/components/headers/FailedPreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -998,7 +998,7 @@ components:
         Access-Control-Allow-Private-Network:
           { $ref: '#/components/headers/PreflightAllowPrivateNetwork' }
         Access-Control-Max-Age: { $ref: '#/components/headers/PreflightMaxAge' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/PreflightVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1007,7 +1007,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1019,7 +1019,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Location: { $ref: '#/components/headers/Location' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1032,7 +1032,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1044,7 +1044,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Retry-After: { $ref: '#/components/headers/RetryAfter' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1057,7 +1057,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1069,7 +1069,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1078,7 +1078,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         ETag: { $ref: '#/components/headers/ETag' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1091,7 +1091,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         ETag: { $ref: '#/components/headers/ETag' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1104,7 +1104,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         ETag: { $ref: '#/components/headers/ETag' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1117,7 +1117,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         ETag: { $ref: '#/components/headers/ETag' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1130,7 +1130,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Location: { $ref: '#/components/headers/Location' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1143,7 +1143,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1155,7 +1155,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
         X-Request-Id: { $ref: '#/components/headers/RequestId' }
@@ -1167,7 +1167,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         ETag: { $ref: '#/components/headers/ETag' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }
@@ -1180,7 +1180,7 @@ components:
       headers:
         Access-Control-Allow-Origin: { $ref: '#/components/headers/ActualAllowOrigin' }
         Access-Control-Expose-Headers: { $ref: '#/components/headers/ActualExpose' }
-        Cache-Control: { $ref: '#/components/headers/CacheControl' }
+        Cache-Control: { $ref: '#/components/headers/NoStore' }
         Location: { $ref: '#/components/headers/Location' }
         Vary: { $ref: '#/components/headers/ActualVary' }
         X-Content-Type-Options: { $ref: '#/components/headers/NoSniff' }

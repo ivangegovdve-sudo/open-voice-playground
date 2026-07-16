@@ -104,6 +104,16 @@ export function collectProtocolNameEntries(document) {
     }
   }
 
+  const componentHeaders = isRecord(components.headers) ? components.headers : {};
+  for (const key of Object.keys(componentHeaders)) {
+    add('component-header', `components.headers.${key}`, key);
+  }
+
+  const componentResponses = isRecord(components.responses) ? components.responses : {};
+  for (const key of Object.keys(componentResponses)) {
+    add('component-response', `components.responses.${key}`, key);
+  }
+
   const addResponseHeaders = (responses, location) => {
     if (!isRecord(responses)) return;
     for (const [status, response] of Object.entries(responses)) {
@@ -113,7 +123,7 @@ export function collectProtocolNameEntries(document) {
       }
     }
   };
-  addResponseHeaders(components.responses, 'components.responses');
+  addResponseHeaders(componentResponses, 'components.responses');
 
   const addInlineParameters = (parameters, location, kind) => {
     if (!Array.isArray(parameters)) return;
