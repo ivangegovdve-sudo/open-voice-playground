@@ -3,15 +3,39 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-const readFileTripwire = vi.hoisted(() => vi.fn());
+const fileIoTripwires = vi.hoisted(() => ({
+  createReadStream: vi.fn(),
+  lstat: vi.fn(),
+  readFile: vi.fn(),
+  readlink: vi.fn(),
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...original,
+    createReadStream: (...args: Parameters<typeof original.createReadStream>) => {
+      fileIoTripwires.createReadStream(args[0]);
+      return original.createReadStream(...args);
+    },
+  };
+});
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs/promises')>();
   return {
     ...original,
+    lstat: (...args: Parameters<typeof original.lstat>) => {
+      fileIoTripwires.lstat(args[0]);
+      return original.lstat(...args);
+    },
     readFile: (...args: Parameters<typeof original.readFile>) => {
-      readFileTripwire(args[0]);
+      fileIoTripwires.readFile(args[0]);
       return original.readFile(...args);
+    },
+    readlink: (...args: Parameters<typeof original.readlink>) => {
+      fileIoTripwires.readlink(args[0]);
+      return original.readlink(...args);
     },
   };
 });
@@ -139,7 +163,9 @@ describe('offline OpenAPI document loader', () => {
     '#/components/schemas/Voice%49d',
   ])('rejects external or noncanonical reference %s', async (reference) => {
     const source = replaceFirstReference(await authoritativeSource(), reference);
-    readFileTripwire.mockClear();
+    for (const tripwire of Object.values(fileIoTripwires)) {
+      tripwire.mockClear();
+    }
     const fetchTripwire = vi.fn(() => {
       throw new Error('external references must not touch the network');
     });
@@ -150,7 +176,9 @@ describe('offline OpenAPI document loader', () => {
       vi.unstubAllGlobals();
     }
     expect(fetchTripwire).not.toHaveBeenCalled();
-    expect(readFileTripwire).not.toHaveBeenCalled();
+    for (const tripwire of Object.values(fileIoTripwires)) {
+      expect(tripwire).not.toHaveBeenCalled();
+    }
   });
 
   it.each(['x-bad space', 'x-bad#fragment', 'x-bad\\path', 'x-bad\tpath'])(
