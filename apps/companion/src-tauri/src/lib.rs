@@ -6,6 +6,7 @@ pub mod deep_link;
 pub mod origin;
 pub mod pairing;
 pub mod protocol;
+pub mod router;
 pub mod scheduler;
 pub mod schema;
 mod secret;

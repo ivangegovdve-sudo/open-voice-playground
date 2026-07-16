@@ -16,12 +16,15 @@ use tokio::{
     task::JoinHandle,
     time::{Instant, timeout, timeout_at},
 };
-use url::Url;
 use uuid::Uuid;
 
 use crate::{
     origin::OriginPolicy,
-    protocol::{Problem, ProblemCode, negotiate_version},
+    protocol::{Problem, ProblemCode, RequestMessage, negotiate_version},
+    router::{
+        AuthClass, GLOBAL_METHODS, MatchedConcreteRoute, MatchedPreflightRoute, OperationId,
+        PREFLIGHT_ALLOWED_HEADERS, RouteMatch, resolve_route,
+    },
 };
 
 pub const LISTENER_PORT: u16 = 17_843;
@@ -35,8 +38,6 @@ pub const BODY_TIMEOUT: Duration = Duration::from_secs(10);
 pub const HANDLER_TIMEOUT: Duration = Duration::from_secs(30);
 
 const LISTENER_ADDR: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::LOCALHOST, LISTENER_PORT);
-const ALLOWED_METHODS: &str = "GET, POST, DELETE, OPTIONS";
-const ALLOWED_HEADERS: &str = "Authorization, Content-Type, X-OVP-Client-Version";
 const EXPOSED_HEADERS: &str = "ETag, Location, Retry-After, X-Request-Id";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
@@ -281,17 +282,25 @@ struct ParsedRequest {
 
 impl ParsedRequest {
     fn values(&self, name: &str) -> Vec<&str> {
-        self.headers
-            .iter()
-            .filter(|(candidate, _)| candidate == name)
-            .map(|(_, value)| value.as_str())
-            .collect()
+        header_values(&self.headers, name)
     }
 
     fn one(&self, name: &str) -> Option<&str> {
         let values = self.values(name);
-        (values.len() == 1).then_some(values[0])
+        if values.len() == 1 {
+            Some(values[0])
+        } else {
+            None
+        }
     }
+}
+
+fn header_values<'a>(headers: &'a [(String, String)], name: &str) -> Vec<&'a str> {
+    headers
+        .iter()
+        .filter(|(candidate, _)| candidate == name)
+        .map(|(_, value)| value.as_str())
+        .collect()
 }
 
 #[derive(Debug)]
@@ -340,8 +349,13 @@ async fn handle_connection(
         }
     };
 
-    if parsed.method == "OPTIONS" {
-        let response = match validate_preflight(&parsed, &context.origin) {
+    if let RouteMatch::Preflight(preflight) = context.route {
+        let response = match validate_preflight(
+            &parsed.headers,
+            &parsed.body_prefix,
+            preflight,
+            context.content_length,
+        ) {
             Ok(response) => response,
             Err(failure) => {
                 return write_response(stream, Response::problem(failure.code), None).await;
@@ -363,7 +377,10 @@ async fn handle_connection(
         }
     };
 
-    let response = match timeout(HANDLER_TIMEOUT, dispatch(&parsed, &body)).await {
+    let RouteMatch::Concrete(route) = context.route else {
+        unreachable!("preflight returned before body polling")
+    };
+    let response = match timeout(HANDLER_TIMEOUT, dispatch(route, &body)).await {
         Ok(response) => response,
         Err(_) => Response::problem(ProblemCode::HandlerTimeout),
     };
@@ -452,6 +469,7 @@ fn find_header_end(bytes: &[u8]) -> Option<usize> {
 struct RequestContext {
     origin: String,
     content_length: usize,
+    route: RouteMatch,
 }
 
 fn validate_pre_body(
@@ -462,7 +480,6 @@ fn validate_pre_body(
     if hosts.len() != 1 || hosts[0] != "127.0.0.1:17843" {
         return Err(BoundaryFailure::new(ProblemCode::HostInvalid));
     }
-    validate_target_authority(&request.target)?;
 
     let origins = request.values("origin");
     if origins.is_empty() {
@@ -499,9 +516,12 @@ fn validate_pre_body(
     }
 
     if request.method == "OPTIONS" {
+        let route = resolve_route(&request.method, &request.target)
+            .map_err(|error| BoundaryFailure::new(error.problem_code()))?;
         return Ok(RequestContext {
             origin,
             content_length,
+            route,
         });
     }
 
@@ -512,100 +532,132 @@ fn validate_pre_body(
     negotiate_version(versions.first().copied())
         .map_err(|code| BoundaryFailure::new(code).with_origin(&origin))?;
 
-    if !matches!(request.method.as_str(), "GET" | "POST" | "DELETE") {
-        return Err(BoundaryFailure::new(ProblemCode::MethodNotAllowed).with_origin(&origin));
-    }
-    if request.method == "POST" {
-        let content_types = request.values("content-type");
-        if content_types.len() != 1
-            || !matches!(
-                content_types[0].to_ascii_lowercase().as_str(),
-                "application/json" | "application/json; charset=utf-8"
-            )
-        {
-            return Err(
-                BoundaryFailure::new(ProblemCode::ContentTypeUnsupported).with_origin(&origin)
-            );
+    let route = resolve_route(&request.method, &request.target)
+        .map_err(|error| BoundaryFailure::new(error.problem_code()).with_origin(&origin))?;
+    let RouteMatch::Concrete(concrete) = route else {
+        unreachable!("non-OPTIONS method cannot resolve as preflight")
+    };
+
+    match concrete.contract().messages.request {
+        RequestMessage::Json { required: true, .. } => {
+            let content_types = request.values("content-type");
+            if content_types.len() != 1
+                || !matches!(
+                    content_types[0].to_ascii_lowercase().as_str(),
+                    "application/json" | "application/json; charset=utf-8"
+                )
+            {
+                return Err(
+                    BoundaryFailure::new(ProblemCode::ContentTypeUnsupported).with_origin(&origin)
+                );
+            }
         }
-    } else if content_length != 0 {
-        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+        RequestMessage::None => {
+            if content_length != 0 || !request.body_prefix.is_empty() {
+                return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
+            }
+        }
+        RequestMessage::Json {
+            required: false, ..
+        } => unreachable!("closed C5 requests never declare an optional JSON body"),
     }
 
-    if is_protected_route(&request.method, &request.target) {
-        let authorization = request
-            .one("authorization")
-            .ok_or_else(|| BoundaryFailure::new(ProblemCode::AuthMissing).with_origin(&origin))?;
-        if !authorization.starts_with("Bearer ") || authorization.len() != 50 {
+    match concrete.contract().access.auth {
+        AuthClass::OriginOnly => {}
+        AuthClass::Bearer => {
+            let authorization = request.one("authorization").ok_or_else(|| {
+                BoundaryFailure::new(ProblemCode::AuthMissing).with_origin(&origin)
+            })?;
+            if !authorization.starts_with("Bearer ") || authorization.len() != 50 {
+                return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
+            }
             return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
         }
-        return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
+        AuthClass::Preflight => unreachable!("concrete route cannot have preflight access"),
     }
 
     Ok(RequestContext {
         origin,
         content_length,
+        route,
     })
 }
 
-fn validate_target_authority(target: &str) -> Result<(), BoundaryFailure> {
-    if target.starts_with('/') {
-        return Ok(());
+fn validate_preflight(
+    headers: &[(String, String)],
+    body_prefix: &[u8],
+    route: MatchedPreflightRoute,
+    content_length: usize,
+) -> Result<Response, BoundaryFailure> {
+    if content_length != 0 || !body_prefix.is_empty() {
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
-    let url = Url::parse(target).map_err(|_| BoundaryFailure::new(ProblemCode::HostInvalid))?;
-    if url.scheme() != "http"
-        || url.host_str() != Some("127.0.0.1")
-        || url.port() != Some(LISTENER_PORT)
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.fragment().is_some()
+    if [
+        "authorization",
+        "cookie",
+        "content-type",
+        "x-ovp-client-version",
+    ]
+    .iter()
+    .any(|name| !header_values(headers, name).is_empty())
     {
-        return Err(BoundaryFailure::new(ProblemCode::HostInvalid));
-    }
-    Ok(())
-}
-
-fn is_protected_route(method: &str, target: &str) -> bool {
-    let path = target.split('?').next().unwrap_or(target);
-    let public = (method == "GET" && path == "/v1/health")
-        || (method == "POST" && path == "/v1/pairings/challenges")
-        || (method == "POST"
-            && path.starts_with("/v1/pairings/challenges/")
-            && path.ends_with("/redeem"));
-    !public
-}
-
-fn validate_preflight(request: &ParsedRequest, _origin: &str) -> Result<Response, BoundaryFailure> {
-    let methods = request.values("access-control-request-method");
-    if methods.len() != 1 || !matches!(methods[0], "GET" | "POST" | "DELETE" | "OPTIONS") {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
 
-    let requested_headers = request.values("access-control-request-headers");
-    if requested_headers.len() > 1 {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
+    let methods = header_values(headers, "access-control-request-method");
+    if methods.len() > 1 {
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader));
     }
-    if let Some(value) = requested_headers.first() {
-        let mut seen = Vec::new();
-        for header in value.split(',').map(str::trim) {
-            let lower = header.to_ascii_lowercase();
-            if !matches!(
-                lower.as_str(),
-                "authorization" | "content-type" | "x-ovp-client-version"
-            ) || seen.contains(&lower)
-            {
-                return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
-            }
-            seen.push(lower);
+    let method = methods
+        .first()
+        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
+    let target = route
+        .resolve_requested_method(method)
+        .map_err(|error| BoundaryFailure::new(error.problem_code()))?;
+
+    let header_fields = header_values(headers, "access-control-request-headers");
+    if header_fields.len() > 1 {
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader));
+    }
+    let header_field = header_fields
+        .first()
+        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
+    let mut seen = Vec::new();
+    for header in header_field
+        .split(',')
+        .map(|header| header.trim_matches([' ', '\t']))
+    {
+        if header.is_empty() || header == "*" {
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
         }
+        let lower = header.to_ascii_lowercase();
+        if !PREFLIGHT_ALLOWED_HEADERS
+            .iter()
+            .any(|allowed| allowed.as_str().eq_ignore_ascii_case(header))
+            || seen.contains(&lower)
+        {
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
+        }
+        seen.push(lower);
+    }
+    if seen.len() != target.requested_headers().len()
+        || !target.requested_headers().iter().all(|expected| {
+            seen.iter()
+                .any(|actual| expected.as_str().eq_ignore_ascii_case(actual))
+        })
+    {
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
 
-    let private_network = request.values("access-control-request-private-network");
-    if private_network.len() > 1
-        || private_network
-            .first()
-            .is_some_and(|value| *value != "true")
+    let private_network = header_values(headers, "access-control-request-private-network");
+    if private_network.len() > 1 {
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader));
+    }
+    if private_network
+        .first()
+        .is_some_and(|value| *value != "true")
     {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
     Ok(Response::preflight(!private_network.is_empty()))
 }
@@ -637,10 +689,9 @@ async fn read_body(
     Ok(body)
 }
 
-async fn dispatch(request: &ParsedRequest, body: &[u8]) -> Response {
-    let path = request.target.split('?').next().unwrap_or(&request.target);
-    match (request.method.as_str(), path) {
-        ("GET", "/v1/health") => Response::json(
+async fn dispatch(route: MatchedConcreteRoute, body: &[u8]) -> Response {
+    match route.operation() {
+        OperationId::GetHealth => Response::json(
             200,
             json!({
                 "app": "open-voice-companion",
@@ -648,7 +699,7 @@ async fn dispatch(request: &ParsedRequest, body: &[u8]) -> Response {
                 "listenerState": "listening"
             }),
         ),
-        ("POST", "/v1/pairings/challenges") => {
+        OperationId::CreatePairingChallenge => {
             if serde_json::from_slice::<serde_json::Value>(body).is_err() {
                 Response::problem(ProblemCode::SchemaInvalid)
             } else {
@@ -693,8 +744,22 @@ impl Response {
 
     fn preflight(private_network: bool) -> Self {
         let mut headers = vec![
-            ("Access-Control-Allow-Methods", ALLOWED_METHODS.to_owned()),
-            ("Access-Control-Allow-Headers", ALLOWED_HEADERS.to_owned()),
+            (
+                "Access-Control-Allow-Methods",
+                GLOBAL_METHODS
+                    .iter()
+                    .map(|method| method.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
+            (
+                "Access-Control-Allow-Headers",
+                PREFLIGHT_ALLOWED_HEADERS
+                    .iter()
+                    .map(|header| header.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            ),
             ("Access-Control-Max-Age", "600".to_owned()),
             (
                 "Vary",
