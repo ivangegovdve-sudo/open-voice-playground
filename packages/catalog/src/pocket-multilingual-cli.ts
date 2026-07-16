@@ -19,6 +19,7 @@ const DATA_MODULE_URL = new URL('./pocket-multilingual-data.ts', import.meta.url
 
 export type PocketMultilingualCliDependencies = {
   currentInventory: PocketMultilingualInventory;
+  resolveInputPath(inputPath: string): string;
   readTextFile(inputPath: string): Promise<string>;
   writeDataModule(destination: URL, contents: string): Promise<void>;
   writeStdout(text: string): void;
@@ -30,6 +31,16 @@ type ParsedArguments = {
   write: boolean;
   approveHash: string | undefined;
 };
+
+function assertLocalFilesystemPath(path: string): void {
+  if (
+    /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(path) ||
+    /^[\\/]{2}/.test(path) ||
+    /^[A-Za-z]:(?![\\/])/.test(path)
+  ) {
+    throw new Error('Pocket CLI local input invariant failed.');
+  }
+}
 
 function parseArguments(argv: readonly string[]): ParsedArguments {
   const values = new Map<string, string>();
@@ -60,11 +71,8 @@ function parseArguments(argv: readonly string[]): ParsedArguments {
   if (input === undefined || revision === undefined || (!write && approveHash !== undefined)) {
     throw new Error('Pocket CLI argument invariant failed.');
   }
-  if (
-    /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(input) ||
-    input.startsWith('\\\\') ||
-    !input.toLowerCase().endsWith('.json')
-  ) {
+  assertLocalFilesystemPath(input);
+  if (!input.toLowerCase().endsWith('.json')) {
     throw new Error('Pocket CLI local input invariant failed.');
   }
   return { input, revision, write, approveHash };
@@ -97,17 +105,20 @@ export function resolvePocketMultilingualInputPath(
   initialWorkingDirectory: string | undefined,
   currentWorkingDirectory: string,
 ): string {
-  return resolve(initialWorkingDirectory ?? currentWorkingDirectory, inputPath);
+  assertLocalFilesystemPath(inputPath);
+  const base = initialWorkingDirectory ?? currentWorkingDirectory;
+  assertLocalFilesystemPath(base);
+  const resolved = resolve(base, inputPath);
+  assertLocalFilesystemPath(resolved);
+  return resolved;
 }
 
 function defaultDependencies(): PocketMultilingualCliDependencies {
   return {
     currentInventory: inventoryFromGeneratedData(),
-    readTextFile: async (inputPath) =>
-      readFile(
-        resolvePocketMultilingualInputPath(inputPath, process.env.INIT_CWD, process.cwd()),
-        'utf8',
-      ),
+    resolveInputPath: (inputPath) =>
+      resolvePocketMultilingualInputPath(inputPath, process.env.INIT_CWD, process.cwd()),
+    readTextFile: async (inputPath) => readFile(inputPath, 'utf8'),
     writeDataModule: async (destination, contents) => writeFile(destination, contents, 'utf8'),
     writeStdout: (text) => {
       process.stdout.write(text);
@@ -138,9 +149,16 @@ export async function runPocketMultilingualCli(
   dependencies: PocketMultilingualCliDependencies = defaultDependencies(),
 ): Promise<void> {
   const options = parseArguments(argv);
+  let inputPath: string;
+  try {
+    inputPath = dependencies.resolveInputPath(options.input);
+    assertLocalFilesystemPath(inputPath);
+  } catch {
+    throw new Error('Pocket CLI local input invariant failed.');
+  }
   let raw: string;
   try {
-    raw = await dependencies.readTextFile(options.input);
+    raw = await dependencies.readTextFile(inputPath);
   } catch {
     throw new Error('Pocket local input read invariant failed.');
   }

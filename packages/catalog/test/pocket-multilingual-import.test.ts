@@ -95,16 +95,22 @@ function expectClosedFailure(input: unknown, requestedRevision: string, invarian
 
 function cliHarness(inventory: PocketMultilingualInventory): {
   dependencies: PocketMultilingualCliDependencies;
+  resolutions: string[];
   reads: string[];
   writes: Array<{ destination: URL; contents: string }>;
   output: string[];
 } {
+  const resolutions: string[] = [];
   const reads: string[] = [];
   const writes: Array<{ destination: URL; contents: string }> = [];
   const output: string[] = [];
   return {
     dependencies: {
       currentInventory: inventory,
+      resolveInputPath: (inputPath) => {
+        resolutions.push(inputPath);
+        return inputPath;
+      },
       readTextFile: async (inputPath) => {
         reads.push(inputPath);
         return `\uFEFF${JSON.stringify(hubInfo())}`;
@@ -116,6 +122,7 @@ function cliHarness(inventory: PocketMultilingualInventory): {
         output.push(text);
       },
     },
+    resolutions,
     reads,
     writes,
     output,
@@ -407,6 +414,86 @@ describe('reviewed Pocket multilingual Hub inventory import', () => {
         doubleBomHarness.dependencies,
       ),
     ).rejects.toThrow(/input JSON invariant/i);
+  });
+
+  it.each([
+    ['forward-slash UNC', '//untrusted-marker/share/pinned.json'],
+    ['backslash UNC', '\\\\untrusted-marker\\share\\pinned.json'],
+    ['forward-slash extended namespace', '//?/C:/review/untrusted-marker.json'],
+    ['backslash extended namespace', '\\\\?\\C:\\review\\untrusted-marker.json'],
+    ['forward-slash device namespace', '//./pipe/untrusted-marker.json'],
+    ['backslash device namespace', '\\\\.\\pipe\\untrusted-marker.json'],
+    ['drive-relative path', 'C:review\\untrusted-marker.json'],
+  ])('rejects a %s before resolving or reading', async (_name, inputPath) => {
+    const inventory = normalizePocketHubInfo(hubInfo(), revision);
+    const harness = cliHarness(inventory);
+    let message = '';
+
+    try {
+      await runPocketMultilingualCli(
+        ['--input', inputPath, '--revision', revision],
+        harness.dependencies,
+      );
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toMatch(/local input invariant/i);
+    expect(message).not.toContain('untrusted-marker');
+    expect(harness.resolutions).toEqual([]);
+    expect(harness.reads).toEqual([]);
+  });
+
+  it('rejects a relative input under a forward-slash UNC npm cwd before reading', async () => {
+    const inventory = normalizePocketHubInfo(hubInfo(), revision);
+    const harness = cliHarness(inventory);
+    harness.dependencies.resolveInputPath = (inputPath) =>
+      resolvePocketMultilingualInputPath(
+        inputPath,
+        '//untrusted-marker/share/repository',
+        'C:\\repository\\packages\\catalog',
+      );
+    let message = '';
+
+    try {
+      await runPocketMultilingualCli(
+        ['--input', 'review/pinned.json', '--revision', revision],
+        harness.dependencies,
+      );
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(message).toMatch(/local input invariant/i);
+    expect(message).not.toContain('untrusted-marker');
+    expect(harness.reads).toEqual([]);
+  });
+
+  it.each([
+    ['drive-absolute backslashes', 'C:\\review\\pinned.json'],
+    ['drive-absolute forward slashes', 'C:/review/pinned.json'],
+    ['dot-relative forward slashes', '.superpowers/sdd/pinned.json'],
+    ['relative backslashes', 'review\\pinned.json'],
+    ['root-relative forward slashes', '/review/pinned.json'],
+  ])('accepts a normal local %s', async (_name, inputPath) => {
+    const inventory = normalizePocketHubInfo(hubInfo(), revision);
+    const harness = cliHarness(inventory);
+    const invocationRoot = 'C:\\repository';
+    const workspaceDirectory = 'C:\\repository\\packages\\catalog';
+    const expected = resolvePocketMultilingualInputPath(
+      inputPath,
+      invocationRoot,
+      workspaceDirectory,
+    );
+    harness.dependencies.resolveInputPath = (value) =>
+      resolvePocketMultilingualInputPath(value, invocationRoot, workspaceDirectory);
+
+    await runPocketMultilingualCli(
+      ['--input', inputPath, '--revision', revision],
+      harness.dependencies,
+    );
+
+    expect(harness.reads).toEqual([expected]);
   });
 
   it('resolves root-script inputs from npm original cwd instead of the workspace cwd', () => {
