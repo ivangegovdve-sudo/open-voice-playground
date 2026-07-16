@@ -285,6 +285,73 @@ const CacheKeySchema = z
     'Expected a safe namespaced cache key',
   );
 
+export const BrowserRuntimeBackendSchema = z.enum(['webgpu', 'wasm']);
+
+const ONNXRUNTIME_WEB_TARBALL_URL =
+  'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz';
+const ONNXRUNTIME_WEB_TARBALL_INTEGRITY =
+  'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==';
+const ONNXRUNTIME_WEB_TARBALL_SHA1 = 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4';
+const ONNXRUNTIME_WEB_RUNTIME_PATHS = {
+  webgpu: 'dist/ort-wasm-simd-threaded.jsep.wasm',
+  wasm: 'dist/ort-wasm-simd-threaded.wasm',
+} as const;
+
+export const BrowserRuntimeArtifactSchema = z
+  .object({
+    id: RecordIdSchema,
+    backend: BrowserRuntimeBackendSchema,
+    packageName: z.literal('onnxruntime-web'),
+    packageVersion: z.literal('1.27.0'),
+    tarballUrl: z.literal(ONNXRUNTIME_WEB_TARBALL_URL),
+    tarballIntegrity: z.literal(ONNXRUNTIME_WEB_TARBALL_INTEGRITY),
+    tarballSha1: z.literal(ONNXRUNTIME_WEB_TARBALL_SHA1),
+    packagePath: z.enum([ONNXRUNTIME_WEB_RUNTIME_PATHS.webgpu, ONNXRUNTIME_WEB_RUNTIME_PATHS.wasm]),
+    sha256: Sha256Schema,
+    bytes: z.number().int().positive().max(2_147_483_648),
+    mediaType: z.literal('application/wasm'),
+    cacheKey: CacheKeySchema,
+    sourceIds: RecordIdsSchema,
+    licenseIds: RecordIdsSchema,
+  })
+  .strict()
+  .superRefine((artifact, context) => {
+    if (artifact.packagePath !== ONNXRUNTIME_WEB_RUNTIME_PATHS[artifact.backend]) {
+      context.addIssue({
+        code: 'custom',
+        path: ['packagePath'],
+        message: 'Runtime package path must match its exact backend binary',
+      });
+    }
+  });
+
+export const BrowserRuntimeArtifactsSchema = z
+  .array(BrowserRuntimeArtifactSchema)
+  .min(1)
+  .refine(
+    (artifacts) => hasUniqueValues(artifacts.map(({ id }) => id)),
+    'Browser runtime artifact IDs must be unique',
+  );
+
+export const BrowserRuntimeSelectionSchema = z
+  .object({
+    id: RecordIdSchema,
+    engineId: EngineIdSchema,
+    backend: BrowserRuntimeBackendSchema,
+    assetSetId: RecordIdSchema,
+    runtimeArtifactId: RecordIdSchema,
+    selectionDigest: Sha256Schema,
+  })
+  .strict();
+
+export const BrowserRuntimeSelectionsSchema = z
+  .array(BrowserRuntimeSelectionSchema)
+  .min(1)
+  .refine(
+    (selections) => hasUniqueValues(selections.map(({ id }) => id)),
+    'Browser runtime selection IDs must be unique',
+  );
+
 export const ImmutableAssetSchema = z
   .object({
     id: RecordIdSchema,
@@ -1222,6 +1289,9 @@ export type SampleManifest = z.infer<typeof SampleManifestSchema>;
 export type LicenseRecord = z.infer<typeof LicenseRecordSchema>;
 export type SourceRecord = z.infer<typeof SourceRecordSchema>;
 export type ReleaseGate = z.infer<typeof ReleaseGateSchema>;
+export type BrowserRuntimeBackend = z.infer<typeof BrowserRuntimeBackendSchema>;
+export type BrowserRuntimeArtifact = z.infer<typeof BrowserRuntimeArtifactSchema>;
+export type BrowserRuntimeSelection = z.infer<typeof BrowserRuntimeSelectionSchema>;
 export type ImmutableAsset = z.infer<typeof ImmutableAssetSchema>;
 export type PinnedReleaseAssetEvidence = z.infer<typeof PinnedReleaseAssetEvidenceSchema>;
 export type AssetDeliveryEvidence = z.infer<typeof AssetDeliveryEvidenceSchema>;

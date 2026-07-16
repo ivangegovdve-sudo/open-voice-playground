@@ -541,6 +541,113 @@ describe('launch release and asset contracts', () => {
   });
 });
 
+describe('browser runtime artifact contracts', () => {
+  const webgpuArtifact = {
+    id: 'onnxruntime-web-webgpu-jsep-wasm',
+    backend: 'webgpu',
+    packageName: 'onnxruntime-web',
+    packageVersion: '1.27.0',
+    tarballUrl: 'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz',
+    tarballIntegrity:
+      'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==',
+    tarballSha1: 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4',
+    packagePath: 'dist/ort-wasm-simd-threaded.jsep.wasm',
+    sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    bytes: 26_827_543,
+    mediaType: 'application/wasm',
+    cacheKey:
+      'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded.jsep/78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    sourceIds: ['onnxruntime-web-source'],
+    licenseIds: ['onnxruntime-web-runtime-license'],
+  } as const;
+  const wasmArtifact = {
+    ...webgpuArtifact,
+    id: 'onnxruntime-web-wasm-runtime',
+    backend: 'wasm',
+    packagePath: 'dist/ort-wasm-simd-threaded.wasm',
+    sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    bytes: 13_479_978,
+    cacheKey:
+      'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded/d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+  } as const;
+  const webgpuSelection = {
+    id: 'supertonic-webgpu',
+    engineId: 'supertonic',
+    backend: 'webgpu',
+    assetSetId: 'supertonic-browser-assets',
+    runtimeArtifactId: webgpuArtifact.id,
+    selectionDigest: 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  } as const;
+
+  it('exports a dedicated closed backend and exact runtime artifact schema', () => {
+    const backendSchema = schema('BrowserRuntimeBackendSchema');
+    const artifactSchema = schema('BrowserRuntimeArtifactSchema');
+
+    expect(backendSchema.safeParse('webgpu').success).toBe(true);
+    expect(backendSchema.safeParse('wasm').success).toBe(true);
+    expect(backendSchema.safeParse('webgpu-wasm').success).toBe(false);
+    expect(artifactSchema.safeParse(webgpuArtifact).success).toBe(true);
+    expect(artifactSchema.safeParse(wasmArtifact).success).toBe(true);
+    expect(artifactSchema.safeParse({ ...webgpuArtifact, unexpected: true }).success).toBe(false);
+  });
+
+  it.each([
+    ['floating package version', { packageVersion: '^1.27.0' }],
+    ['wrong package', { packageName: 'onnxruntime-node' }],
+    ['wrong tarball URL', { tarballUrl: 'https://cdn.example/onnxruntime-web.tgz' }],
+    ['wrong tarball integrity', { tarballIntegrity: 'sha512-not-the-locked-tarball' }],
+    ['wrong tarball SHA-1', { tarballSha1: `sha1:${'0'.repeat(40)}` }],
+    ['unsafe parent path', { packagePath: '../dist/runtime.wasm' }],
+    ['absolute path', { packagePath: '/dist/runtime.wasm' }],
+    ['backend/path mismatch', { packagePath: wasmArtifact.packagePath }],
+    ['wrong media type', { mediaType: 'application/octet-stream' }],
+    ['nonpositive bytes', { bytes: 0 }],
+    ['duplicate sources', { sourceIds: ['onnxruntime-web-source', 'onnxruntime-web-source'] }],
+    [
+      'duplicate licenses',
+      {
+        licenseIds: ['onnxruntime-web-runtime-license', 'onnxruntime-web-runtime-license'],
+      },
+    ],
+  ])('rejects %s', (_label, mutation) => {
+    expect(
+      schema('BrowserRuntimeArtifactSchema').safeParse({
+        ...webgpuArtifact,
+        ...mutation,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires unique artifact IDs and unique selection IDs', () => {
+    const artifactsSchema = schema('BrowserRuntimeArtifactsSchema');
+    const selectionsSchema = schema('BrowserRuntimeSelectionsSchema');
+
+    expect(artifactsSchema.safeParse([webgpuArtifact, wasmArtifact]).success).toBe(true);
+    expect(artifactsSchema.safeParse([webgpuArtifact, webgpuArtifact]).success).toBe(false);
+    expect(selectionsSchema.safeParse([webgpuSelection]).success).toBe(true);
+    expect(selectionsSchema.safeParse([webgpuSelection, webgpuSelection]).success).toBe(false);
+  });
+
+  it('requires a closed five-field selection identity plus its digest', () => {
+    const selectionSchema = schema('BrowserRuntimeSelectionSchema');
+
+    expect(selectionSchema.safeParse(webgpuSelection).success).toBe(true);
+    expect(selectionSchema.safeParse({ ...webgpuSelection, unexpected: true }).success).toBe(false);
+    for (const field of [
+      'id',
+      'engineId',
+      'backend',
+      'assetSetId',
+      'runtimeArtifactId',
+      'selectionDigest',
+    ] as const) {
+      const candidate = { ...webgpuSelection } as Record<string, unknown>;
+      delete candidate[field];
+      expect(selectionSchema.safeParse(candidate).success, field).toBe(false);
+    }
+  });
+});
+
 describe('preset-only worker protocol', () => {
   it('accepts only same-engine catalog IDs and the exact advertised speed control', () => {
     const commandSchema = schema('WorkerCommandSchema');

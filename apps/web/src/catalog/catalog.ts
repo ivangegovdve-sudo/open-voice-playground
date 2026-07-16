@@ -3,6 +3,8 @@ import fixture from '../../../../packages/catalog/fixtures/catalog.fixture.json'
 import type {
   AssetDeliveryEvidence,
   AssetSetManifest,
+  BrowserRuntimeArtifact,
+  BrowserRuntimeSelection,
   FeatureFlag,
   GalleryManifest,
   GeneratedMediaProvenance,
@@ -63,6 +65,8 @@ export type SeedCatalog = {
   sources: ReadonlyMap<string, SourceInfo>;
   generatedAt: string;
   assetSets: AssetSetManifest[];
+  runtimeArtifacts: BrowserRuntimeArtifact[];
+  runtimeSelections: BrowserRuntimeSelection[];
   assetDeliveryEvidence: AssetDeliveryEvidence[];
   releaseAssetEvidence: PinnedReleaseAssetEvidence[];
   featureFlags: FeatureFlag[];
@@ -173,6 +177,8 @@ export const seedCatalog: SeedCatalog = {
   ),
   generatedAt: fixture.generatedAt,
   assetSets: [],
+  runtimeArtifacts: [],
+  runtimeSelections: [],
   assetDeliveryEvidence: [],
   releaseAssetEvidence: [],
   featureFlags: [],

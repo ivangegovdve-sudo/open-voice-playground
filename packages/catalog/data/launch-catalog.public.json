@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "catalogId": "open-voice-launch",
   "generatedAt": "2026-07-16T00:00:00.000Z",
   "engines": [
@@ -14378,7 +14378,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14439,7 +14439,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14500,7 +14500,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14561,7 +14561,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14622,7 +14622,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14683,7 +14683,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14744,7 +14744,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14805,7 +14805,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14866,7 +14866,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     },
     {
@@ -14927,7 +14927,7 @@
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       },
       "assetSetId": "supertonic-browser-assets",
-      "declaredDownloadBytes": 401276918,
+      "declaredDownloadBytes": 401276744,
       "consentRequired": true
     }
   ],
@@ -15276,6 +15276,18 @@
       "permitsCommercialUse": false,
       "reviewedAt": "2026-07-16T00:00:00.000Z",
       "reviewStatus": "restricted"
+    },
+    {
+      "id": "onnxruntime-web-runtime-license",
+      "scope": "runtime",
+      "name": "ONNX Runtime MIT License",
+      "spdxId": "MIT",
+      "evidenceUrl": "https://github.com/microsoft/onnxruntime/blob/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5/LICENSE",
+      "attribution": "Microsoft Corporation",
+      "permitsRedistribution": true,
+      "permitsCommercialUse": true,
+      "reviewedAt": "2026-07-16T00:00:00.000Z",
+      "reviewStatus": "verified"
     },
     {
       "id": "parler-tts-code-license",
@@ -15768,6 +15780,15 @@
       "canonicalUrl": "https://huggingface.co/k2-fsa/OmniVoice/tree/c5fdb5ccb189668d56333f77ba2629f4cd7535f4",
       "sourceClass": "model-card",
       "upstreamRevision": "c5fdb5ccb189668d56333f77ba2629f4cd7535f4",
+      "retrievedAt": "2026-07-16T00:00:00.000Z",
+      "lastVerifiedAt": "2026-07-16T00:00:00.000Z",
+      "health": "healthy"
+    },
+    {
+      "id": "onnxruntime-web-source",
+      "canonicalUrl": "https://github.com/microsoft/onnxruntime/tree/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5",
+      "sourceClass": "official-repository",
+      "upstreamRevision": "8f0278c77bf44b0cc83c098c6c722b92a36ac4b5",
       "retrievedAt": "2026-07-16T00:00:00.000Z",
       "lastVerifiedAt": "2026-07-16T00:00:00.000Z",
       "health": "healthy"
@@ -19213,30 +19234,8 @@
     {
       "id": "supertonic-browser-assets",
       "engineId": "supertonic",
-      "manifestDigest": "sha256:897a3bb0d255e135d211c88940290bb8791948df90ad2bd37557048471fbb036",
+      "manifestDigest": "sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6",
       "assets": [
-        {
-          "id": "config-json",
-          "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/config.json?download=true",
-          "approvedFinalOrigins": [
-            "https://huggingface.co"
-          ],
-          "revision": "3cadd1ee6394adea1bd021217a0e650ede09a323",
-          "sha256": "sha256:4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2",
-          "bytes": 174,
-          "cacheKey": "supertonic/config-json/3cadd1ee6394adea1bd021217a0e650ede09a323/4099082b107a9d4029849ac76b89eca65e03732660969c2babe5bf308c7357f2",
-          "mediaType": "application/json",
-          "sourceIds": [
-            "supertone-model-source"
-          ],
-          "licenseIds": [
-            "supertone-weights-license"
-          ],
-          "requiredAcceptance": {
-            "licenseId": "supertone-weights-license",
-            "termsHash": "sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f"
-          }
-        },
         {
           "id": "onnx-duration-predictor-onnx",
           "url": "https://huggingface.co/Supertone/supertonic-3/resolve/3cadd1ee6394adea1bd021217a0e650ede09a323/onnx/duration_predictor.onnx?download=true",
@@ -19590,7 +19589,7 @@
           }
         }
       ],
-      "totalBytes": 401276918,
+      "totalBytes": 401276744,
       "requiredAcceptanceLicenseIds": [
         "supertone-weights-license"
       ],
@@ -19599,6 +19598,66 @@
         "reason": null,
         "detail": "Reviewed preset and immutable asset evidence are present for this declared runtime."
       }
+    }
+  ],
+  "runtimeArtifacts": [
+    {
+      "id": "onnxruntime-web-wasm-runtime",
+      "backend": "wasm",
+      "packageName": "onnxruntime-web",
+      "packageVersion": "1.27.0",
+      "tarballUrl": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz",
+      "tarballIntegrity": "sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==",
+      "tarballSha1": "sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4",
+      "packagePath": "dist/ort-wasm-simd-threaded.wasm",
+      "sha256": "sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6",
+      "bytes": 13479978,
+      "mediaType": "application/wasm",
+      "cacheKey": "runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded/d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6",
+      "sourceIds": [
+        "onnxruntime-web-source"
+      ],
+      "licenseIds": [
+        "onnxruntime-web-runtime-license"
+      ]
+    },
+    {
+      "id": "onnxruntime-web-webgpu-jsep-wasm",
+      "backend": "webgpu",
+      "packageName": "onnxruntime-web",
+      "packageVersion": "1.27.0",
+      "tarballUrl": "https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz",
+      "tarballIntegrity": "sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==",
+      "tarballSha1": "sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4",
+      "packagePath": "dist/ort-wasm-simd-threaded.jsep.wasm",
+      "sha256": "sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48",
+      "bytes": 26827543,
+      "mediaType": "application/wasm",
+      "cacheKey": "runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded.jsep/78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48",
+      "sourceIds": [
+        "onnxruntime-web-source"
+      ],
+      "licenseIds": [
+        "onnxruntime-web-runtime-license"
+      ]
+    }
+  ],
+  "runtimeSelections": [
+    {
+      "id": "supertonic-wasm",
+      "engineId": "supertonic",
+      "backend": "wasm",
+      "assetSetId": "supertonic-browser-assets",
+      "runtimeArtifactId": "onnxruntime-web-wasm-runtime",
+      "selectionDigest": "sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9"
+    },
+    {
+      "id": "supertonic-webgpu",
+      "engineId": "supertonic",
+      "backend": "webgpu",
+      "assetSetId": "supertonic-browser-assets",
+      "runtimeArtifactId": "onnxruntime-web-webgpu-jsep-wasm",
+      "selectionDigest": "sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e"
     }
   ],
   "assetDeliveryEvidence": [
@@ -19745,7 +19804,6 @@
       ],
       "checkedAssetIds": [
         "onnx-vector-estimator-onnx",
-        "config-json",
         "voice-styles-f1-json"
       ],
       "scope": "representative-assets",
@@ -19768,13 +19826,6 @@
           "status": 206,
           "bytesRead": 1,
           "contentRange": "bytes 0-0/256534781"
-        },
-        {
-          "assetId": "config-json",
-          "responseType": "cors",
-          "status": 206,
-          "bytesRead": 1,
-          "contentRange": "bytes 0-0/174"
         },
         {
           "assetId": "voice-styles-f1-json",

@@ -492,6 +492,49 @@ test('permits guarded runtime packages and Worker factories only through dynamic
   );
 });
 
+test('keeps both lazy ONNX Runtime URL artifacts outside the initial shell and service worker', async () => {
+  const root = await createBuildFixture();
+  await installFixtureInferencePackages(root);
+  await writeFile(
+    join(root, 'node_modules', 'onnxruntime-web', 'ort-wasm-simd-threaded.wasm'),
+    new Uint8Array([0, 97, 115, 109, 1]),
+  );
+  await mkdir(join(root, 'runtime', 'supertonic'), { recursive: true });
+  const productionResolverSource = await readFile(
+    join(APP_ROOT, 'src', 'runtime', 'supertonic', 'runtime-artifacts.ts'),
+    'utf8',
+  );
+  await writeFile(
+    join(root, 'runtime', 'supertonic', 'runtime-artifacts.ts'),
+    productionResolverSource,
+  );
+  await writeFile(
+    join(root, 'main.js'),
+    [
+      "globalThis.__loadRuntimeArtifacts = () => import('./runtime/supertonic/runtime-artifacts.ts');",
+      "document.body.dataset.catalog = new URL('./launch-catalog.public.json', import.meta.url).href;",
+    ].join('\n'),
+  );
+
+  const metadata = await buildMetadata(root);
+  const emitted = (await readdir(join(root, 'dist'), { recursive: true })).map((path) =>
+    path.replaceAll('\\', '/'),
+  );
+
+  expect(emitted.filter((path) => path.endsWith('.wasm'))).toHaveLength(2);
+  expect(emitted).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/runtime-artifacts.*\.js$/),
+      expect.stringMatching(/ort-wasm-simd-threaded\.jsep.*\.wasm$/),
+      expect.stringMatching(/ort-wasm-simd-threaded.*\.wasm$/),
+    ]),
+  );
+  expect(metadata.buildAssets).not.toEqual(
+    expect.arrayContaining([expect.stringMatching(/runtime-artifacts|onnxruntime|\.wasm$/i)]),
+  );
+  expect(metadata.serviceWorker).not.toMatch(/onnxruntime|\.wasm/i);
+});
+
 test.each([
   ['data URL', 'data:text/javascript,globalThis.__remoteScript=true'],
   ['remote HTTPS URL', 'https://example.com/runtime.js'],

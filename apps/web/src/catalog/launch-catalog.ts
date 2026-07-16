@@ -1,6 +1,8 @@
 import type {
   AssetDeliveryEvidence,
   AssetSetManifest,
+  BrowserRuntimeArtifact,
+  BrowserRuntimeSelection,
   FeatureFlag,
   GalleryManifest,
   GeneratedMediaProvenance,
@@ -19,7 +21,7 @@ import { deriveLanguageName, deriveRegionFromLocale, type SeedCatalog } from './
 import type { CatalogVoice, RuntimeMode } from './filters';
 
 type LaunchCatalogData = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   catalogId: 'open-voice-launch';
   generatedAt: string;
   engines: LaunchEngineManifest[];
@@ -28,6 +30,8 @@ type LaunchCatalogData = {
   licenses: LicenseRecord[];
   sources: SourceRecord[];
   assetSets: AssetSetManifest[];
+  runtimeArtifacts: BrowserRuntimeArtifact[];
+  runtimeSelections: BrowserRuntimeSelection[];
   assetDeliveryEvidence: AssetDeliveryEvidence[];
   releaseAssetEvidence: PinnedReleaseAssetEvidence[];
   featureFlags: FeatureFlag[];
@@ -43,6 +47,8 @@ const ARRAY_FIELDS = [
   'licenses',
   'sources',
   'assetSets',
+  'runtimeArtifacts',
+  'runtimeSelections',
   'assetDeliveryEvidence',
   'releaseAssetEvidence',
   'featureFlags',
@@ -63,16 +69,125 @@ const EXPECTED_ENGINE_COUNTS: Readonly<Record<string, number>> = {
 const LAUNCH_CATALOG_CACHE_PREFIX = 'open-voice-launch-catalog-';
 const STRICT_JSON_CONTENT_TYPE =
   /^application\/json(?:\s*;\s*charset\s*=\s*(?:utf-8|"utf-8"))?\s*$/i;
+const RUNTIME_ARTIFACT_FIELDS = [
+  'backend',
+  'bytes',
+  'cacheKey',
+  'id',
+  'licenseIds',
+  'mediaType',
+  'packageName',
+  'packagePath',
+  'packageVersion',
+  'sha256',
+  'sourceIds',
+  'tarballIntegrity',
+  'tarballSha1',
+  'tarballUrl',
+].sort();
+const RUNTIME_SELECTION_FIELDS = [
+  'assetSetId',
+  'backend',
+  'engineId',
+  'id',
+  'runtimeArtifactId',
+  'selectionDigest',
+].sort();
+const EXPECTED_SUPERTONIC_ASSET_SET_DIGEST =
+  'sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6';
+const EXPECTED_RUNTIME_ARTIFACTS: Readonly<Record<string, BrowserRuntimeArtifact>> = {
+  'onnxruntime-web-wasm-runtime': {
+    id: 'onnxruntime-web-wasm-runtime',
+    backend: 'wasm',
+    packageName: 'onnxruntime-web',
+    packageVersion: '1.27.0',
+    tarballUrl: 'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz',
+    tarballIntegrity:
+      'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==',
+    tarballSha1: 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4',
+    packagePath: 'dist/ort-wasm-simd-threaded.wasm',
+    sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    bytes: 13_479_978,
+    mediaType: 'application/wasm',
+    cacheKey:
+      'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded/d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    sourceIds: ['onnxruntime-web-source'],
+    licenseIds: ['onnxruntime-web-runtime-license'],
+  },
+  'onnxruntime-web-webgpu-jsep-wasm': {
+    id: 'onnxruntime-web-webgpu-jsep-wasm',
+    backend: 'webgpu',
+    packageName: 'onnxruntime-web',
+    packageVersion: '1.27.0',
+    tarballUrl: 'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz',
+    tarballIntegrity:
+      'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==',
+    tarballSha1: 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4',
+    packagePath: 'dist/ort-wasm-simd-threaded.jsep.wasm',
+    sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    bytes: 26_827_543,
+    mediaType: 'application/wasm',
+    cacheKey:
+      'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded.jsep/78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    sourceIds: ['onnxruntime-web-source'],
+    licenseIds: ['onnxruntime-web-runtime-license'],
+  },
+};
+const EXPECTED_RUNTIME_SELECTIONS: Readonly<Record<string, BrowserRuntimeSelection>> = {
+  'supertonic-wasm': {
+    id: 'supertonic-wasm',
+    engineId: 'supertonic',
+    backend: 'wasm',
+    assetSetId: 'supertonic-browser-assets',
+    runtimeArtifactId: 'onnxruntime-web-wasm-runtime',
+    selectionDigest: 'sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9',
+  },
+  'supertonic-webgpu': {
+    id: 'supertonic-webgpu',
+    engineId: 'supertonic',
+    backend: 'webgpu',
+    assetSetId: 'supertonic-browser-assets',
+    runtimeArtifactId: 'onnxruntime-web-webgpu-jsep-wasm',
+    selectionDigest: 'sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e',
+  },
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function hasSameClosedRecord(
+  candidate: Record<string, unknown>,
+  expected: Record<string, unknown>,
+): boolean {
+  const candidateKeys = Object.keys(candidate).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  return (
+    JSON.stringify(candidateKeys) === JSON.stringify(expectedKeys) &&
+    candidateKeys.every((key) => {
+      const candidateValue = candidate[key];
+      const expectedValue = expected[key];
+      return Array.isArray(candidateValue) && Array.isArray(expectedValue)
+        ? JSON.stringify(candidateValue) === JSON.stringify(expectedValue)
+        : candidateValue === expectedValue;
+    })
+  );
+}
+
+function isUniqueNonEmptyStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === 'string' && entry.length > 0) &&
+    new Set(value).size === value.length
+  );
 }
 
 function parseLaunchCatalog(value: unknown): LaunchCatalogData {
   if (
     !isRecord(value) ||
     JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(TOP_LEVEL_FIELDS) ||
-    value.schemaVersion !== 2 ||
+    value.schemaVersion !== 3 ||
     value.catalogId !== 'open-voice-launch' ||
     typeof value.generatedAt !== 'string' ||
     ARRAY_FIELDS.some((field) => !Array.isArray(value[field]))
@@ -109,6 +224,106 @@ function parseLaunchCatalog(value: unknown): LaunchCatalogData {
   }
   if (engineIds.size !== candidate.engines.length) {
     throw new Error('Invalid launch catalog payload: duplicate engine IDs.');
+  }
+  const runtimeArtifactIds = new Set<string>();
+  const runtimeArtifactsById = new Map<string, BrowserRuntimeArtifact>();
+  for (const artifact of candidate.runtimeArtifacts) {
+    if (
+      !isRecord(artifact) ||
+      JSON.stringify(Object.keys(artifact).sort()) !== JSON.stringify(RUNTIME_ARTIFACT_FIELDS) ||
+      typeof artifact.id !== 'string' ||
+      artifact.id.length === 0 ||
+      (artifact.backend !== 'webgpu' && artifact.backend !== 'wasm') ||
+      artifact.packageName !== 'onnxruntime-web' ||
+      artifact.packageVersion !== '1.27.0' ||
+      typeof artifact.tarballUrl !== 'string' ||
+      artifact.tarballUrl.length === 0 ||
+      typeof artifact.tarballIntegrity !== 'string' ||
+      artifact.tarballIntegrity.length === 0 ||
+      typeof artifact.tarballSha1 !== 'string' ||
+      artifact.tarballSha1.length === 0 ||
+      typeof artifact.packagePath !== 'string' ||
+      artifact.packagePath.length === 0 ||
+      typeof artifact.sha256 !== 'string' ||
+      !/^sha256:[a-f0-9]{64}$/.test(artifact.sha256) ||
+      !Number.isSafeInteger(artifact.bytes) ||
+      (artifact.bytes as number) <= 0 ||
+      artifact.mediaType !== 'application/wasm' ||
+      typeof artifact.cacheKey !== 'string' ||
+      artifact.cacheKey.length === 0 ||
+      !isUniqueNonEmptyStringArray(artifact.sourceIds) ||
+      !isUniqueNonEmptyStringArray(artifact.licenseIds)
+    ) {
+      throw new Error('Invalid launch catalog payload: malformed runtime artifact record.');
+    }
+    const expectedArtifact = EXPECTED_RUNTIME_ARTIFACTS[artifact.id];
+    if (
+      expectedArtifact === undefined ||
+      !hasSameClosedRecord(artifact, expectedArtifact as unknown as Record<string, unknown>)
+    ) {
+      throw new Error('Invalid launch catalog payload: exact runtime artifact closure drift.');
+    }
+    if (runtimeArtifactIds.has(artifact.id)) {
+      throw new Error('Invalid launch catalog payload: duplicate runtime artifact IDs.');
+    }
+    runtimeArtifactIds.add(artifact.id);
+    runtimeArtifactsById.set(artifact.id, artifact as BrowserRuntimeArtifact);
+  }
+  if (
+    candidate.runtimeArtifacts.length !== 2 ||
+    !runtimeArtifactIds.has('onnxruntime-web-webgpu-jsep-wasm') ||
+    !runtimeArtifactIds.has('onnxruntime-web-wasm-runtime')
+  ) {
+    throw new Error('Invalid launch catalog payload: exact runtime artifact closure drift.');
+  }
+
+  const runtimeSelectionIds = new Set<string>();
+  for (const selection of candidate.runtimeSelections) {
+    if (
+      !isRecord(selection) ||
+      JSON.stringify(Object.keys(selection).sort()) !== JSON.stringify(RUNTIME_SELECTION_FIELDS) ||
+      typeof selection.id !== 'string' ||
+      selection.id.length === 0 ||
+      typeof selection.engineId !== 'string' ||
+      selection.engineId.length === 0 ||
+      (selection.backend !== 'webgpu' && selection.backend !== 'wasm') ||
+      typeof selection.assetSetId !== 'string' ||
+      selection.assetSetId.length === 0 ||
+      typeof selection.runtimeArtifactId !== 'string' ||
+      selection.runtimeArtifactId.length === 0 ||
+      typeof selection.selectionDigest !== 'string' ||
+      !/^sha256:[a-f0-9]{64}$/.test(selection.selectionDigest)
+    ) {
+      throw new Error('Invalid launch catalog payload: malformed runtime selection record.');
+    }
+    const expectedSelection = EXPECTED_RUNTIME_SELECTIONS[selection.id];
+    if (
+      expectedSelection === undefined ||
+      !hasSameClosedRecord(selection, expectedSelection as unknown as Record<string, unknown>)
+    ) {
+      throw new Error('Invalid launch catalog payload: exact runtime selection closure drift.');
+    }
+    const artifact = runtimeArtifactsById.get(selection.runtimeArtifactId);
+    const assetSet = candidate.assetSets.find(({ id }) => id === selection.assetSetId);
+    if (assetSet?.manifestDigest !== EXPECTED_SUPERTONIC_ASSET_SET_DIGEST) {
+      throw new Error('Invalid launch catalog payload: exact runtime selection closure drift.');
+    }
+    if (
+      runtimeSelectionIds.has(selection.id) ||
+      !engineIds.has(selection.engineId) ||
+      artifact?.backend !== selection.backend ||
+      assetSet?.engineId !== selection.engineId
+    ) {
+      throw new Error('Invalid launch catalog payload: detached or duplicate runtime selection.');
+    }
+    runtimeSelectionIds.add(selection.id);
+  }
+  if (
+    candidate.runtimeSelections.length !== 2 ||
+    !runtimeSelectionIds.has('supertonic-webgpu') ||
+    !runtimeSelectionIds.has('supertonic-wasm')
+  ) {
+    throw new Error('Invalid launch catalog payload: exact runtime selection closure drift.');
   }
   const actualEngineCounts: Record<string, number> = {};
   for (const voice of candidate.voices) {
@@ -230,6 +445,8 @@ export function mapLaunchCatalog(value: unknown): SeedCatalog {
     ),
     generatedAt: launch.generatedAt,
     assetSets: launch.assetSets.map((assetSet) => structuredClone(assetSet)),
+    runtimeArtifacts: launch.runtimeArtifacts.map((artifact) => structuredClone(artifact)),
+    runtimeSelections: launch.runtimeSelections.map((selection) => structuredClone(selection)),
     assetDeliveryEvidence: launch.assetDeliveryEvidence.map((record) => structuredClone(record)),
     releaseAssetEvidence: launch.releaseAssetEvidence.map((record) => structuredClone(record)),
     featureFlags: launch.featureFlags.map((record) => structuredClone(record)),

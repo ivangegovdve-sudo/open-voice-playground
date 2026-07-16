@@ -13,6 +13,7 @@ import {
   stableStringifyLaunchCatalog,
   validateLaunchCatalogForRelease,
 } from '../src/launch.js';
+import { computeBrowserRuntimeSelectionDigest } from '../src/launch-runtime-artifacts.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(packageRoot, '..', '..');
@@ -164,6 +165,255 @@ function recomputeManifestDigest(
 }
 
 describe('deterministic launch catalog', () => {
+  it('freezes the exact Supertonic model and ONNX Runtime Web closure', () => {
+    const catalog = buildLaunchCatalog();
+    const assetSet = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+
+    expect(catalog.schemaVersion).toBe(3);
+    expect(assetSet.assets).toHaveLength(16);
+    expect(assetSet.assets.map(({ id }) => id)).toEqual([
+      'onnx-duration-predictor-onnx',
+      'onnx-text-encoder-onnx',
+      'onnx-tts-json',
+      'onnx-unicode-indexer-json',
+      'onnx-vector-estimator-onnx',
+      'onnx-vocoder-onnx',
+      'voice-styles-f1-json',
+      'voice-styles-f2-json',
+      'voice-styles-f3-json',
+      'voice-styles-f4-json',
+      'voice-styles-f5-json',
+      'voice-styles-m1-json',
+      'voice-styles-m2-json',
+      'voice-styles-m3-json',
+      'voice-styles-m4-json',
+      'voice-styles-m5-json',
+    ]);
+    expect(assetSet.assets.map(({ id }) => id)).not.toContain('config-json');
+    expect(assetSet.totalBytes).toBe(401_276_744);
+    expect(assetSet.manifestDigest).toBe(
+      'sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6',
+    );
+    expect(catalog.runtimeArtifacts).toEqual([
+      {
+        id: 'onnxruntime-web-wasm-runtime',
+        backend: 'wasm',
+        packageName: 'onnxruntime-web',
+        packageVersion: '1.27.0',
+        tarballUrl: 'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz',
+        tarballIntegrity:
+          'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==',
+        tarballSha1: 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4',
+        packagePath: 'dist/ort-wasm-simd-threaded.wasm',
+        sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+        bytes: 13_479_978,
+        mediaType: 'application/wasm',
+        cacheKey:
+          'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded/d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+        sourceIds: ['onnxruntime-web-source'],
+        licenseIds: ['onnxruntime-web-runtime-license'],
+      },
+      {
+        id: 'onnxruntime-web-webgpu-jsep-wasm',
+        backend: 'webgpu',
+        packageName: 'onnxruntime-web',
+        packageVersion: '1.27.0',
+        tarballUrl: 'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.0.tgz',
+        tarballIntegrity:
+          'sha512-ogDLsqIozHZwifPuN37OproAo0byX6t43/bP8GzeZWBWD6MOGExswFAx3up4NS/vvWBOg2u2PXomDt3rMmdQSg==',
+        tarballSha1: 'sha1:3cfdf3e5f5d554098b5a729b7603d7686d2f69b4',
+        packagePath: 'dist/ort-wasm-simd-threaded.jsep.wasm',
+        sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+        bytes: 26_827_543,
+        mediaType: 'application/wasm',
+        cacheKey:
+          'runtime/onnxruntime-web/1.27.0/ort-wasm-simd-threaded.jsep/78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+        sourceIds: ['onnxruntime-web-source'],
+        licenseIds: ['onnxruntime-web-runtime-license'],
+      },
+    ]);
+    expect(catalog.runtimeSelections).toEqual([
+      {
+        id: 'supertonic-wasm',
+        engineId: 'supertonic',
+        backend: 'wasm',
+        assetSetId: 'supertonic-browser-assets',
+        runtimeArtifactId: 'onnxruntime-web-wasm-runtime',
+        selectionDigest: 'sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9',
+      },
+      {
+        id: 'supertonic-webgpu',
+        engineId: 'supertonic',
+        backend: 'webgpu',
+        assetSetId: 'supertonic-browser-assets',
+        runtimeArtifactId: 'onnxruntime-web-webgpu-jsep-wasm',
+        selectionDigest: 'sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e',
+      },
+    ]);
+    expect(Object.keys(catalog.runtimeArtifacts[0]!)).toEqual([
+      'id',
+      'backend',
+      'packageName',
+      'packageVersion',
+      'tarballUrl',
+      'tarballIntegrity',
+      'tarballSha1',
+      'packagePath',
+      'sha256',
+      'bytes',
+      'mediaType',
+      'cacheKey',
+      'sourceIds',
+      'licenseIds',
+    ]);
+    expect(assetSet.totalBytes + catalog.runtimeArtifacts[0]!.bytes).toBe(414_756_722);
+    expect(assetSet.totalBytes + catalog.runtimeArtifacts[1]!.bytes).toBe(428_104_287);
+  });
+
+  it('binds every selection, asset-set anchor, and runtime artifact identity field', () => {
+    const catalog = buildLaunchCatalog();
+    const assetSet = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
+    const selection = catalog.runtimeSelections.find(({ id }) => id === 'supertonic-webgpu')!;
+    const artifact = catalog.runtimeArtifacts.find(({ id }) => id === selection.runtimeArtifactId)!;
+    const { selectionDigest: _selectionDigest, ...identity } = selection;
+    const baseline = computeBrowserRuntimeSelectionDigest(identity, assetSet, artifact);
+
+    expect(baseline).toBe(selection.selectionDigest);
+    const identityMutations = {
+      id: 'other-selection',
+      engineId: 'other-engine',
+      backend: 'wasm',
+      assetSetId: 'other-assets',
+      runtimeArtifactId: 'other-runtime',
+    } as const;
+    for (const [field, value] of Object.entries(identityMutations)) {
+      expect(
+        computeBrowserRuntimeSelectionDigest({ ...identity, [field]: value }, assetSet, artifact),
+        field,
+      ).not.toBe(baseline);
+    }
+    for (const [field, value] of [
+      ['id', 'other-assets'],
+      ['manifestDigest', `sha256:${'f'.repeat(64)}`],
+    ] as const) {
+      expect(
+        computeBrowserRuntimeSelectionDigest(identity, { ...assetSet, [field]: value }, artifact),
+        `assetSet.${field}`,
+      ).not.toBe(baseline);
+    }
+
+    const scalarMutations: Record<string, unknown> = {
+      id: 'other-runtime',
+      backend: 'wasm',
+      packageName: 'other-package',
+      packageVersion: '1.27.1',
+      tarballUrl: 'https://registry.npmjs.org/other/-/other-1.0.0.tgz',
+      tarballIntegrity: 'sha512-other',
+      tarballSha1: `sha1:${'f'.repeat(40)}`,
+      packagePath: 'dist/other.wasm',
+      sha256: `sha256:${'e'.repeat(64)}`,
+      bytes: artifact.bytes + 1,
+      mediaType: 'application/octet-stream',
+      cacheKey: 'runtime/other/file',
+    };
+    for (const [field, value] of Object.entries(scalarMutations)) {
+      expect(
+        computeBrowserRuntimeSelectionDigest(identity, assetSet, {
+          ...artifact,
+          [field]: value,
+        }),
+        `artifact.${field}`,
+      ).not.toBe(baseline);
+    }
+    expect(
+      computeBrowserRuntimeSelectionDigest(identity, assetSet, {
+        ...artifact,
+        sourceIds: [...artifact.sourceIds, 'other-source'],
+      }),
+    ).not.toBe(baseline);
+    expect(
+      computeBrowserRuntimeSelectionDigest(identity, assetSet, {
+        ...artifact,
+        licenseIds: [...artifact.licenseIds, 'other-license'],
+      }),
+    ).not.toBe(baseline);
+  });
+
+  it('rejects detached or cross-backend runtime selections during release validation', () => {
+    const mutations = [
+      ['wrong engine', { engineId: 'kokoro' }],
+      ['wrong backend', { backend: 'wasm' }],
+      ['wrong asset set', { assetSetId: 'kitten-browser-assets' }],
+      ['wrong artifact', { runtimeArtifactId: 'onnxruntime-web-wasm-runtime' }],
+    ] as const;
+
+    for (const [_label, mutation] of mutations) {
+      const catalog = structuredClone(buildLaunchCatalog());
+      const selection = catalog.runtimeSelections.find(({ id }) => id === 'supertonic-webgpu')!;
+      Object.assign(selection, mutation);
+      const assetSet = catalog.assetSets.find(({ id }) => id === selection.assetSetId)!;
+      const artifact = catalog.runtimeArtifacts.find(
+        ({ id }) => id === selection.runtimeArtifactId,
+      )!;
+      const { selectionDigest: _selectionDigest, ...identity } = selection;
+      selection.selectionDigest = computeBrowserRuntimeSelectionDigest(
+        identity,
+        assetSet,
+        artifact,
+      );
+      expect(() => validateLaunchCatalogForRelease(catalog)).toThrow(/detached engine/i);
+    }
+
+    const wrongDigest = structuredClone(buildLaunchCatalog());
+    wrongDigest.runtimeSelections.find(({ id }) => id === 'supertonic-webgpu')!.selectionDigest =
+      `sha256:${'0'.repeat(64)}`;
+    expect(() => validateLaunchCatalogForRelease(wrongDigest)).toThrow(
+      /runtime selection.*digest/i,
+    );
+  });
+
+  it('pins separate code, runtime, and model terms to immutable sources', () => {
+    const catalog = buildLaunchCatalog();
+    expect(catalog.sources.find(({ id }) => id === 'onnxruntime-web-source')).toMatchObject({
+      canonicalUrl:
+        'https://github.com/microsoft/onnxruntime/tree/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5',
+      upstreamRevision: '8f0278c77bf44b0cc83c098c6c722b92a36ac4b5',
+      sourceClass: 'official-repository',
+    });
+    expect(
+      catalog.licenses.find(({ id }) => id === 'onnxruntime-web-runtime-license'),
+    ).toMatchObject({
+      scope: 'runtime',
+      spdxId: 'MIT',
+      evidenceUrl:
+        'https://github.com/microsoft/onnxruntime/blob/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5/LICENSE',
+      attribution: 'Microsoft Corporation',
+    });
+    expect(catalog.sources.find(({ id }) => id === 'supertone-code-source')).toMatchObject({
+      upstreamRevision: 'dff55dc00064c398736080c78195f577527832ae',
+    });
+    expect(catalog.sources.find(({ id }) => id === 'supertone-model-source')).toMatchObject({
+      upstreamRevision: '3cadd1ee6394adea1bd021217a0e650ede09a323',
+    });
+    expect(catalog.licenses.find(({ id }) => id === 'supertone-code-license')?.scope).toBe('code');
+    expect(catalog.licenses.find(({ id }) => id === 'supertone-weights-license')?.scope).toBe(
+      'weights',
+    );
+  });
+
+  it('retains complete immutable MIT notices separately from model terms', async () => {
+    const notices = await readFile(join(repositoryRoot, 'THIRD_PARTY_NOTICES.md'), 'utf8');
+
+    expect(notices).toContain('Copyright (c) 2025 Supertone Inc.');
+    expect(notices).toContain('Copyright (c) Microsoft Corporation');
+    expect(notices).toContain('dff55dc00064c398736080c78195f577527832ae');
+    expect(notices).toContain('8f0278c77bf44b0cc83c098c6c722b92a36ac4b5');
+    expect(notices.match(/Permission is hereby granted, free of charge/g)).toHaveLength(2);
+    expect(notices.match(/THE SOFTWARE IS PROVIDED "AS IS"/g)).toHaveLength(2);
+    expect(notices).toMatch(/ONNX Runtime Web[\s\S]*npm tarball[\s\S]*MIT License/i);
+    expect(notices).toMatch(/OpenRAIL-M[\s\S]*separate\s+from the MIT code and runtime notices/i);
+  });
+
   it('contains exactly 426 source-backed presets with honest declared and enabled counts', () => {
     const catalog = buildLaunchCatalog();
 
@@ -350,7 +600,6 @@ describe('deterministic launch catalog', () => {
     const hubOrigin = 'https://huggingface.co';
     const supertonic = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
     const directHubIds = new Set([
-      'config-json',
       'onnx-tts-json',
       'onnx-unicode-indexer-json',
       'voice-styles-f1-json',

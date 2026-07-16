@@ -70,8 +70,78 @@ describe('launch catalog web adapter', () => {
     expect(catalog.engines).toHaveLength(6);
     expect(catalog.galleries).toHaveLength(12);
     expect(catalog.generatedMedia).toEqual([]);
+    expect(catalog.runtimeArtifacts.map(({ id }) => id)).toEqual([
+      'onnxruntime-web-wasm-runtime',
+      'onnxruntime-web-webgpu-jsep-wasm',
+    ]);
+    expect(catalog.runtimeSelections.map(({ id }) => id)).toEqual([
+      'supertonic-wasm',
+      'supertonic-webgpu',
+    ]);
+    expect(catalog.runtimeSelections[1]).toMatchObject({
+      backend: 'webgpu',
+      assetSetId: 'supertonic-browser-assets',
+      runtimeArtifactId: 'onnxruntime-web-webgpu-jsep-wasm',
+    });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it('requires schema v3 runtime arrays and rejects malformed or duplicate identities', () => {
+    const missingArtifacts = structuredClone(launchJson) as Record<string, unknown>;
+    delete missingArtifacts.runtimeArtifacts;
+    expect(() => mapLaunchCatalog(missingArtifacts)).toThrow(/required public fields/i);
+
+    const missingSelections = structuredClone(launchJson) as Record<string, unknown>;
+    delete missingSelections.runtimeSelections;
+    expect(() => mapLaunchCatalog(missingSelections)).toThrow(/required public fields/i);
+
+    expect(() => mapLaunchCatalog({ ...launchJson, schemaVersion: 2 })).toThrow(
+      /required public fields/i,
+    );
+
+    const duplicateArtifacts = structuredClone(launchJson);
+    duplicateArtifacts.runtimeArtifacts[1] = structuredClone(
+      duplicateArtifacts.runtimeArtifacts[0]!,
+    );
+    expect(() => mapLaunchCatalog(duplicateArtifacts)).toThrow(/duplicate runtime artifact/i);
+
+    const malformedSelection = structuredClone(launchJson);
+    malformedSelection.runtimeSelections[0]!.runtimeArtifactId = '';
+    expect(() => mapLaunchCatalog(malformedSelection)).toThrow(/malformed runtime selection/i);
+  });
+
+  it('rejects runtime closure records whose exact frozen identity drifts', () => {
+    const wrongTarball = structuredClone(launchJson);
+    wrongTarball.runtimeArtifacts[0]!.tarballUrl =
+      'https://registry.npmjs.org/onnxruntime-web/-/onnxruntime-web-1.27.1.tgz';
+    expect(() => mapLaunchCatalog(wrongTarball)).toThrow(/runtime artifact closure drift/i);
+
+    const wrongTarballSha1 = structuredClone(launchJson);
+    wrongTarballSha1.runtimeArtifacts[0]!.tarballSha1 = `sha1:${'0'.repeat(40)}`;
+    expect(() => mapLaunchCatalog(wrongTarballSha1)).toThrow(/runtime artifact closure drift/i);
+
+    const unsafePackagePath = structuredClone(launchJson);
+    unsafePackagePath.runtimeArtifacts[0]!.packagePath = '../evil.wasm';
+    expect(() => mapLaunchCatalog(unsafePackagePath)).toThrow(/runtime artifact closure drift/i);
+
+    const wrongSelectionDigest = structuredClone(launchJson);
+    wrongSelectionDigest.runtimeSelections[0]!.selectionDigest = `sha256:${'0'.repeat(64)}`;
+    expect(() => mapLaunchCatalog(wrongSelectionDigest)).toThrow(
+      /runtime selection closure drift/i,
+    );
+
+    const wrongAssetSetAnchor = structuredClone(launchJson);
+    wrongAssetSetAnchor.assetSets.find(
+      ({ id }) => id === 'supertonic-browser-assets',
+    )!.manifestDigest = `sha256:${'0'.repeat(64)}`;
+    expect(() => mapLaunchCatalog(wrongAssetSetAnchor)).toThrow(/runtime selection closure drift/i);
+
+    const swappedSelectionIds = structuredClone(launchJson);
+    const firstSelectionId = swappedSelectionIds.runtimeSelections[0]!.id;
+    swappedSelectionIds.runtimeSelections[0]!.id = swappedSelectionIds.runtimeSelections[1]!.id;
+    swappedSelectionIds.runtimeSelections[1]!.id = firstSelectionId;
+    expect(() => mapLaunchCatalog(swappedSelectionIds)).toThrow(/runtime selection closure drift/i);
   });
 
   it('matches multilingual voices by any published language tag, name, or region', () => {
@@ -304,7 +374,7 @@ describe('launch catalog web adapter', () => {
   });
 
   it('rejects an incomplete or unexpected public payload', () => {
-    expect(() => mapLaunchCatalog({ schemaVersion: 2, catalogId: 'open-voice-launch' })).toThrow(
+    expect(() => mapLaunchCatalog({ schemaVersion: 3, catalogId: 'open-voice-launch' })).toThrow(
       /invalid launch catalog/i,
     );
     expect(() => mapLaunchCatalog({ ...launchJson, voices: launchJson.voices.slice(1) })).toThrow(

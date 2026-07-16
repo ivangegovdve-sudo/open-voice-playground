@@ -229,6 +229,14 @@ export const LAUNCH_LICENSES: LicenseRecord[] = [
     { spdxId: 'MIT', redistribution: true, commercial: true },
   ),
   license(
+    'onnxruntime-web-runtime-license',
+    'runtime',
+    'ONNX Runtime MIT License',
+    'https://github.com/microsoft/onnxruntime/blob/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5/LICENSE',
+    'Microsoft Corporation',
+    { spdxId: 'MIT', redistribution: true, commercial: true },
+  ),
+  license(
     'supertone-weights-license',
     'weights',
     'OpenRAIL-M',
@@ -415,6 +423,12 @@ export const ENGINE_SOURCES: SourceRecord[] = [
     'supertone-code-source',
     'https://github.com/supertone-inc/supertonic/tree/dff55dc00064c398736080c78195f577527832ae',
     'dff55dc00064c398736080c78195f577527832ae',
+    { sourceClass: 'official-repository', health: 'healthy' },
+  ),
+  source(
+    'onnxruntime-web-source',
+    'https://github.com/microsoft/onnxruntime/tree/8f0278c77bf44b0cc83c098c6c722b92a36ac4b5',
+    '8f0278c77bf44b0cc83c098c6c722b92a36ac4b5',
     { sourceClass: 'official-repository', health: 'healthy' },
   ),
   source(

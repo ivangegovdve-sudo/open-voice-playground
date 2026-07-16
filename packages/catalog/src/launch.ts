@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import {
   AssetDeliveryEvidenceSchema,
   AssetSetManifestSchema,
+  BrowserRuntimeArtifactsSchema,
+  BrowserRuntimeSelectionsSchema,
   FeatureFlagSchema,
   GalleryManifestSchema,
   GeneratedMediaProvenanceSchema,
@@ -15,6 +17,8 @@ import {
   SourceRecordSchema,
   type AssetSetManifest,
   type AssetDeliveryEvidence,
+  type BrowserRuntimeArtifact,
+  type BrowserRuntimeSelection,
   type FeatureFlag,
   type GalleryManifest,
   type GeneratedMediaProvenance,
@@ -42,12 +46,17 @@ import {
   LAUNCH_SOURCES,
 } from './launch-evidence.js';
 import { PIPER_RELEASE_ASSET_EVIDENCE } from './launch-piper-evidence.js';
+import {
+  BROWSER_RUNTIME_ARTIFACTS,
+  buildBrowserRuntimeSelections,
+  computeBrowserRuntimeSelectionDigest,
+} from './launch-runtime-artifacts.js';
 
 const GENERATED_AT = '2026-07-16T00:00:00.000Z';
 
 export const LaunchCatalogManifestSchema = z
   .object({
-    schemaVersion: z.literal(2),
+    schemaVersion: z.literal(3),
     catalogId: z.literal('open-voice-launch'),
     generatedAt: z.string().datetime({ offset: true }),
     engines: z.array(LaunchEngineManifestSchema).min(1),
@@ -56,6 +65,8 @@ export const LaunchCatalogManifestSchema = z
     licenses: z.array(LicenseRecordSchema).min(1),
     sources: z.array(SourceRecordSchema).min(1),
     assetSets: z.array(AssetSetManifestSchema).min(1),
+    runtimeArtifacts: BrowserRuntimeArtifactsSchema,
+    runtimeSelections: BrowserRuntimeSelectionsSchema,
     assetDeliveryEvidence: z.array(AssetDeliveryEvidenceSchema),
     releaseAssetEvidence: z.array(PinnedReleaseAssetEvidenceSchema),
     featureFlags: z.array(FeatureFlagSchema),
@@ -66,7 +77,7 @@ export const LaunchCatalogManifestSchema = z
   .strict();
 
 export type LaunchCatalogManifest = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   catalogId: 'open-voice-launch';
   generatedAt: string;
   engines: LaunchEngineManifest[];
@@ -75,6 +86,8 @@ export type LaunchCatalogManifest = {
   licenses: LicenseRecord[];
   sources: SourceRecord[];
   assetSets: AssetSetManifest[];
+  runtimeArtifacts: BrowserRuntimeArtifact[];
+  runtimeSelections: BrowserRuntimeSelection[];
   assetDeliveryEvidence: AssetDeliveryEvidence[];
   releaseAssetEvidence: PinnedReleaseAssetEvidence[];
   featureFlags: FeatureFlag[];
@@ -423,13 +436,6 @@ function buildAssetDeliveryEvidence(
         contentRange: 'bytes 0-0/256534781',
       },
       {
-        assetId: 'config-json',
-        responseType: 'cors',
-        status: 206,
-        bytesRead: 1,
-        contentRange: 'bytes 0-0/174',
-      },
-      {
         assetId: 'voice-styles-f1-json',
         responseType: 'cors',
         status: 206,
@@ -748,8 +754,12 @@ export function buildLaunchCatalog(): LaunchCatalogManifest {
   const assetSets = buildAssetSets();
   const voices = buildVoices(assetSets);
   const engines = buildEngines(voices, assetSets);
+  const supertonicAssetSet = assetSets.find(({ id }) => id === 'supertonic-browser-assets');
+  if (supertonicAssetSet === undefined) {
+    throw new LaunchCatalogValidationError('Supertonic browser asset set is missing');
+  }
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     catalogId: 'open-voice-launch',
     generatedAt: GENERATED_AT,
     engines,
@@ -762,6 +772,8 @@ export function buildLaunchCatalog(): LaunchCatalogManifest {
         : record,
     ).sort(compareId),
     assetSets,
+    runtimeArtifacts: BROWSER_RUNTIME_ARTIFACTS.map((artifact) => structuredClone(artifact)),
+    runtimeSelections: buildBrowserRuntimeSelections(supertonicAssetSet),
     assetDeliveryEvidence: buildAssetDeliveryEvidence(assetSets),
     releaseAssetEvidence: [...PIPER_RELEASE_ASSET_EVIDENCE].sort(compareId),
     featureFlags: [
@@ -891,6 +903,8 @@ export function validateLaunchCatalogForRelease(input: unknown): {
     [manifest.licenses, 'license'],
     [manifest.sources, 'source'],
     [manifest.assetSets, 'asset set'],
+    [manifest.runtimeArtifacts, 'browser runtime artifact'],
+    [manifest.runtimeSelections, 'browser runtime selection'],
     [manifest.assetDeliveryEvidence, 'asset delivery evidence'],
     [manifest.releaseAssetEvidence, 'release asset evidence'],
     [manifest.featureFlags, 'feature flag'],
@@ -905,6 +919,9 @@ export function validateLaunchCatalogForRelease(input: unknown): {
   const licenseIds = new Set(manifest.licenses.map(({ id }) => id));
   const sourceIds = new Set(manifest.sources.map(({ id }) => id));
   const assetSetIds = new Set(manifest.assetSets.map(({ id }) => id));
+  const runtimeArtifactsById = new Map(
+    manifest.runtimeArtifacts.map((artifact) => [artifact.id, artifact]),
+  );
   const candidateIds = new Set(manifest.generationCandidates.map(({ id }) => id));
   const sampleIds = new Set(manifest.samples.map(({ id }) => id));
   const generatedMediaIds = new Set(manifest.generatedMedia.map(({ id }) => id));
@@ -1066,6 +1083,47 @@ export function validateLaunchCatalogForRelease(input: unknown): {
           `Asset set ${set.id} has an unused acceptance license ${requiredLicenseId}`,
         );
       }
+    }
+  }
+  for (const artifact of manifest.runtimeArtifacts) {
+    requireReferences(
+      `Browser runtime artifact ${artifact.id}`,
+      artifact.licenseIds,
+      licenseIds,
+      'license',
+    );
+    requireReferences(
+      `Browser runtime artifact ${artifact.id}`,
+      artifact.sourceIds,
+      sourceIds,
+      'source',
+    );
+    requireReviewedForEnabledUse(`Browser runtime artifact ${artifact.id}`, artifact.licenseIds);
+  }
+  for (const selection of manifest.runtimeSelections) {
+    const engine = enginesById.get(selection.engineId);
+    const assetSet = assetSetsById.get(selection.assetSetId);
+    const artifact = runtimeArtifactsById.get(selection.runtimeArtifactId);
+    if (
+      engine === undefined ||
+      assetSet === undefined ||
+      artifact === undefined ||
+      assetSet.engineId !== selection.engineId ||
+      !engine.assetSetIds.includes(assetSet.id) ||
+      artifact.backend !== selection.backend
+    ) {
+      throw new LaunchCatalogValidationError(
+        `Browser runtime selection ${selection.id} has a detached engine, asset set, artifact, or backend`,
+      );
+    }
+    const { selectionDigest: _selectionDigest, ...identity } = selection;
+    if (
+      selection.selectionDigest !==
+      computeBrowserRuntimeSelectionDigest(identity, assetSet, artifact)
+    ) {
+      throw new LaunchCatalogValidationError(
+        `Canonical browser runtime selection ${selection.id} digest does not bind its complete closure`,
+      );
     }
   }
   for (const delivery of manifest.assetDeliveryEvidence) {
@@ -1326,6 +1384,16 @@ export function validateLaunchCatalogForRelease(input: unknown): {
   requireExactRecordSet(manifest.engines, canonical.engines, 'launch engine');
   requireExactRecordSet(manifest.voices, canonical.voices, 'launch voice');
   requireExactRecordSet(manifest.assetSets, canonical.assetSets, 'launch asset set');
+  requireExactRecordSet(
+    manifest.runtimeArtifacts,
+    canonical.runtimeArtifacts,
+    'browser runtime artifact',
+  );
+  requireExactRecordSet(
+    manifest.runtimeSelections,
+    canonical.runtimeSelections,
+    'browser runtime selection',
+  );
   requireExactRecordSet(manifest.featureFlags, canonical.featureFlags, 'feature flag');
   requireExactRecordSet(
     manifest.releaseAssetEvidence,
