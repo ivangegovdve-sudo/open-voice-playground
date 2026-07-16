@@ -1,6 +1,9 @@
+import { spawnSync } from 'node:child_process';
+import console from 'node:console';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { isAbsolute, relative, resolve, win32 } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import process from 'node:process';
+import { fileURLToPath, URL } from 'node:url';
 
 export const POLICY = Object.freeze({
   nodeCiVersion: '22.13.0',
@@ -23,6 +26,16 @@ const EXACT_NPM_REQUIREMENT =
   /^(?:workspace:)?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)))*)?$/;
 const EXACT_REGISTRY_VERSION =
   /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)))*)?$/;
+const EXACT_CARGO_REQUIREMENT =
+  /^=(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))(?:\.(?:(?:0|[1-9]\d*)|(?:[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)))*)?$/;
+const CRATES_IO_SOURCE = 'registry+https://github.com/rust-lang/crates.io-index';
+const WINDOWS_FEATURES = Object.freeze([
+  'Win32_Foundation',
+  'Win32_Networking_WinSock',
+  'Win32_System_Com',
+  'Win32_UI_Controls',
+  'Win32_UI_WindowsAndMessaging',
+]);
 
 const WALK_EXCLUSIONS = new Set([
   '.git',
@@ -40,15 +53,26 @@ const WALK_EXCLUSIONS = new Set([
 /** @typedef {{code: string, path: string, detail: string}} PolicyViolation */
 
 /**
+ * @param {string} left
+ * @param {string} right
+ * @returns {number}
+ */
+function comparePolicyText(left, right) {
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+/**
  * @param {PolicyViolation[]} violations
  * @returns {PolicyViolation[]}
  */
 function sortViolations(violations) {
   return violations.sort(
     (left, right) =>
-      left.code.localeCompare(right.code) ||
-      left.path.localeCompare(right.path) ||
-      left.detail.localeCompare(right.detail),
+      comparePolicyText(left.code, right.code) ||
+      comparePolicyText(left.path, right.path) ||
+      comparePolicyText(left.detail, right.detail),
   );
 }
 
@@ -203,7 +227,9 @@ function collectNpmWorkspaceManifests(rootDir) {
 
   const manifests = ['package.json', ...[...matchCounts.keys()].sort()];
   /** @type {Map<string, string>} */
-  const names = new Map();
+  const names = new Map(
+    typeof rootManifest.name === 'string' ? [[rootManifest.name, 'package.json']] : [],
+  );
   for (const manifestPath of manifests.slice(1)) {
     const manifest = JSON.parse(readFileSync(resolve(rootDir, manifestPath), 'utf8'));
     if (typeof manifest.name !== 'string') continue;
@@ -242,7 +268,30 @@ function directMap(value) {
  * @returns {boolean}
  */
 function directMapsEqual(left, right) {
-  return JSON.stringify(directMap(left)) === JSON.stringify(directMap(right));
+  const leftMap = directMap(left);
+  const rightMap = directMap(right);
+  if (leftMap === undefined || rightMap === undefined) {
+    if (leftMap === undefined && rightMap === undefined) return true;
+  }
+  const comparableLeft = { ...(leftMap ?? {}) };
+  const comparableRight = { ...(rightMap ?? {}) };
+  let ignoredInvalidRequirement = false;
+  for (const [name, requirement] of Object.entries(comparableLeft)) {
+    if (!EXACT_NPM_REQUIREMENT.test(requirement)) {
+      delete comparableLeft[name];
+      delete comparableRight[name];
+      ignoredInvalidRequirement = true;
+    }
+  }
+  if (
+    ignoredInvalidRequirement &&
+    Object.keys(comparableLeft).length === 0 &&
+    Object.keys(comparableRight).length === 0
+  ) {
+    return true;
+  }
+  if ((leftMap === undefined) !== (rightMap === undefined)) return false;
+  return JSON.stringify(comparableLeft) === JSON.stringify(comparableRight);
 }
 
 /**
@@ -385,7 +434,11 @@ function auditNpmLock(rootDir, manifests) {
 
     const linkPath = `node_modules/${record.manifest.name}`;
     const link = packages[linkPath];
-    if (link?.link !== true || link?.resolved !== record.directory) {
+    if (
+      link?.link !== true ||
+      link?.resolved !== record.directory ||
+      JSON.stringify(Object.keys(link ?? {}).sort()) !== JSON.stringify(['link', 'resolved'])
+    ) {
       violations.push({
         code: 'npm-lock-workspace-link',
         path: linkPath,
@@ -549,48 +602,362 @@ export function auditNpmRepository(rootDir) {
 }
 
 /**
- * Temporary characterization seam removed when Cargo metadata becomes authoritative in Task 3.
  * @param {string} rootDir
- * @returns {{directRequirements: number, violations: PolicyViolation[]}}
+ * @returns {string[]}
  */
-export function auditCargoManifest(rootDir) {
-  const path = POLICY.cargoManifest;
-  const manifestPath = resolve(rootDir, path);
-  if (!existsSync(manifestPath)) {
-    return {
-      directRequirements: 0,
-      violations: [{ code: 'cargo-package-policy', path, detail: 'manifest' }],
-    };
-  }
-
-  const manifest = readFileSync(manifestPath, 'utf8');
-  const requirements = [
-    ...manifest.matchAll(/^([A-Za-z0-9_-]+)\s*=\s*\{[^\n]*version\s*=\s*"([^"]+)"/gm),
+export function cargoMetadataArguments(rootDir) {
+  void rootDir;
+  return [
+    'metadata',
+    '--manifest-path',
+    POLICY.cargoManifest,
+    '--locked',
+    '--no-deps',
+    '--filter-platform',
+    POLICY.windowsTarget,
+    '--format-version',
+    '1',
   ];
-  const violations = requirements
-    .filter(([, , requirement]) => !requirement?.startsWith('='))
-    .map(([, name, requirement]) => ({
-      code: 'cargo-floating-direct',
-      path,
-      detail: `${name}=${requirement}`,
-    }));
+}
 
-  return { directRequirements: requirements.length, violations: sortViolations(violations) };
+/**
+ * @param {'signal' | 'exit' | 'stderr-only' | 'json' | 'package-count' | 'manifest'} category
+ * @returns {Error}
+ */
+function cargoMetadataCommandError(category) {
+  const error = new Error(`cargo-metadata-command ${category}`);
+  error.cargoMetadataCategory = category;
+  return error;
 }
 
 /**
  * @param {string} rootDir
+ * @param {typeof spawnSync} spawn
+ * @returns {object}
+ */
+export function loadCargoDirectMetadata(rootDir, spawn = spawnSync) {
+  let result;
+  try {
+    result = spawn('cargo', cargoMetadataArguments(rootDir), {
+      cwd: rootDir,
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+  } catch {
+    throw cargoMetadataCommandError('exit');
+  }
+  if (result.signal !== null && result.signal !== undefined) {
+    throw cargoMetadataCommandError('signal');
+  }
+  if (result.status !== 0) throw cargoMetadataCommandError('exit');
+  const stdout = typeof result.stdout === 'string' ? result.stdout : '';
+  const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+  if (stdout.trim().length === 0 && stderr.trim().length > 0) {
+    throw cargoMetadataCommandError('stderr-only');
+  }
+  let metadata;
+  try {
+    metadata = JSON.parse(stdout);
+  } catch {
+    throw cargoMetadataCommandError('json');
+  }
+  if (!Array.isArray(metadata.packages) || metadata.packages.length !== 1) {
+    throw cargoMetadataCommandError('package-count');
+  }
+  const expectedManifest = resolve(rootDir, POLICY.cargoManifest);
+  if (resolve(metadata.packages[0]?.manifest_path ?? '') !== expectedManifest) {
+    throw cargoMetadataCommandError('manifest');
+  }
+  return metadata;
+}
+
+/**
+ * @param {object} metadata
+ * @returns {PolicyViolation[]}
+ */
+export function auditCargoDirectMetadata(metadata) {
+  if (!Array.isArray(metadata?.packages) || metadata.packages.length !== 1) {
+    return [
+      {
+        code: 'cargo-package-policy',
+        path: POLICY.cargoManifest,
+        detail: 'package-count',
+      },
+    ];
+  }
+  const cargoPackage = metadata.packages[0];
+  /** @type {PolicyViolation[]} */
+  const violations = [];
+  const publishIsClosed =
+    cargoPackage.publish === false ||
+    (Array.isArray(cargoPackage.publish) && cargoPackage.publish.length === 0);
+  if (
+    cargoPackage.name !== 'open-voice-companion' ||
+    cargoPackage.version !== '0.1.0' ||
+    cargoPackage.edition !== '2024' ||
+    cargoPackage.rust_version !== POLICY.rustVersion ||
+    !publishIsClosed
+  ) {
+    violations.push({
+      code: 'cargo-package-policy',
+      path: POLICY.cargoManifest,
+      detail: 'identity',
+    });
+  }
+
+  const dependencies = Array.isArray(cargoPackage.dependencies) ? cargoPackage.dependencies : [];
+  for (const dependency of dependencies) {
+    const kind = dependency.kind ?? 'normal';
+    if (typeof dependency.req !== 'string' || !EXACT_CARGO_REQUIREMENT.test(dependency.req)) {
+      violations.push({
+        code: 'cargo-floating-direct',
+        path: POLICY.cargoManifest,
+        detail: `${kind} ${String(dependency.name)}=${String(dependency.req)}`,
+      });
+    }
+    if (dependency.source !== CRATES_IO_SOURCE || dependency.registry !== null) {
+      violations.push({
+        code: 'cargo-direct-source',
+        path: POLICY.cargoManifest,
+        detail: `${kind} ${String(dependency.name)}`,
+      });
+    }
+  }
+
+  const windowsDependencies = dependencies.filter((dependency) => dependency.name === 'windows');
+  const windowsDependency = windowsDependencies[0];
+  const windowsFeatures = Array.isArray(windowsDependency?.features)
+    ? [...windowsDependency.features].sort()
+    : [];
+  if (
+    windowsDependencies.length !== 1 ||
+    windowsDependency.req !== '=0.62.2' ||
+    windowsDependency.kind !== null ||
+    windowsDependency.target !== 'cfg(windows)' ||
+    JSON.stringify(windowsFeatures) !== JSON.stringify([...WINDOWS_FEATURES].sort())
+  ) {
+    violations.push({
+      code: 'cargo-windows-policy',
+      path: POLICY.cargoManifest,
+      detail: 'windows',
+    });
+  }
+
+  return sortViolations(violations);
+}
+
+/**
+ * @param {string} lockText
+ * @returns {{packages: number, registryPackages: number, violations: PolicyViolation[]}}
+ */
+export function auditCargoLock(lockText) {
+  const sections = lockText.split(/^\[\[package\]\]\s*$/mu);
+  const header = sections[0] ?? '';
+  const packageSections = sections.slice(1);
+  /** @type {PolicyViolation[]} */
+  const violations = [];
+  const lockPath = POLICY.cargoLock;
+  const versionMatch = /^version\s*=\s*(\d+)\s*$/mu.exec(header);
+  if (versionMatch?.[1] !== '4') {
+    violations.push({ code: 'cargo-lock-version', path: lockPath, detail: 'version' });
+  }
+
+  /**
+   * @param {string} section
+   * @param {string} field
+   * @returns {string | undefined}
+   */
+  function stringField(section, field) {
+    const line = section.split(/\r?\n/u).find((candidate) => candidate.startsWith(`${field} = `));
+    if (line === undefined) return undefined;
+    try {
+      const value = JSON.parse(line.slice(`${field} = `.length));
+      return typeof value === 'string' ? value : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  let registryPackages = 0;
+  let localRoots = 0;
+  for (const [index, section] of packageSections.entries()) {
+    const name = stringField(section, 'name');
+    const version = stringField(section, 'version');
+    const source = stringField(section, 'source');
+    const checksum = stringField(section, 'checksum');
+    const packageDetail =
+      name !== undefined && version !== undefined ? `${name}@${version}` : `package-${index + 1}`;
+    if (name === undefined || version === undefined) {
+      violations.push({ code: 'cargo-lock-package', path: lockPath, detail: packageDetail });
+    }
+    if (source === undefined) {
+      if (name === 'open-voice-companion' && version === '0.1.0') {
+        localRoots += 1;
+      } else {
+        violations.push({
+          code: 'cargo-lock-package',
+          path: lockPath,
+          detail: `${packageDetail} local`,
+        });
+        violations.push({
+          code: 'cargo-lock-source',
+          path: lockPath,
+          detail: packageDetail,
+        });
+      }
+      continue;
+    }
+
+    registryPackages += 1;
+    if (source !== CRATES_IO_SOURCE) {
+      violations.push({ code: 'cargo-lock-source', path: lockPath, detail: packageDetail });
+    }
+    if (checksum === undefined || !/^[0-9a-f]{64}$/u.test(checksum)) {
+      violations.push({ code: 'cargo-lock-checksum', path: lockPath, detail: packageDetail });
+    }
+  }
+  if (localRoots !== 1) {
+    violations.push({
+      code: 'cargo-lock-package',
+      path: lockPath,
+      detail: `local-root=${localRoots}`,
+    });
+  }
+
+  return {
+    packages: packageSections.length,
+    registryPackages,
+    violations: sortViolations(violations),
+  };
+}
+
+/**
+ * @param {string} rootDir
+ * @param {object} metadata
+ * @returns {PolicyViolation[]}
+ */
+export function auditRustToolchain(rootDir, metadata) {
+  /** @type {PolicyViolation[]} */
+  const violations = [];
+  const cargoPackage = Array.isArray(metadata?.packages) ? metadata.packages[0] : undefined;
+  if (cargoPackage?.rust_version !== POLICY.rustVersion) {
+    violations.push({
+      code: 'rust-version-policy',
+      path: POLICY.cargoManifest,
+      detail: 'rust_version',
+    });
+  }
+
+  const toolchainPath = 'rust-toolchain.toml';
+  let contents;
+  try {
+    contents = readFileSync(resolve(rootDir, toolchainPath), 'utf8');
+  } catch {
+    violations.push({
+      code: 'rust-toolchain-policy',
+      path: toolchainPath,
+      detail: 'missing',
+    });
+    return sortViolations(violations);
+  }
+
+  const lines = contents
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  /** @type {Map<string, unknown>} */
+  const values = new Map();
+  let parseValid = lines[0] === '[toolchain]';
+  for (const line of lines.slice(1)) {
+    const match = /^([A-Za-z0-9_-]+)\s*=\s*(.+)$/u.exec(line);
+    if (match === null || values.has(match[1])) {
+      parseValid = false;
+      continue;
+    }
+    try {
+      values.set(match[1], JSON.parse(match[2]));
+    } catch {
+      parseValid = false;
+    }
+  }
+  const keys = [...values.keys()].sort();
+  const components = values.get('components');
+  if (
+    !parseValid ||
+    JSON.stringify(keys) !== JSON.stringify(['channel', 'components', 'profile']) ||
+    values.get('channel') !== POLICY.rustToolchain ||
+    values.get('profile') !== 'minimal' ||
+    !Array.isArray(components) ||
+    JSON.stringify([...components].sort()) !== JSON.stringify(['clippy', 'rustfmt'])
+  ) {
+    violations.push({
+      code: 'rust-toolchain-policy',
+      path: toolchainPath,
+      detail: 'toolchain',
+    });
+  }
+  return sortViolations(violations);
+}
+
+/**
+ * @param {string} rootDir
+ * @param {{spawn?: typeof spawnSync}} options
  * @returns {{npmManifests: number, npmLockedRegistryPackages: number, cargoDirectRequirements: number, cargoLockedPackages: number, violations: PolicyViolation[]}}
  */
-export function auditRepository(rootDir) {
+export function auditRepository(rootDir, options = {}) {
   const npm = auditNpmRepository(rootDir);
-  const cargo = auditCargoManifest(rootDir);
+  let metadata;
+  try {
+    metadata = loadCargoDirectMetadata(rootDir, options.spawn ?? spawnSync);
+  } catch (error) {
+    const allowedCategories = new Set([
+      'signal',
+      'exit',
+      'stderr-only',
+      'json',
+      'package-count',
+      'manifest',
+    ]);
+    const category = allowedCategories.has(error?.cargoMetadataCategory)
+      ? error.cargoMetadataCategory
+      : 'exit';
+    return {
+      npmManifests: npm.manifests.length,
+      npmLockedRegistryPackages: npm.lockedRegistryPackages,
+      cargoDirectRequirements: 0,
+      cargoLockedPackages: 0,
+      violations: sortViolations([
+        ...npm.violations,
+        { code: 'cargo-metadata-command', path: POLICY.cargoManifest, detail: category },
+      ]),
+    };
+  }
+  const cargoPackage = metadata.packages[0];
+  const cargoViolations = auditCargoDirectMetadata(metadata);
+  let cargoLock;
+  try {
+    cargoLock = auditCargoLock(readFileSync(resolve(rootDir, POLICY.cargoLock), 'utf8'));
+  } catch {
+    cargoLock = {
+      packages: 0,
+      registryPackages: 0,
+      violations: [{ code: 'cargo-lock-version', path: POLICY.cargoLock, detail: 'read' }],
+    };
+  }
+  const rustViolations = auditRustToolchain(rootDir, metadata);
   return {
     npmManifests: npm.manifests.length,
     npmLockedRegistryPackages: npm.lockedRegistryPackages,
-    cargoDirectRequirements: cargo.directRequirements,
-    cargoLockedPackages: 0,
-    violations: sortViolations([...npm.violations, ...cargo.violations]),
+    cargoDirectRequirements: Array.isArray(cargoPackage.dependencies)
+      ? cargoPackage.dependencies.length
+      : 0,
+    cargoLockedPackages: cargoLock.packages,
+    violations: sortViolations([
+      ...npm.violations,
+      ...cargoViolations,
+      ...cargoLock.violations,
+      ...rustViolations,
+    ]),
   };
 }
 
