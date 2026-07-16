@@ -3,11 +3,15 @@ use std::{
     fmt::{Debug, Display},
     hash::Hash,
     ops::Deref,
+    time::Instant,
 };
 
-use open_voice_companion::protocol::{
-    DeepLinkChallengeRequest, JobCreateRequest, ManualChallengeRequest, ManualCode, OpaqueSecret,
-    PairingChallengeRequest, RedeemRequest, RedeemResponse, SynthesisText,
+use open_voice_companion::{
+    pairing::{GeneratedManualCode, ManualCodeRegistry, PairingError},
+    protocol::{
+        DeepLinkChallengeRequest, JobCreateRequest, ManualChallengeRequest, ManualCode,
+        OpaqueSecret, PairingChallengeRequest, RedeemRequest, RedeemResponse, SynthesisText,
+    },
 };
 
 macro_rules! assert_not_impl {
@@ -50,6 +54,10 @@ assert_secret_safe!(PairingChallengeRequest);
 assert_secret_safe!(RedeemRequest);
 assert_secret_safe!(RedeemResponse);
 assert_secret_safe!(JobCreateRequest);
+assert_secret_safe!(GeneratedManualCode);
+
+const _: fn(&ManualCodeRegistry, &str, Instant) -> Result<GeneratedManualCode, PairingError> =
+    ManualCodeRegistry::create;
 
 #[test]
 fn secret_bearing_wire_types_expose_only_consuming_accessors() {

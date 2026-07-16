@@ -10,9 +10,9 @@ use async_trait::async_trait;
 use open_voice_companion::{
     deep_link::{DeepLinkError, DeepLinkRegistry},
     pairing::{
-        ApprovalDecision, ApprovalPort, BearerSecret, ManualCodeRegistry, PairingError,
-        PairingService, PairingStore, SqlitePairingStore, StoredPairing, fixed_scopes,
-        generate_secret, hash_for_transport,
+        ApprovalDecision, ApprovalPort, BearerSecret, GeneratedManualCode, ManualCodeRegistry,
+        PairingError, PairingService, PairingStore, SqlitePairingStore, StoredPairing,
+        fixed_scopes, generate_secret, hash_for_transport,
     },
     protocol::Scope,
 };
@@ -838,52 +838,84 @@ fn raw_deep_link_registry_has_a_hard_memory_bound() {
 fn manual_code_is_crockford_bounded_origin_bound_and_attempt_limited() {
     let registry = ManualCodeRegistry::new();
     let now = Instant::now();
-    let code = registry.create("http://127.0.0.1:5173", now).unwrap();
-    assert_eq!(code.len(), 12);
+    let code: GeneratedManualCode = registry.create("http://127.0.0.1:5173", now).unwrap();
+    let code_view = code.expose_for_approval();
+    assert_eq!(code_view.len(), 12);
     assert!(
-        code.bytes()
+        code_view
+            .bytes()
             .all(|byte| b"0123456789ABCDEFGHJKMNPQRSTVWXYZ".contains(&byte))
     );
     for invalid in [
-        format!(" {code}"),
-        format!("O{}", &code[1..]),
-        format!("I{}", &code[1..]),
-        format!("L{}", &code[1..]),
+        format!(" {code_view}"),
+        format!("O{}", &code_view[1..]),
+        format!("I{}", &code_view[1..]),
+        format!("L{}", &code_view[1..]),
     ] {
         assert_eq!(
             registry.claim(&invalid, "http://127.0.0.1:5173", now),
             Err(PairingError::InvalidRequest)
         );
     }
-    let mut wrong_canonical = code.clone().into_bytes();
+    let mut wrong_canonical = [0_u8; 12];
+    wrong_canonical.copy_from_slice(code_view.as_bytes());
     wrong_canonical[0] = if wrong_canonical[0] == b'0' {
         b'1'
     } else {
         b'0'
     };
-    let wrong_canonical = String::from_utf8(wrong_canonical).unwrap();
+    let wrong_canonical = std::str::from_utf8(&wrong_canonical).unwrap();
     assert_eq!(
-        registry.claim(&wrong_canonical, "http://127.0.0.1:5173", now),
+        registry.claim(wrong_canonical, "http://127.0.0.1:5173", now),
         Err(PairingError::AttemptsExhausted)
     );
     assert_eq!(
-        registry.claim(&code, "http://127.0.0.1:5173", now),
+        registry.claim(code.expose_for_approval(), "http://127.0.0.1:5173", now),
         Err(PairingError::AttemptsExhausted)
     );
 
     let registry = ManualCodeRegistry::new();
     let code = registry.create("http://127.0.0.1:5173", now).unwrap();
     assert_eq!(
-        registry.claim(&code, "https://other.invalid", now),
+        registry.claim(code.expose_for_approval(), "https://other.invalid", now),
         Err(PairingError::OriginMismatch)
     );
     assert_eq!(
         registry.claim(
-            &code,
+            code.expose_for_approval(),
             "http://127.0.0.1:5173",
             now + Duration::from_secs(120)
         ),
         Err(PairingError::Expired)
+    );
+}
+
+#[test]
+fn manual_code_replacement_invalidates_previous_without_consuming_current() {
+    let registry = ManualCodeRegistry::new();
+    let now = Instant::now();
+    let first = registry.create("https://first.invalid", now).unwrap();
+    let current = registry.create("https://current.invalid", now).unwrap();
+
+    assert_eq!(
+        registry.claim(first.expose_for_approval(), "https://first.invalid", now),
+        Err(PairingError::OriginMismatch)
+    );
+    assert_eq!(
+        registry.claim(
+            current.expose_for_approval(),
+            "https://current.invalid",
+            now
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        registry.claim(
+            current.expose_for_approval(),
+            "https://current.invalid",
+            now
+        ),
+        Err(PairingError::Consumed)
     );
 }
 

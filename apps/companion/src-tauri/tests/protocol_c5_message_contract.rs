@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use open_voice_companion::protocol::{
     OPERATION_MESSAGE_CONTRACTS, OperationMessageContract, RequestMessage, ResponseBody,
+    ResponseMessage,
 };
 use serde_json::{Map, Value};
 
@@ -179,6 +180,35 @@ fn extract_contracts(document: &Value) -> Result<BTreeMap<String, OwnedOperation
     Ok(contracts)
 }
 
+fn collect_rust_responses(
+    responses: &[ResponseMessage],
+) -> Result<BTreeMap<u16, OwnedBody>, String> {
+    let mut collected = BTreeMap::new();
+    for response in responses {
+        let body = match response.body {
+            ResponseBody::Empty => OwnedBody::Empty,
+            ResponseBody::Json { media_type, schema } => OwnedBody::Json {
+                media_type: media_type.to_owned(),
+                schema_ref: schema.as_str().to_owned(),
+            },
+            ResponseBody::Audio {
+                media_type,
+                max_bytes,
+            } => OwnedBody::Audio {
+                media_type: media_type.to_owned(),
+                max_bytes,
+            },
+        };
+        if collected.insert(response.status, body).is_some() {
+            return Err(format!(
+                "duplicate Rust response status {}",
+                response.status
+            ));
+        }
+    }
+    Ok(collected)
+}
+
 fn rust_contracts() -> BTreeMap<String, OwnedOperation> {
     OPERATION_MESSAGE_CONTRACTS
         .iter()
@@ -195,33 +225,29 @@ fn rust_contracts() -> BTreeMap<String, OwnedOperation> {
                     schema_ref: schema.as_str().to_owned(),
                 },
             };
-            let responses = operation
-                .responses
-                .iter()
-                .map(|response| {
-                    let body = match response.body {
-                        ResponseBody::Empty => OwnedBody::Empty,
-                        ResponseBody::Json { media_type, schema } => OwnedBody::Json {
-                            media_type: media_type.to_owned(),
-                            schema_ref: schema.as_str().to_owned(),
-                        },
-                        ResponseBody::Audio {
-                            media_type,
-                            max_bytes,
-                        } => OwnedBody::Audio {
-                            media_type: media_type.to_owned(),
-                            max_bytes,
-                        },
-                    };
-                    (response.status, body)
-                })
-                .collect();
+            let responses = collect_rust_responses(operation.responses)
+                .expect("Rust response statuses must be unique");
             (
                 operation.operation_id.to_owned(),
                 OwnedOperation { request, responses },
             )
         })
         .collect()
+}
+
+#[test]
+fn rust_message_contract_rejects_identical_duplicate_statuses() {
+    let operation = OPERATION_MESSAGE_CONTRACTS
+        .iter()
+        .find(|operation| operation.operation_id == "getHealth")
+        .unwrap();
+    let mut responses = operation.responses.to_vec();
+    responses.push(operation.responses[0]);
+
+    assert!(
+        collect_rust_responses(&responses).is_err(),
+        "identical duplicate response statuses must fail before map collection"
+    );
 }
 
 fn operation_mut<'a>(document: &'a mut Value, id: &str) -> &'a mut Map<String, Value> {

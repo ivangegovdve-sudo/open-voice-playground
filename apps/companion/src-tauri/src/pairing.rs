@@ -15,6 +15,7 @@ use subtle::ConstantTimeEq;
 use time::OffsetDateTime;
 use tokio::sync::watch;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::{
     deep_link::{DeepLinkError, DeepLinkRegistry},
@@ -560,11 +561,19 @@ fn database_expire_inactive(
 }
 
 struct ManualEntry {
-    code: String,
+    code_hash: [u8; 32],
     origin: String,
     expires: Instant,
     failed_attempts: u8,
     consumed: bool,
+}
+
+pub struct GeneratedManualCode(Zeroizing<String>);
+
+impl GeneratedManualCode {
+    pub fn expose_for_approval(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 pub struct ManualCodeRegistry {
@@ -584,18 +593,21 @@ impl ManualCodeRegistry {
         }
     }
 
-    pub fn create(&self, origin: &str, now: Instant) -> Result<String, PairingError> {
-        let mut random = [0_u8; 8];
-        getrandom::fill(&mut random).map_err(|_| PairingError::Unavailable)?;
-        let mut value = u64::from_le_bytes(random) & ((1_u64 << 60) - 1);
-        let mut code = [b'0'; 12];
+    pub fn create(&self, origin: &str, now: Instant) -> Result<GeneratedManualCode, PairingError> {
+        let mut random = Zeroizing::new([0_u8; 8]);
+        getrandom::fill(random.as_mut()).map_err(|_| PairingError::Unavailable)?;
+        let mut value = u64::from_le_bytes(*random) & ((1_u64 << 60) - 1);
+        let mut encoded = Zeroizing::new([b'0'; 12]);
+        let code = encoded.as_mut();
         for slot in code.iter_mut().rev() {
             *slot = CROCKFORD[(value & 31) as usize];
             value >>= 5;
         }
-        let code = String::from_utf8(code.to_vec()).map_err(|_| PairingError::Unavailable)?;
+        let code = std::str::from_utf8(code).map_err(|_| PairingError::Unavailable)?;
+        let code = GeneratedManualCode(Zeroizing::new(code.to_owned()));
+        let code_hash = hash_bytes(code.expose_for_approval().as_bytes());
         *self.active.lock().map_err(|_| PairingError::Unavailable)? = Some(ManualEntry {
-            code: code.clone(),
+            code_hash,
             origin: origin.to_owned(),
             expires: now + PAIRING_TTL,
             failed_attempts: 0,
@@ -617,7 +629,12 @@ impl ManualCodeRegistry {
             return Err(PairingError::AttemptsExhausted);
         }
         let canonical = code.len() == 12 && code.bytes().all(|byte| CROCKFORD.contains(&byte));
-        if !canonical || code != entry.code || origin != entry.origin {
+        let code_matches = canonical
+            && hash_bytes(code.as_bytes())
+                .ct_eq(&entry.code_hash)
+                .unwrap_u8()
+                == 1;
+        if !code_matches || origin != entry.origin {
             entry.failed_attempts = entry.failed_attempts.saturating_add(1);
             if entry.failed_attempts >= MAX_MANUAL_ATTEMPTS {
                 return Err(PairingError::AttemptsExhausted);
@@ -1021,6 +1038,29 @@ fn validate_challenge_input(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn manual_entry_contains_only_verifier_and_nonsensitive_metadata() {
+        let entry = ManualEntry {
+            code_hash: [0_u8; 32],
+            origin: "https://example.invalid".to_owned(),
+            expires: Instant::now(),
+            failed_attempts: 0,
+            consumed: false,
+        };
+        let ManualEntry {
+            code_hash,
+            origin,
+            expires,
+            failed_attempts,
+            consumed,
+        } = entry;
+        assert_eq!(code_hash, [0_u8; 32]);
+        assert_eq!(origin, "https://example.invalid");
+        assert!(expires <= Instant::now());
+        assert_eq!(failed_attempts, 0);
+        assert!(!consumed);
+    }
 
     fn stored_pairing(id: Uuid, timestamp: OffsetDateTime) -> StoredPairing {
         StoredPairing {
