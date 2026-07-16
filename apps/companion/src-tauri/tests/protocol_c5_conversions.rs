@@ -43,6 +43,20 @@ fn native_date_time_conversion_normalizes_to_exact_utc_rfc3339() {
 }
 
 #[test]
+fn native_date_time_conversion_rejects_offset_crossing_bounds_without_panicking() {
+    let upper = PrimitiveDateTime::MAX.assume_offset(UtcOffset::from_hms(-1, 0, 0).unwrap());
+    let lower = PrimitiveDateTime::MIN.assume_offset(UtcOffset::from_hms(1, 0, 0).unwrap());
+
+    for boundary in [upper, lower] {
+        let outcome = std::panic::catch_unwind(|| CanonicalDateTime::try_from(boundary));
+        assert!(
+            matches!(outcome, Ok(Err(_))),
+            "offset-crossing native date-time must fail closed without panicking"
+        );
+    }
+}
+
+#[test]
 fn native_pairing_and_redeem_conversions_revalidate_and_omit_origin() {
     let pairing = PairingResponse::try_from(valid_pairing()).unwrap();
     let value = serde_json::to_value(&pairing).unwrap();

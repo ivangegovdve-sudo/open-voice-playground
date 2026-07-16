@@ -841,7 +841,10 @@ impl TryFrom<OffsetDateTime> for CanonicalDateTime {
     type Error = CanonicalDateTimeError;
 
     fn try_from(value: OffsetDateTime) -> Result<Self, Self::Error> {
-        let value = value.to_offset(UtcOffset::UTC);
+        let offset = time::Duration::seconds(i64::from(value.offset().whole_seconds()));
+        let value = PrimitiveDateTime::new(value.date(), value.time())
+            .checked_sub(offset)
+            .ok_or(CanonicalDateTimeError)?;
         if !(1..=9999).contains(&value.year()) {
             return Err(CanonicalDateTimeError);
         }

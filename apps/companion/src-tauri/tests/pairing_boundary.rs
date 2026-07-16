@@ -16,7 +16,7 @@ use open_voice_companion::{
     },
     protocol::Scope,
 };
-use time::OffsetDateTime;
+use time::{OffsetDateTime, UtcOffset};
 use tokio::sync::{Notify, oneshot};
 
 #[test]
@@ -295,6 +295,65 @@ async fn unrepresentable_challenge_expiry_fails_before_claim_insert_or_approval(
     assert!(
         retry.is_ok(),
         "failed expiry validation consumed or inserted the challenge"
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn offset_crossing_expiry_fails_before_claim_insert_or_approval_without_panicking() {
+    let deep_links = Arc::new(DeepLinkRegistry::new());
+    let approval = Arc::new(CountingApproval(AtomicUsize::new(0)));
+    let service = Arc::new(PairingService::new(
+        approval.clone(),
+        Arc::new(SqlitePairingStore::open_in_memory().unwrap()),
+        deep_links.clone(),
+        Arc::new(ManualCodeRegistry::new()),
+    ));
+    let now = Instant::now();
+    let state = fixed_state(92);
+    deep_links
+        .record_argv(
+            &[
+                executable(),
+                OsString::from(format!("ovp-companion://pair/{state}")),
+            ],
+            now,
+        )
+        .unwrap();
+    let verifier = generate_secret().unwrap();
+    let verifier_hash = hash_for_transport(verifier.expose().as_bytes());
+    let utc = (time::PrimitiveDateTime::MAX - time::Duration::minutes(2))
+        .assume_offset(UtcOffset::from_hms(-1, 0, 0).unwrap());
+
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        service.clone().create_deep_link_challenge(
+            &state,
+            &verifier_hash,
+            "Browser",
+            &fixed_scopes(),
+            "http://127.0.0.1:5173",
+            now,
+            utc,
+        )
+    }));
+    tokio::task::yield_now().await;
+    assert_eq!(approval.0.load(Ordering::SeqCst), 0);
+
+    let retry = service.create_deep_link_challenge(
+        &state,
+        &verifier_hash,
+        "Browser",
+        &fixed_scopes(),
+        "http://127.0.0.1:5173",
+        now,
+        OffsetDateTime::UNIX_EPOCH,
+    );
+    assert!(
+        retry.is_ok(),
+        "failed UTC conversion consumed or inserted the challenge"
+    );
+    assert!(
+        matches!(outcome, Ok(Err(PairingError::Unavailable))),
+        "offset-crossing expiry must return the boundary error without panicking"
     );
 }
 
