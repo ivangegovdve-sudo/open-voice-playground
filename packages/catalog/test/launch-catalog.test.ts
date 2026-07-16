@@ -14,6 +14,7 @@ import {
   validateLaunchCatalogForRelease,
 } from '../src/launch.js';
 import { computeBrowserRuntimeSelectionDigest } from '../src/launch-runtime-artifacts.js';
+import { countPocketCoverage } from '../src/pocket-multilingual.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = resolve(packageRoot, '..', '..');
@@ -169,7 +170,7 @@ describe('deterministic launch catalog', () => {
     const catalog = buildLaunchCatalog();
     const assetSet = catalog.assetSets.find(({ id }) => id === 'supertonic-browser-assets')!;
 
-    expect(catalog.schemaVersion).toBe(3);
+    expect(catalog.schemaVersion).toBe(4);
     expect(assetSet.assets).toHaveLength(16);
     expect(assetSet.assets.map(({ id }) => id)).toEqual([
       'onnx-duration-predictor-onnx',
@@ -433,6 +434,197 @@ describe('deterministic launch catalog', () => {
       enabledVoices: 92,
       unavailableVoices: 334,
     });
+  });
+
+  it('publishes schema version 4 with exact Pocket coverage and no lost S1 fields', () => {
+    const catalog = buildLaunchCatalog();
+
+    expect(Object.keys(catalog).sort()).toEqual([
+      'assetDeliveryEvidence',
+      'assetSets',
+      'catalogId',
+      'engines',
+      'featureFlags',
+      'galleries',
+      'generatedAt',
+      'generatedMedia',
+      'generationCandidates',
+      'licenses',
+      'pocketCoverage',
+      'releaseAssetEvidence',
+      'runtimeArtifacts',
+      'runtimeSelections',
+      'samples',
+      'schemaVersion',
+      'sources',
+      'voices',
+    ]);
+    expect(countPocketCoverage(catalog.pocketCoverage)).toEqual({
+      totalEmbeddings: 312,
+      byLanguage: { de: 52, en: 78, es: 52, fr: 26, it: 52, pt: 52 },
+      byPolicy: {
+        'catalog-only-runtime-candidate': 240,
+        'link-only-noncommercial': 24,
+        'link-only-provenance-pending': 48,
+      },
+      publishedOutputClips: 0,
+    });
+  });
+
+  it('preserves the exact legacy Pocket pack and accepted S1 runtime closure', () => {
+    const catalog = buildLaunchCatalog();
+    const pocketPack = {
+      voices: catalog.voices.filter(({ engineId }) => engineId === 'pocket'),
+      assetSet: catalog.assetSets.find(({ id }) => id === 'pocket-companion-pack'),
+    };
+    const runtime = {
+      runtimeArtifacts: catalog.runtimeArtifacts,
+      runtimeSelections: catalog.runtimeSelections,
+    };
+
+    expect(`sha256:${createHash('sha256').update(JSON.stringify(pocketPack)).digest('hex')}`).toBe(
+      'sha256:3580aebe05db5335240673bacb225c23ab0643e7a598573fdfbb2f613548cff6',
+    );
+    expect(`sha256:${createHash('sha256').update(JSON.stringify(runtime)).digest('hex')}`).toBe(
+      'sha256:1bcd0bcd241ffd1d5e0a07e30194a46cb9158210b433f7142ea5288d3bd8bb23',
+    );
+  });
+
+  it('keeps all multilingual coverage outside runtime, assets, generation, and media', () => {
+    const catalog = buildLaunchCatalog();
+    const coverageIds = new Set(catalog.pocketCoverage.variants.map(({ id }) => id));
+    const runtimeIds = [
+      ...catalog.voices.map(({ id }) => id),
+      ...catalog.assetSets.flatMap((assetSet) => [
+        assetSet.id,
+        ...assetSet.assets.map(({ id }) => id),
+      ]),
+      ...catalog.runtimeSelections.map(({ id }) => id),
+      ...catalog.releaseAssetEvidence.flatMap(({ id, voiceId }) => [id, voiceId]),
+      ...catalog.generationCandidates.map(({ id }) => id),
+      ...catalog.generatedMedia.map(({ id }) => id),
+    ];
+
+    expect(catalog.voices).toHaveLength(426);
+    expect(catalog.voices.filter(({ engineId }) => engineId === 'pocket')).toHaveLength(20);
+    expect(runtimeIds.some((id) => coverageIds.has(id))).toBe(false);
+    expect(catalog.samples).toEqual([]);
+    expect(catalog.generatedMedia).toEqual([]);
+    expect(catalog.featureFlags.find(({ id }) => id === 'future-azure-inference')).toEqual({
+      id: 'future-azure-inference',
+      enabled: false,
+      serverOnlyCredentials: true,
+      termsCleared: false,
+      monthlyBudgetUsd: 0,
+      hardStop: true,
+      characterLimit: 0,
+      spendLimitUsd: 0,
+    });
+  });
+
+  it('publishes exact Pocket multilingual rights and audit evidence', () => {
+    const catalog = buildLaunchCatalog();
+    const licenses = new Map(catalog.licenses.map((record) => [record.id, record]));
+    const sources = new Map(catalog.sources.map((record) => [record.id, record]));
+    const pinnedVoiceEvidence =
+      'https://huggingface.co/kyutai/tts-voices/blob/323332d33f997de8394f24a193e1a76df720e01a/README.md';
+
+    expect(licenses.get('pocket-expresso-dataset-license')).toMatchObject({
+      scope: 'dataset',
+      spdxId: 'CC-BY-NC-4.0',
+      evidenceUrl: pinnedVoiceEvidence,
+      permitsRedistribution: true,
+      permitsCommercialUse: false,
+      reviewStatus: 'restricted',
+    });
+    expect(licenses.get('pocket-ears-dataset-license')).toMatchObject({
+      scope: 'dataset',
+      spdxId: 'CC-BY-NC-4.0',
+      evidenceUrl: pinnedVoiceEvidence,
+      permitsRedistribution: true,
+      permitsCommercialUse: false,
+      reviewStatus: 'restricted',
+    });
+    expect(licenses.get('pocket-unresolved-per-clip-provenance')).toMatchObject({
+      scope: 'dataset',
+      spdxId: 'CC-BY-4.0',
+      evidenceUrl: pinnedVoiceEvidence,
+      permitsRedistribution: false,
+      permitsCommercialUse: false,
+      reviewStatus: 'needs-review',
+      exactUpstreamTerms: expect.stringMatching(/Giovanni.*Lola.*Juergen.*Rafael/),
+    });
+
+    expect(sources.get('pocket-current-code-audit-source')).toMatchObject({
+      canonicalUrl:
+        'https://github.com/kyutai-labs/pocket-tts/tree/d108410d23eef7e01db282f9442891162dbc3db6',
+      sourceClass: 'official-repository',
+      upstreamRevision: 'd108410d23eef7e01db282f9442891162dbc3db6',
+    });
+    expect(sources.get('pocket-full-model-source')).toMatchObject({
+      canonicalUrl:
+        'https://huggingface.co/kyutai/pocket-tts/tree/4c8ad48f8a003909bc4f1122cbe88a4252124621',
+      sourceClass: 'model-card',
+      upstreamRevision: '4c8ad48f8a003909bc4f1122cbe88a4252124621',
+    });
+    expect(sources.get('pocket-historical-prompt-source')).toMatchObject({
+      canonicalUrl:
+        'https://huggingface.co/kyutai/pocket-tts/tree/64ab7d24c479d736a83b8cc666c4a776fca30fda',
+      sourceClass: 'model-card',
+      upstreamRevision: '64ab7d24c479d736a83b8cc666c4a776fca30fda',
+    });
+    expect(sources.get('pocket-multilingual-announcement-source')).toMatchObject({
+      canonicalUrl: 'https://kyutai.org/blog/2026-05-04-pocket-tts-multilingual/',
+      sourceClass: 'official-documentation',
+      upstreamRevision: 'published:2026-05-04;verified:2026-07-16',
+    });
+    expect(sources.get('pocket-official-live-demo-source')).toMatchObject({
+      canonicalUrl: 'https://kyutai.org/tts',
+      sourceClass: 'maintainer-demo',
+      upstreamRevision: 'live-demo:verified:2026-07-16',
+    });
+  });
+
+  it('release validation rejects Pocket coverage drift and runtime collisions', () => {
+    const inventoryDrift = structuredClone(buildLaunchCatalog());
+    inventoryDrift.pocketCoverage.inventorySha256 =
+      'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    expect(() => validateLaunchCatalogForRelease(inventoryDrift)).toThrow(/inventory digest/i);
+
+    const rightsDrift = structuredClone(buildLaunchCatalog());
+    rightsDrift.pocketCoverage.variants[0]!.rightsFamily = 'vctk';
+    rightsDrift.pocketCoverage.variants[0]!.licenseIds = ['pocket-vctk-dataset-license'];
+    expect(() => validateLaunchCatalogForRelease(rightsDrift)).toThrow(/rights decision/i);
+
+    const sourceDrift = structuredClone(buildLaunchCatalog());
+    sourceDrift.pocketCoverage.variants[0]!.sourceIds.push('pocket-full-model-source');
+    expect(() => validateLaunchCatalogForRelease(sourceDrift)).toThrow(/source closure/i);
+
+    const missingAuditSource = structuredClone(buildLaunchCatalog());
+    missingAuditSource.sources = missingAuditSource.sources.filter(
+      ({ id }) => id !== 'pocket-full-model-source',
+    );
+    expect(() => validateLaunchCatalogForRelease(missingAuditSource)).toThrow(/audit source/i);
+
+    const runtimeCollision = structuredClone(buildLaunchCatalog());
+    const legacyAlba = runtimeCollision.voices.find(({ id }) => id === 'pocket:alba')!;
+    legacyAlba.id = 'pocket:english.alba';
+    legacyAlba.upstreamId = 'english.alba';
+    expect(() => validateLaunchCatalogForRelease(runtimeCollision)).toThrow(/runtime voice/i);
+
+    const provenanceLicenseDrift = structuredClone(buildLaunchCatalog());
+    provenanceLicenseDrift.licenses.find(
+      ({ id }) => id === 'pocket-unresolved-per-clip-provenance',
+    )!.permitsCommercialUse = true;
+    expect(() => validateLaunchCatalogForRelease(provenanceLicenseDrift)).toThrow(
+      /Pocket.*license/i,
+    );
+
+    const demoReviewDrift = structuredClone(buildLaunchCatalog());
+    demoReviewDrift.pocketCoverage.officialDemo.reviewedAt = '2026-07-17T00:00:00.000Z';
+    expect(() => validateLaunchCatalogForRelease(demoReviewDrift)).toThrow(
+      /Pocket.*coverage|live demo/i,
+    );
   });
 
   it('uses only the exact reviewed non-Edge allowlists', () => {

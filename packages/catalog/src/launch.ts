@@ -13,6 +13,7 @@ import {
   LaunchVoicePresetSchema,
   LicenseRecordSchema,
   OfficialSampleSchema,
+  PocketCoverageManifestSchema,
   PinnedReleaseAssetEvidenceSchema,
   SourceRecordSchema,
   type AssetSetManifest,
@@ -28,6 +29,7 @@ import {
   type LaunchVoicePreset,
   type LicenseRecord,
   type OfficialSample,
+  type PocketCoverageManifest,
   type PinnedReleaseAssetEvidence,
   type RuntimeMode,
   type SourceRecord,
@@ -51,12 +53,18 @@ import {
   buildBrowserRuntimeSelections,
   computeBrowserRuntimeSelectionDigest,
 } from './launch-runtime-artifacts.js';
+import {
+  buildPocketCoverage,
+  countPocketCoverage,
+  type PocketCoverageCounts,
+} from './pocket-multilingual.js';
+import { normalizePocketHubInfo } from './pocket-multilingual-import.js';
 
 const GENERATED_AT = '2026-07-16T00:00:00.000Z';
 
 export const LaunchCatalogManifestSchema = z
   .object({
-    schemaVersion: z.literal(3),
+    schemaVersion: z.literal(4),
     catalogId: z.literal('open-voice-launch'),
     generatedAt: z.string().datetime({ offset: true }),
     engines: z.array(LaunchEngineManifestSchema).min(1),
@@ -73,11 +81,12 @@ export const LaunchCatalogManifestSchema = z
     galleries: z.array(GalleryManifestSchema),
     generationCandidates: z.array(GenerationCandidateSchema),
     generatedMedia: z.array(GeneratedMediaProvenanceSchema),
+    pocketCoverage: PocketCoverageManifestSchema,
   })
   .strict();
 
 export type LaunchCatalogManifest = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   catalogId: 'open-voice-launch';
   generatedAt: string;
   engines: LaunchEngineManifest[];
@@ -94,6 +103,7 @@ export type LaunchCatalogManifest = {
   galleries: GalleryManifest[];
   generationCandidates: GenerationCandidate[];
   generatedMedia: GeneratedMediaProvenance[];
+  pocketCoverage: PocketCoverageManifest;
 };
 
 export type LaunchCatalogCounts = {
@@ -759,7 +769,7 @@ export function buildLaunchCatalog(): LaunchCatalogManifest {
     throw new LaunchCatalogValidationError('Supertonic browser asset set is missing');
   }
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     catalogId: 'open-voice-launch',
     generatedAt: GENERATED_AT,
     engines,
@@ -791,6 +801,7 @@ export function buildLaunchCatalog(): LaunchCatalogManifest {
     galleries: [...GALLERIES].sort(compareId),
     generationCandidates: [...GENERATION_CANDIDATES].sort(compareId),
     generatedMedia: [],
+    pocketCoverage: buildPocketCoverage(),
   };
 }
 
@@ -928,6 +939,170 @@ export function validateLaunchCatalogForRelease(input: unknown): {
   const licensesById = new Map(manifest.licenses.map((license) => [license.id, license]));
   const enginesById = new Map(manifest.engines.map((engine) => [engine.id, engine]));
   const assetSetsById = new Map(manifest.assetSets.map((assetSet) => [assetSet.id, assetSet]));
+
+  const canonicalPocketCoverage = buildPocketCoverage();
+  let recomputedPocketInventorySha256: string;
+  try {
+    recomputedPocketInventorySha256 = normalizePocketHubInfo(
+      {
+        id: 'kyutai/pocket-tts-without-voice-cloning',
+        siblings: manifest.pocketCoverage.variants.map(({ upstreamPath }) => ({
+          rfilename: upstreamPath,
+        })),
+      },
+      manifest.pocketCoverage.revisionPins.noCloningModel,
+    ).inventorySha256;
+  } catch {
+    throw new LaunchCatalogValidationError('Pocket inventory digest cannot be recomputed');
+  }
+  if (
+    manifest.pocketCoverage.inventorySha256 !== recomputedPocketInventorySha256 ||
+    manifest.pocketCoverage.inventorySha256 !== canonicalPocketCoverage.inventorySha256
+  ) {
+    throw new LaunchCatalogValidationError('Pocket inventory digest invariant failed');
+  }
+
+  const expectedPocketCounts: PocketCoverageCounts = {
+    totalEmbeddings: 312,
+    byLanguage: { de: 52, en: 78, es: 52, fr: 26, it: 52, pt: 52 },
+    byPolicy: {
+      'catalog-only-runtime-candidate': 240,
+      'link-only-noncommercial': 24,
+      'link-only-provenance-pending': 48,
+    },
+    publishedOutputClips: 0,
+  };
+  const actualPocketCounts = countPocketCoverage(manifest.pocketCoverage);
+  const declaredPocketCounts: PocketCoverageCounts = {
+    totalEmbeddings: manifest.pocketCoverage.totalEmbeddings,
+    byLanguage: {
+      de: manifest.pocketCoverage.languageCounts.de,
+      en: manifest.pocketCoverage.languageCounts.en,
+      es: manifest.pocketCoverage.languageCounts.es,
+      fr: manifest.pocketCoverage.languageCounts.fr,
+      it: manifest.pocketCoverage.languageCounts.it,
+      pt: manifest.pocketCoverage.languageCounts.pt,
+    },
+    byPolicy: {
+      'catalog-only-runtime-candidate':
+        manifest.pocketCoverage.rightsCounts.catalogOnlyRuntimeCandidate,
+      'link-only-noncommercial': manifest.pocketCoverage.rightsCounts.linkOnlyNonCommercial,
+      'link-only-provenance-pending':
+        manifest.pocketCoverage.rightsCounts.linkOnlyProvenancePending,
+    },
+    publishedOutputClips: manifest.pocketCoverage.publishedOutputClipCount,
+  };
+  if (
+    JSON.stringify(actualPocketCounts) !== JSON.stringify(expectedPocketCounts) ||
+    JSON.stringify(actualPocketCounts) !== JSON.stringify(declaredPocketCounts)
+  ) {
+    throw new LaunchCatalogValidationError('Pocket coverage summary invariant failed');
+  }
+
+  requireReferences(
+    'Pocket coverage',
+    manifest.pocketCoverage.auditSourceIds,
+    sourceIds,
+    'audit source',
+  );
+  requireReferences(
+    'Pocket official live demo',
+    manifest.pocketCoverage.officialDemo.sourceIds,
+    sourceIds,
+    'source',
+  );
+  const canonicalPocketVariants = new Map(
+    canonicalPocketCoverage.variants.map((variant) => [variant.id, variant]),
+  );
+  const coverageIds = new Set(manifest.pocketCoverage.variants.map(({ id }) => id));
+  for (const variant of manifest.pocketCoverage.variants) {
+    requireReferences(`Pocket coverage ${variant.id}`, variant.licenseIds, licenseIds, 'license');
+    requireReferences(`Pocket coverage ${variant.id}`, variant.sourceIds, sourceIds, 'source');
+    const canonicalVariant = canonicalPocketVariants.get(variant.id);
+    if (
+      canonicalVariant === undefined ||
+      variant.rightsFamily !== canonicalVariant.rightsFamily ||
+      variant.listingPolicy !== canonicalVariant.listingPolicy ||
+      variant.runtimeExclusionReason !== canonicalVariant.runtimeExclusionReason ||
+      JSON.stringify(variant.licenseIds) !== JSON.stringify(canonicalVariant.licenseIds)
+    ) {
+      throw new LaunchCatalogValidationError(
+        `Pocket coverage ${variant.id} has a mismatched rights decision`,
+      );
+    }
+    if (JSON.stringify(variant.sourceIds) !== JSON.stringify(canonicalVariant.sourceIds)) {
+      throw new LaunchCatalogValidationError(
+        `Pocket coverage ${variant.id} has a mismatched source closure`,
+      );
+    }
+  }
+
+  const runtimeAndMediaIds = [
+    ...manifest.voices.map(({ id }) => id),
+    ...manifest.assetSets.flatMap((assetSet) => [
+      assetSet.id,
+      ...assetSet.assets.map(({ id }) => id),
+    ]),
+    ...manifest.runtimeSelections.map(({ id }) => id),
+    ...manifest.releaseAssetEvidence.flatMap(({ id, voiceId }) => [id, voiceId]),
+    ...manifest.generationCandidates.map(({ id }) => id),
+    ...manifest.generatedMedia.map(({ id }) => id),
+  ];
+  if (runtimeAndMediaIds.some((id) => coverageIds.has(id))) {
+    throw new LaunchCatalogValidationError(
+      'Pocket multilingual coverage collides with a runtime voice, asset, generation record, or media record',
+    );
+  }
+  const auditOnlyPocketSourceIds = new Set([
+    'pocket-current-code-audit-source',
+    'pocket-full-model-source',
+    'pocket-historical-prompt-source',
+    'pocket-multilingual-announcement-source',
+    'pocket-official-live-demo-source',
+  ]);
+  const runtimeSourceIds = [
+    ...manifest.engines.flatMap(({ sourceIds: references }) => references),
+    ...manifest.voices.flatMap(({ sourceIds: references }) => references),
+    ...manifest.assetSets.flatMap(({ assets }) =>
+      assets.flatMap(({ sourceIds: references }) => references),
+    ),
+    ...manifest.runtimeArtifacts.flatMap(({ sourceIds: references }) => references),
+    ...manifest.releaseAssetEvidence.flatMap(({ sourceIds: references }) => references),
+    ...manifest.galleries.flatMap(({ sourceIds: references }) => references),
+    ...manifest.samples.flatMap(({ sourceIds: references }) => references),
+    ...manifest.generationCandidates.flatMap(({ sourceIds: references }) => references),
+    ...manifest.generatedMedia.flatMap(({ sourceIds: references }) => references),
+  ];
+  if (runtimeSourceIds.some((sourceId) => auditOnlyPocketSourceIds.has(sourceId))) {
+    throw new LaunchCatalogValidationError(
+      'Pocket audit-only source is explicitly excluded from runtime and generated media',
+    );
+  }
+  if (JSON.stringify(manifest.pocketCoverage) !== JSON.stringify(canonicalPocketCoverage)) {
+    throw new LaunchCatalogValidationError('Pocket coverage differs from its canonical closure');
+  }
+  const pocketCoverageLicenseIds = new Set([
+    'pocket-expresso-dataset-license',
+    'pocket-ears-dataset-license',
+    'pocket-unresolved-per-clip-provenance',
+  ]);
+  requireExactRecordSet(
+    manifest.licenses.filter(({ id }) => pocketCoverageLicenseIds.has(id)),
+    ALL_LAUNCH_LICENSES.filter(({ id }) => pocketCoverageLicenseIds.has(id)),
+    'Pocket coverage license',
+  );
+  const pocketCoverageSourceIds = new Set([
+    'pocket-current-code-audit-source',
+    'pocket-full-model-source',
+    'pocket-historical-prompt-source',
+    'pocket-multilingual-announcement-source',
+    'pocket-official-live-demo-source',
+  ]);
+  requireExactRecordSet(
+    manifest.sources.filter(({ id }) => pocketCoverageSourceIds.has(id)),
+    LAUNCH_SOURCES.filter(({ id }) => pocketCoverageSourceIds.has(id)),
+    'Pocket coverage source',
+  );
 
   const requireReviewedForEnabledUse = (owner: string, references: readonly string[]): void => {
     for (const licenseId of references) {

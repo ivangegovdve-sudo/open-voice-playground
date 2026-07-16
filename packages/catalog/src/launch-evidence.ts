@@ -12,7 +12,7 @@ type LicenseOptions = {
   exactUpstreamTerms?: string;
   redistribution?: boolean;
   commercial?: boolean;
-  status?: 'verified' | 'restricted';
+  status?: 'verified' | 'restricted' | 'needs-review';
   evidenceSha256?: `sha256:${string}`;
 };
 
@@ -190,6 +190,51 @@ export const LAUNCH_LICENSES: LicenseRecord[] = [
     'https://huggingface.co/kyutai/tts-voices/blob/323332d33f997de8394f24a193e1a76df720e01a/README.md',
     'Kyutai voice-donation contributors for Marius and Javert',
     { spdxId: 'CC0-1.0', redistribution: true, commercial: true },
+  ),
+  license(
+    'pocket-expresso-dataset-license',
+    'dataset',
+    'Creative Commons Attribution-NonCommercial 4.0',
+    'https://huggingface.co/kyutai/tts-voices/blob/323332d33f997de8394f24a193e1a76df720e01a/README.md',
+    'Expresso dataset contributors; applies to the Cosette conditioning source',
+    {
+      spdxId: 'CC-BY-NC-4.0',
+      exactUpstreamTerms:
+        'Cosette is sourced from the Expresso dataset and remains noncommercial under CC BY-NC 4.0.',
+      redistribution: true,
+      commercial: false,
+      status: 'restricted',
+    },
+  ),
+  license(
+    'pocket-ears-dataset-license',
+    'dataset',
+    'Creative Commons Attribution-NonCommercial 4.0',
+    'https://huggingface.co/kyutai/tts-voices/blob/323332d33f997de8394f24a193e1a76df720e01a/README.md',
+    'EARS dataset contributors; applies to the Jean conditioning source',
+    {
+      spdxId: 'CC-BY-NC-4.0',
+      exactUpstreamTerms:
+        'Jean is sourced from the EARS dataset and remains noncommercial under CC BY-NC 4.0.',
+      redistribution: true,
+      commercial: false,
+      status: 'restricted',
+    },
+  ),
+  license(
+    'pocket-unresolved-per-clip-provenance',
+    'dataset',
+    'Repository-level Creative Commons Attribution 4.0; per-clip provenance pending',
+    'https://huggingface.co/kyutai/tts-voices/blob/323332d33f997de8394f24a193e1a76df720e01a/README.md',
+    'Kyutai tts-voices repository; exact conditioning-source attribution remains unresolved',
+    {
+      spdxId: 'CC-BY-4.0',
+      exactUpstreamTerms:
+        'Giovanni, Lola, Juergen, and Rafael have repository-level CC BY 4.0 evidence, but exact per-clip provenance is unresolved. Redistribution and commercial use remain disabled until each conditioning source is resolved.',
+      redistribution: false,
+      commercial: false,
+      status: 'needs-review',
+    },
   ),
   license(
     'kitten-code-license',
@@ -406,6 +451,36 @@ export const ENGINE_SOURCES: SourceRecord[] = [
     'https://huggingface.co/kyutai/tts-voices/tree/323332d33f997de8394f24a193e1a76df720e01a',
     '323332d33f997de8394f24a193e1a76df720e01a',
     { sourceClass: 'model-card', health: 'healthy' },
+  ),
+  source(
+    'pocket-current-code-audit-source',
+    'https://github.com/kyutai-labs/pocket-tts/tree/d108410d23eef7e01db282f9442891162dbc3db6',
+    'd108410d23eef7e01db282f9442891162dbc3db6',
+    { sourceClass: 'official-repository', health: 'healthy' },
+  ),
+  source(
+    'pocket-full-model-source',
+    'https://huggingface.co/kyutai/pocket-tts/tree/4c8ad48f8a003909bc4f1122cbe88a4252124621',
+    '4c8ad48f8a003909bc4f1122cbe88a4252124621',
+    { sourceClass: 'model-card', health: 'healthy' },
+  ),
+  source(
+    'pocket-historical-prompt-source',
+    'https://huggingface.co/kyutai/pocket-tts/tree/64ab7d24c479d736a83b8cc666c4a776fca30fda',
+    '64ab7d24c479d736a83b8cc666c4a776fca30fda',
+    { sourceClass: 'model-card', health: 'healthy' },
+  ),
+  source(
+    'pocket-multilingual-announcement-source',
+    'https://kyutai.org/blog/2026-05-04-pocket-tts-multilingual/',
+    'published:2026-05-04;verified:2026-07-16',
+    { sourceClass: 'official-documentation', health: 'healthy' },
+  ),
+  source(
+    'pocket-official-live-demo-source',
+    'https://kyutai.org/tts',
+    'live-demo:verified:2026-07-16',
+    { sourceClass: 'maintainer-demo', health: 'healthy' },
   ),
   source(
     'kitten-code-source',
