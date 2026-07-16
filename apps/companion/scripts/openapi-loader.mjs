@@ -21,6 +21,7 @@ export const OAS_SCHEMA_SHA256 = '1b8ccc6e34234b17536f2dd0eb3597142a32bd108438cd
 const draft202012 = 'https://json-schema.org/draft/2020-12/schema';
 const structuralWrapperId = 'urn:ovp:oas-3.1-draft-2020-12';
 const referenceKeywords = new Set(['$ref', '$dynamicRef', '$recursiveRef', 'operationRef']);
+const referenceBaseKeywords = new Set(['$id', '$anchor', '$dynamicAnchor', '$recursiveAnchor']);
 let structuralValidatorPromise;
 
 export class OpenApiDocumentError extends Error {
@@ -138,6 +139,10 @@ function validateReferences(document, sourceName) {
       continue;
     }
     for (const [key, child] of Object.entries(value)) {
+      if (referenceBaseKeywords.has(key)) reject('reference-base-forbidden', sourceName);
+      if (key === '$schema' && child !== draft202012) {
+        reject('reference-base-forbidden', sourceName);
+      }
       if (referenceKeywords.has(key)) resolveLocalReference(document, child, sourceName);
       if (child !== null && typeof child === 'object') stack.push(child);
     }

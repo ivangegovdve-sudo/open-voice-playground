@@ -155,6 +155,38 @@ describe('offline OpenAPI document loader', () => {
     );
   });
 
+  it.each([
+    ['$id', 'https://attacker.invalid/schema.json'],
+    ['$id', '../schema.json'],
+    ['$id', '#rebased'],
+    ['$anchor', 'rebased'],
+    ['$dynamicAnchor', 'rebased'],
+    ['$recursiveAnchor', 'true'],
+  ])('rejects nested %s values that can rebase or retarget references', async (keyword, value) => {
+    const source = (await authoritativeSource()).replace(
+      '    JobCreateRequest:\n      type: object',
+      `    JobCreateRequest:\n      ${keyword}: ${JSON.stringify(value)}\n      type: object`,
+    );
+    await expectCode(source, 'reference-base-forbidden');
+  });
+
+  it('allows only the declared Draft 2020-12 $schema identifier in owned schemas', async () => {
+    const source = await authoritativeSource();
+    const insert = (dialect: string): string =>
+      source.replace(
+        '    JobCreateRequest:\n      type: object',
+        `    JobCreateRequest:\n      $schema: ${dialect}\n      type: object`,
+      );
+
+    await expect(
+      loadOpenApiDocumentFromText(
+        insert('https://json-schema.org/draft/2020-12/schema'),
+        '<fixture>',
+      ),
+    ).resolves.toMatchObject({ openapi: '3.1.2' });
+    await expectCode(insert('https://attacker.invalid/dialect/schema'), 'reference-base-forbidden');
+  });
+
   it('reports errors without leaking source contents', async () => {
     const secretMarker = 'plaintext-secret-must-not-escape';
     let caught: unknown;
