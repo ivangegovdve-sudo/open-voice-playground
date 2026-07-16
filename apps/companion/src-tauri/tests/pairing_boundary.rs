@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, VecDeque},
     ffi::OsString,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     sync::{Arc, Condvar, Mutex},
     time::{Duration, Instant},
 };
@@ -198,6 +198,19 @@ impl ApprovalPort for ImmediateApproval {
     }
 }
 
+struct CountingApproval(AtomicUsize);
+
+#[async_trait]
+impl ApprovalPort for CountingApproval {
+    async fn decide(
+        &self,
+        _request: open_voice_companion::pairing::ApprovalRequest,
+    ) -> ApprovalDecision {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        ApprovalDecision::Approve
+    }
+}
+
 struct StalledApproval;
 
 #[async_trait]
@@ -229,6 +242,60 @@ fn fixed_state(byte: u8) -> String {
 
 fn executable() -> OsString {
     std::env::current_exe().unwrap().into_os_string()
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn unrepresentable_challenge_expiry_fails_before_claim_insert_or_approval() {
+    let deep_links = Arc::new(DeepLinkRegistry::new());
+    let approval = Arc::new(CountingApproval(AtomicUsize::new(0)));
+    let service = Arc::new(PairingService::new(
+        approval.clone(),
+        Arc::new(SqlitePairingStore::open_in_memory().unwrap()),
+        deep_links.clone(),
+        Arc::new(ManualCodeRegistry::new()),
+    ));
+    let now = Instant::now();
+    let state = fixed_state(91);
+    deep_links
+        .record_argv(
+            &[
+                executable(),
+                OsString::from(format!("ovp-companion://pair/{state}")),
+            ],
+            now,
+        )
+        .unwrap();
+    let verifier = generate_secret().unwrap();
+    let verifier_hash = hash_for_transport(verifier.expose().as_bytes());
+
+    assert!(matches!(
+        service.clone().create_deep_link_challenge(
+            &state,
+            &verifier_hash,
+            "Browser",
+            &fixed_scopes(),
+            "http://127.0.0.1:5173",
+            now,
+            time::PrimitiveDateTime::MAX.assume_utc(),
+        ),
+        Err(PairingError::Unavailable)
+    ));
+    tokio::task::yield_now().await;
+    assert_eq!(approval.0.load(Ordering::SeqCst), 0);
+
+    let retry = service.create_deep_link_challenge(
+        &state,
+        &verifier_hash,
+        "Browser",
+        &fixed_scopes(),
+        "http://127.0.0.1:5173",
+        now,
+        OffsetDateTime::UNIX_EPOCH,
+    );
+    assert!(
+        retry.is_ok(),
+        "failed expiry validation consumed or inserted the challenge"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -479,10 +479,13 @@ const current = readFileSync(corpusPath, 'utf8');
 const corpus = JSON.parse(current);
 const baseCases = corpus.cases
   .filter((entry) => !entry.id.startsWith('derived-'))
-  .map((entry) => (entry.schema === 'ProblemCode' ? { ...entry, native: 'problem-code' } : entry));
+  .map((entry) => ({ ...entry, native: 'rust-serde' }));
 corpus.description =
   'Deterministic companion protocol corpus with fixed vectors and schema-derived boundary mutations. Values are public test data, never credentials.';
-corpus.cases = [...baseCases, ...derivedCases(baseCases)];
+corpus.cases = [...baseCases, ...derivedCases(baseCases)].map((entry) => ({
+  ...entry,
+  native: 'rust-serde',
+}));
 
 const ids = new Set();
 for (const entry of corpus.cases) {

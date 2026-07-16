@@ -146,6 +146,7 @@ describe('canonical companion protocol corpus', () => {
   it('is complete, versioned, deterministic, and covers every owned schema and fixed identifier', async () => {
     const document = (await loadOpenApiDocument()) as OpenApiDocument;
     expect(corpus.version).toBe(1);
+    expect(corpus.cases).toHaveLength(1_074);
     expect(corpus.description).toContain('never credentials');
     expect(new Set(corpus.cases.map((entry) => entry.id)).size).toBe(corpus.cases.length);
 
@@ -190,7 +191,7 @@ describe('canonical companion protocol corpus', () => {
     );
     const assertTailCases = (cases: CorpusCase[], valid: boolean) => {
       for (const entry of cases) {
-        expect(entry).toMatchObject({ schema: 'OpaqueSecret', valid, native: 'secret' });
+        expect(entry).toMatchObject({ schema: 'OpaqueSecret', valid, native: 'rust-serde' });
         expect(typeof entry.value).toBe('string');
         if (typeof entry.value !== 'string') continue;
         expect(entry.value).toHaveLength(43);
@@ -307,48 +308,28 @@ describe('canonical companion protocol corpus', () => {
       ].sort(),
     ).toEqual(['cancelled', 'cancelling', 'expired', 'failed', 'queued']);
 
-    const nativeBySchema: Record<string, string> = {
-      CanonicalUuid: 'uuid',
-      ClientLabel: 'label',
-      ClientVersion: 'version',
-      JobCreateRequest: 'job',
-      OpaqueSecret: 'secret',
-      Problem: 'problem',
-      ProblemCode: 'problem-code',
-      Scope: 'scope',
-      ScopeList: 'scope-list',
-      SynthesisText: 'text',
-      VoiceId: 'voice-id',
-    };
-    const nativeCases = corpus.cases.filter((entry) => entry.native !== undefined);
-    expect([...new Set(nativeCases.map((entry) => entry.native))].sort()).toEqual(
-      Object.values(nativeBySchema).sort(),
-    );
-    for (const [schema, marker] of Object.entries(nativeBySchema)) {
-      const cases = nativeCases.filter(
-        (entry) => entry.schema === schema && entry.native === marker,
-      );
+    expect(corpus.cases.every((entry) => entry.native === 'rust-serde')).toBe(true);
+    for (const schema of owned) {
+      const cases = corpus.cases.filter((entry) => entry.schema === schema);
       expect(
         cases.some((entry) => entry.valid),
-        `${marker} native positive coverage`,
+        `${schema} native positive coverage`,
       ).toBe(true);
       expect(
         cases.some((entry) => !entry.valid),
-        `${marker} native negative coverage`,
+        `${schema} native negative coverage`,
       ).toBe(true);
-    }
-    for (const entry of nativeCases) {
-      expect(entry.native, `${entry.id} native marker`).toBe(nativeBySchema[entry.schema]);
+      expect(cases.every((entry) => entry.native === 'rust-serde')).toBe(true);
     }
     expect(
       corpus.cases
         .filter((entry) => entry.category.startsWith('derived-problem-'))
-        .every((entry) => entry.native === 'problem'),
+        .every((entry) => entry.native === 'rust-serde'),
     ).toBe(true);
     expect(
       corpus.cases
         .filter((entry) => entry.id.startsWith('derived-job-create-request-'))
-        .every((entry) => entry.native === 'job'),
+        .every((entry) => entry.native === 'rust-serde'),
     ).toBe(true);
   });
 
@@ -399,7 +380,7 @@ describe('canonical companion protocol corpus', () => {
       valid: false,
       category: 'secret-interior-alphabet',
       value,
-      native: 'secret',
+      native: 'rust-serde',
     });
   });
 
@@ -414,7 +395,7 @@ describe('canonical companion protocol corpus', () => {
       schema: 'ClientVersion',
       valid: true,
       value: exact,
-      native: 'version',
+      native: 'rust-serde',
     });
     expect(corpus.cases.find((entry) => entry.id === 'derived-version-33-bytes')).toEqual({
       id: 'derived-version-33-bytes',
@@ -422,7 +403,7 @@ describe('canonical companion protocol corpus', () => {
       valid: false,
       category: 'version-fixed-boundary',
       value: oneOver,
-      native: 'version',
+      native: 'rust-serde',
     });
   });
 
@@ -475,7 +456,7 @@ describe('canonical companion protocol corpus', () => {
     const unknown = corpus.cases.find(
       (entry) => entry.id === `derived-problem-${code}-root-unknown-property`,
     );
-    expect(unknown).toMatchObject({ schema: 'Problem', valid: false, native: 'problem' });
+    expect(unknown).toMatchObject({ schema: 'Problem', valid: false, native: 'rust-serde' });
     expect(unknown?.value).toEqual({ ...baseline, unexpectedCorpusField: true });
 
     for (const field of fields) {
@@ -487,7 +468,7 @@ describe('canonical companion protocol corpus', () => {
       expect(omitted, `omitted Problem.${field}`).toMatchObject({
         schema: 'Problem',
         valid: false,
-        native: 'problem',
+        native: 'rust-serde',
         value: expectedOmitted,
       });
 
@@ -499,7 +480,7 @@ describe('canonical companion protocol corpus', () => {
       expect(wrongKind, `wrong-kind Problem.${field}`).toMatchObject({
         schema: 'Problem',
         valid: false,
-        native: 'problem',
+        native: 'rust-serde',
         value: expectedWrongKind,
       });
     }
@@ -510,7 +491,7 @@ describe('canonical companion protocol corpus', () => {
     expect(outOfRange).toMatchObject({
       schema: 'Problem',
       valid: false,
-      native: 'problem',
+      native: 'rust-serde',
       value: { ...baseline, status: 399 },
     });
   });
@@ -522,7 +503,7 @@ describe('canonical companion protocol corpus', () => {
       valid: true,
       category: 'utf8-byte-limit',
       value: '😀'.repeat(32),
-      native: 'label',
+      native: 'rust-serde',
     });
     expect(corpus.cases.find((entry) => entry.id === 'derived-label-32-identical-ascii')).toEqual({
       id: 'derived-label-32-identical-ascii',
@@ -530,7 +511,7 @@ describe('canonical companion protocol corpus', () => {
       valid: true,
       category: 'label-repeated-scalar-boundary',
       value: 'a'.repeat(32),
-      native: 'label',
+      native: 'rust-serde',
     });
     expect(corpus.cases.find((entry) => entry.id === 'derived-label-33-identical-ascii')).toEqual({
       id: 'derived-label-33-identical-ascii',
@@ -538,7 +519,7 @@ describe('canonical companion protocol corpus', () => {
       valid: false,
       category: 'label-repeated-scalar-boundary',
       value: 'a'.repeat(33),
-      native: 'label',
+      native: 'rust-serde',
     });
   });
 
@@ -554,7 +535,7 @@ describe('canonical companion protocol corpus', () => {
       valid: false,
       category: 'label-utf8-byte-boundary',
       value: oneOver,
-      native: 'label',
+      native: 'rust-serde',
     });
   });
 
@@ -577,6 +558,7 @@ describe('canonical companion protocol corpus', () => {
         valid,
         category: 'date-time-canonical-boundary',
         value,
+        native: 'rust-serde',
       });
     }
   });
@@ -625,6 +607,7 @@ describe('canonical companion protocol corpus', () => {
           ? 'list-unique-items-boundary'
           : 'list-cardinality-boundary',
         value: { [field]: items },
+        native: 'rust-serde',
       });
     }
     expect(voices).toHaveLength(20);

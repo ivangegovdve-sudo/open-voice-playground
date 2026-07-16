@@ -22,6 +22,10 @@ impl SecretString {
     pub fn expose(&self) -> &str {
         self.0.as_str()
     }
+
+    pub(crate) fn into_zeroizing(self) -> Zeroizing<String> {
+        self.0
+    }
 }
 
 pub fn generate_secret() -> Result<SecretString, SecretError> {

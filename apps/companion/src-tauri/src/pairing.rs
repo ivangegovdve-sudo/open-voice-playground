@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     deep_link::{DeepLinkError, DeepLinkRegistry},
-    protocol::{ALL_SCOPES, Scope, validate_client_label},
+    protocol::{ALL_SCOPES, CanonicalDateTime, Scope, validate_client_label},
     secret::{
         SecretError, SecretString, decode_canonical_secret, generate_secret as new_secret,
         hash_bytes, hash_for_transport as transport_hash,
@@ -173,6 +173,7 @@ fn prepare_challenge_slot(challenges: &mut HashMap<Uuid, Challenge>, now: Instan
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ChallengeHandle {
     pub id: Uuid,
+    pub expires_at: OffsetDateTime,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -640,6 +641,32 @@ pub struct PairingService<A: ApprovalPort + 'static> {
     challenges: Mutex<HashMap<Uuid, Challenge>>,
 }
 
+struct CheckedChallengeTime {
+    now: Instant,
+    created_at: OffsetDateTime,
+    expires: Instant,
+    expires_at: OffsetDateTime,
+}
+
+fn checked_challenge_expiry(
+    now: Instant,
+    utc: OffsetDateTime,
+) -> Result<CheckedChallengeTime, PairingError> {
+    let expires = now
+        .checked_add(PAIRING_TTL)
+        .ok_or(PairingError::Unavailable)?;
+    let expires_at = utc
+        .checked_add(time::Duration::seconds(120))
+        .ok_or(PairingError::Unavailable)?;
+    CanonicalDateTime::try_from(expires_at).map_err(|_| PairingError::Unavailable)?;
+    Ok(CheckedChallengeTime {
+        now,
+        created_at: utc,
+        expires,
+        expires_at,
+    })
+}
+
 impl<A: ApprovalPort + 'static> PairingService<A> {
     pub fn new<S: PairingStore + 'static>(
         approval: Arc<A>,
@@ -667,9 +694,10 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
         now: Instant,
         utc: OffsetDateTime,
     ) -> Result<ChallengeHandle, PairingError> {
+        let time = checked_challenge_expiry(now, utc)?;
         validate_challenge_input(verifier_hash, client_label, scopes, origin)?;
-        self.deep_links.claim(state, now)?;
-        self.create_challenge(verifier_hash, client_label, scopes, origin, now, utc)
+        self.deep_links.claim(state, time.now)?;
+        self.create_challenge(verifier_hash, client_label, scopes, origin, time)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -683,9 +711,10 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
         now: Instant,
         utc: OffsetDateTime,
     ) -> Result<ChallengeHandle, PairingError> {
+        let time = checked_challenge_expiry(now, utc)?;
         validate_challenge_input(verifier_hash, client_label, scopes, origin)?;
-        self.manual_codes.claim(code, origin, now)?;
-        self.create_challenge(verifier_hash, client_label, scopes, origin, now, utc)
+        self.manual_codes.claim(code, origin, time.now)?;
+        self.create_challenge(verifier_hash, client_label, scopes, origin, time)
     }
 
     fn create_challenge(
@@ -694,19 +723,17 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
         client_label: &str,
         scopes: &[Scope],
         origin: &str,
-        now: Instant,
-        utc: OffsetDateTime,
+        time: CheckedChallengeTime,
     ) -> Result<ChallengeHandle, PairingError> {
         let verifier_hash =
             decode_canonical_secret(verifier_hash).map_err(|_| PairingError::InvalidRequest)?;
         let id = Uuid::new_v4();
-        let expires = now + PAIRING_TTL;
         let (decision_signal, _decision_receiver) = watch::channel(ChallengeStatus::Pending);
         let mut challenges = self
             .challenges
             .lock()
             .map_err(|_| PairingError::Unavailable)?;
-        prepare_challenge_slot(&mut challenges, now);
+        prepare_challenge_slot(&mut challenges, time.now);
         if challenges.len() >= MAX_CHALLENGES {
             return Err(PairingError::Unavailable);
         }
@@ -717,8 +744,8 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
                 origin: origin.to_owned(),
                 client_label: client_label.to_owned(),
                 scopes: scopes.to_vec(),
-                created_utc: utc,
-                expires,
+                created_utc: time.created_at,
+                expires: time.expires,
                 status: ChallengeStatus::Pending,
                 decision_signal,
                 redeem_attempts: 0,
@@ -736,12 +763,15 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
         tokio::spawn(async move {
             tokio::select! {
                 decision = approval.decide(request) => service.apply_decision(id, decision),
-                () = tokio::time::sleep_until(tokio::time::Instant::from_std(expires)) => {
+                () = tokio::time::sleep_until(tokio::time::Instant::from_std(time.expires)) => {
                     service.expire_challenge(id);
                 }
             }
         });
-        Ok(ChallengeHandle { id })
+        Ok(ChallengeHandle {
+            id,
+            expires_at: time.expires_at,
+        })
     }
 
     fn apply_decision(&self, id: Uuid, decision: ApprovalDecision) {

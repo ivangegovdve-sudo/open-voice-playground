@@ -1,11 +1,7 @@
 use std::collections::BTreeSet;
 
 use open_voice_companion::{
-    protocol::{
-        ALL_PROBLEM_CODES, JobCreateRequest, Problem, ProblemCode, Scope, VoiceId,
-        negotiate_version, validate_canonical_uuid, validate_client_label, validate_opaque_secret,
-        validate_scope_list, validate_synthesis_text,
-    },
+    protocol::{ALL_PROBLEM_CODES, round_trip_owned_schema},
     schema::OpenApiSchemas,
 };
 use serde::Deserialize;
@@ -24,7 +20,6 @@ struct CorpusCase {
     id: String,
     schema: String,
     valid: bool,
-    category: String,
     value: Value,
     native: Option<String>,
 }
@@ -45,78 +40,20 @@ fn rust_draft_2020_12_validators_execute_the_entire_corpus() {
 }
 
 #[test]
-fn currently_owned_native_semantics_agree_and_positive_values_round_trip_exactly() {
+fn exhaustive_rust_serde_dispatch_agrees_and_positive_values_round_trip_exactly() {
     let corpus = parse_corpus();
-    for case in corpus
-        .cases
-        .into_iter()
-        .filter(|case| case.native.is_some())
-    {
-        let native = case.native.as_deref().unwrap();
-        let (actual, round_trip) = match native {
-            "voice-id" => serde_json::from_value::<VoiceId>(case.value.clone())
-                .map(|value| (true, Some(serde_json::to_value(value).unwrap())))
-                .unwrap_or((false, None)),
-            "scope" => serde_json::from_value::<Scope>(case.value.clone())
-                .map(|value| (true, Some(serde_json::to_value(value).unwrap())))
-                .unwrap_or((false, None)),
-            "scope-list" => serde_json::from_value::<Vec<Scope>>(case.value.clone())
-                .map(|value| {
-                    let valid = validate_scope_list(&value).is_ok();
-                    let serialized = valid.then(|| serde_json::to_value(value).unwrap());
-                    (valid, serialized)
-                })
-                .unwrap_or((false, None)),
-            "secret" => (
-                case.value
-                    .as_str()
-                    .is_some_and(|value| validate_opaque_secret(value).is_ok()),
-                Some(case.value.clone()),
-            ),
-            "version" => (
-                case.value
-                    .as_str()
-                    .is_some_and(|value| negotiate_version(Some(value)).is_ok()),
-                Some(case.value.clone()),
-            ),
-            "uuid" => (
-                case.value
-                    .as_str()
-                    .is_some_and(|value| validate_canonical_uuid(value).is_ok()),
-                Some(case.value.clone()),
-            ),
-            "label" => (
-                case.value
-                    .as_str()
-                    .is_some_and(|value| validate_client_label(value).is_ok()),
-                Some(case.value.clone()),
-            ),
-            "text" => (
-                case.value
-                    .as_str()
-                    .is_some_and(|value| validate_synthesis_text(value).is_ok()),
-                Some(case.value.clone()),
-            ),
-            "job" => serde_json::from_value::<JobCreateRequest>(case.value.clone())
-                .map(|value| (true, Some(serde_json::to_value(value).unwrap())))
-                .unwrap_or((false, None)),
-            "problem" => serde_json::from_value::<Problem>(case.value.clone())
-                .map(|value| {
-                    let valid = value.is_catalog_valid();
-                    let serialized = valid.then(|| serde_json::to_value(value).unwrap());
-                    (valid, serialized)
-                })
-                .unwrap_or((false, None)),
-            "problem-code" => serde_json::from_value::<ProblemCode>(case.value.clone())
-                .map(|value| (true, Some(serde_json::to_value(value).unwrap())))
-                .unwrap_or((false, None)),
-            unknown => panic!("unknown native corpus path {unknown}"),
-        };
-        assert_eq!(actual, case.valid, "native corpus case {}", case.id);
+    for case in corpus.cases {
+        let round_trip = round_trip_owned_schema(&case.schema, case.value.clone());
+        assert_eq!(
+            round_trip.is_ok(),
+            case.valid,
+            "native corpus case {}",
+            case.id
+        );
         if case.valid {
             assert_eq!(
-                round_trip.as_ref(),
-                Some(&case.value),
+                round_trip.as_ref().unwrap(),
+                &case.value,
                 "round trip {}",
                 case.id
             );
@@ -140,63 +77,29 @@ fn native_problem_code_catalog_exactly_matches_the_positive_corpus_set() {
 }
 
 #[test]
-fn native_marker_deferrals_are_an_exact_c5_owned_schema_set() {
+fn every_corpus_case_has_exact_rust_serde_ownership() {
     let corpus = parse_corpus();
-    let all_schemas = corpus
+    assert_eq!(corpus.cases.len(), 1_074);
+    let missing = corpus
         .cases
         .iter()
-        .map(|case| case.schema.clone())
-        .collect::<BTreeSet<_>>();
-    let native_schemas = corpus
+        .filter(|case| case.native.is_none())
+        .map(|case| case.id.clone())
+        .collect::<Vec<_>>();
+    let noncanonical = corpus
         .cases
         .iter()
-        .filter(|case| case.native.is_some())
-        .map(|case| case.schema.clone())
-        .collect::<BTreeSet<_>>();
-    let deferred = all_schemas
-        .difference(&native_schemas)
-        .cloned()
-        .collect::<BTreeSet<_>>();
-    let expected = [
-        "CanonicalDateTime",
-        "DeepLinkChallengeRequest",
-        "EngineListResponse",
-        "EngineResponse",
-        "HealthResponse",
-        "JobResponse",
-        "ManualChallengeRequest",
-        "OperationalState",
-        "PackActionRequest",
-        "PackActionResponse",
-        "PackId",
-        "PackListResponse",
-        "PackResponse",
-        "PairingChallengeRequest",
-        "PairingChallengeResponse",
-        "PairingResponse",
-        "RedeemPendingResponse",
-        "RedeemRequest",
-        "RedeemResponse",
-        "RuntimeResponse",
-        "VoiceListResponse",
-        "VoiceResponse",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect::<BTreeSet<_>>();
-    assert_eq!(deferred, expected);
-}
-
-#[test]
-fn only_uppercase_request_id_is_explicitly_deferred_to_c5_normalization() {
-    let deferred = parse_corpus()
-        .cases
-        .into_iter()
-        .filter(|case| case.category == "problem-identifier-boundary" && case.native.is_none())
-        .map(|case| case.id)
-        .collect::<BTreeSet<_>>();
-    assert_eq!(
-        deferred,
-        BTreeSet::from(["derived-problem-requestId-uppercase".to_owned()])
+        .filter(|case| {
+            case.native
+                .as_deref()
+                .is_some_and(|native| native != "rust-serde")
+        })
+        .map(|case| (case.id.clone(), case.native.clone().unwrap()))
+        .collect::<Vec<_>>();
+    assert!(
+        missing.is_empty() && noncanonical.is_empty(),
+        "missing native ownership: {}; noncanonical native ownership: {}",
+        missing.len(),
+        noncanonical.len()
     );
 }

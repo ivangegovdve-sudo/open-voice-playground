@@ -258,7 +258,7 @@ async fn run_accept_loop(
                     let _connection_permit = connection_permit;
                     let _connection_activity = ActivityGuard::connection(Arc::clone(&connection_metrics));
                     let Ok(request_permit) = request_semaphore.try_acquire_owned() else {
-                        let response = Response::problem(ProblemCode::QueueFull, 503);
+                        let response = Response::problem(ProblemCode::QueueFull);
                         let _ = write_response(&mut stream, response, None).await;
                         return;
                     };
@@ -297,17 +297,12 @@ impl ParsedRequest {
 #[derive(Debug)]
 struct BoundaryFailure {
     code: ProblemCode,
-    status: u16,
     origin: Option<String>,
 }
 
 impl BoundaryFailure {
-    const fn new(code: ProblemCode, status: u16) -> Self {
-        Self {
-            code,
-            status,
-            origin: None,
-        }
+    const fn new(code: ProblemCode) -> Self {
+        Self { code, origin: None }
     }
 
     fn with_origin(mut self, origin: &str) -> Self {
@@ -326,7 +321,7 @@ async fn handle_connection(
         Err(failure) => {
             return write_response(
                 stream,
-                Response::problem(failure.code, failure.status),
+                Response::problem(failure.code),
                 failure.origin.as_deref(),
             )
             .await;
@@ -338,7 +333,7 @@ async fn handle_connection(
         Err(failure) => {
             return write_response(
                 stream,
-                Response::problem(failure.code, failure.status),
+                Response::problem(failure.code),
                 failure.origin.as_deref(),
             )
             .await;
@@ -349,12 +344,7 @@ async fn handle_connection(
         let response = match validate_preflight(&parsed, &context.origin) {
             Ok(response) => response,
             Err(failure) => {
-                return write_response(
-                    stream,
-                    Response::problem(failure.code, failure.status),
-                    None,
-                )
-                .await;
+                return write_response(stream, Response::problem(failure.code), None).await;
             }
         };
         return write_response(stream, response, Some(&context.origin)).await;
@@ -366,7 +356,7 @@ async fn handle_connection(
         Err(failure) => {
             return write_response(
                 stream,
-                Response::problem(failure.code, failure.status),
+                Response::problem(failure.code),
                 Some(&context.origin),
             )
             .await;
@@ -375,7 +365,7 @@ async fn handle_connection(
 
     let response = match timeout(HANDLER_TIMEOUT, dispatch(&parsed, &body)).await {
         Ok(response) => response,
-        Err(_) => Response::problem(ProblemCode::HandlerTimeout, 504),
+        Err(_) => Response::problem(ProblemCode::HandlerTimeout),
     };
     write_response(stream, response, Some(&context.origin)).await
 }
@@ -386,29 +376,29 @@ async fn read_and_parse_headers(stream: &mut TcpStream) -> Result<ParsedRequest,
     let header_end = loop {
         if let Some(end) = find_header_end(&bytes) {
             if end > MAX_HEADER_BYTES {
-                return Err(BoundaryFailure::new(ProblemCode::HeadersTooLarge, 431));
+                return Err(BoundaryFailure::new(ProblemCode::HeadersTooLarge));
             }
             break end;
         }
         if request_line_len(&bytes).is_none() && bytes.len() > MAX_REQUEST_LINE_BYTES {
-            return Err(BoundaryFailure::new(ProblemCode::RequestLineTooLarge, 414));
+            return Err(BoundaryFailure::new(ProblemCode::RequestLineTooLarge));
         }
         if bytes.len() > MAX_HEADER_BYTES {
-            return Err(BoundaryFailure::new(ProblemCode::HeadersTooLarge, 431));
+            return Err(BoundaryFailure::new(ProblemCode::HeadersTooLarge));
         }
         let mut chunk = [0_u8; 1024];
         let read = timeout_at(deadline, stream.read(&mut chunk))
             .await
-            .map_err(|_| BoundaryFailure::new(ProblemCode::HeaderTimeout, 408))?
-            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid, 400))?;
+            .map_err(|_| BoundaryFailure::new(ProblemCode::HeaderTimeout))?
+            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
         if read == 0 {
-            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400));
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
         }
         bytes.extend_from_slice(&chunk[..read]);
         if let Some(line_len) = request_line_len(&bytes)
             && line_len > MAX_REQUEST_LINE_BYTES
         {
-            return Err(BoundaryFailure::new(ProblemCode::RequestLineTooLarge, 414));
+            return Err(BoundaryFailure::new(ProblemCode::RequestLineTooLarge));
         }
     };
 
@@ -417,24 +407,24 @@ async fn read_and_parse_headers(stream: &mut TcpStream) -> Result<ParsedRequest,
     match request.parse(&bytes[..header_end]) {
         Ok(httparse::Status::Complete(_)) => {}
         Ok(httparse::Status::Partial) | Err(_) => {
-            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400));
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
         }
     }
     if request.version != Some(1) {
-        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400));
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
     let method = request
         .method
-        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid, 400))?
+        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid))?
         .to_owned();
     let target = request
         .path
-        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid, 400))?
+        .ok_or_else(|| BoundaryFailure::new(ProblemCode::SchemaInvalid))?
         .to_owned();
     let mut parsed_headers = Vec::with_capacity(request.headers.len());
     for header in request.headers {
         let value = std::str::from_utf8(header.value)
-            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid, 400))?
+            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid))?
             .trim_matches([' ', '\t'])
             .to_owned();
         parsed_headers.push((header.name.to_ascii_lowercase(), value));
@@ -470,44 +460,42 @@ fn validate_pre_body(
 ) -> Result<RequestContext, BoundaryFailure> {
     let hosts = request.values("host");
     if hosts.len() != 1 || hosts[0] != "127.0.0.1:17843" {
-        return Err(BoundaryFailure::new(ProblemCode::HostInvalid, 400));
+        return Err(BoundaryFailure::new(ProblemCode::HostInvalid));
     }
     validate_target_authority(&request.target)?;
 
     let origins = request.values("origin");
     if origins.is_empty() {
-        return Err(BoundaryFailure::new(ProblemCode::OriginMissing, 400));
+        return Err(BoundaryFailure::new(ProblemCode::OriginMissing));
     }
     if origins.len() != 1 || !origin_policy.allows(origins[0]) {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied, 403));
+        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
     }
     let origin = origins[0].to_owned();
 
     if request.values("authorization").len() > 1 {
-        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader, 400).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader).with_origin(&origin));
     }
     let content_lengths = request.values("content-length");
     if content_lengths.len() > 1 {
-        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader, 400).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader).with_origin(&origin));
     }
     if !request.values("transfer-encoding").is_empty() {
-        return Err(
-            BoundaryFailure::new(ProblemCode::TransferEncodingInvalid, 400).with_origin(&origin),
-        );
+        return Err(BoundaryFailure::new(ProblemCode::TransferEncodingInvalid).with_origin(&origin));
     }
     let content_length = match content_lengths.first() {
         Some(value) if !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()) => {
-            value.parse::<usize>().map_err(|_| {
-                BoundaryFailure::new(ProblemCode::BodyTooLarge, 413).with_origin(&origin)
-            })?
+            value
+                .parse::<usize>()
+                .map_err(|_| BoundaryFailure::new(ProblemCode::BodyTooLarge).with_origin(&origin))?
         }
         Some(_) => {
-            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400).with_origin(&origin));
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
         }
         None => 0,
     };
     if content_length > MAX_BODY_BYTES {
-        return Err(BoundaryFailure::new(ProblemCode::BodyTooLarge, 413).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::BodyTooLarge).with_origin(&origin));
     }
 
     if request.method == "OPTIONS" {
@@ -519,22 +507,13 @@ fn validate_pre_body(
 
     let versions = request.values("x-ovp-client-version");
     if versions.len() > 1 {
-        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader, 400).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::DuplicateHeader).with_origin(&origin));
     }
-    negotiate_version(versions.first().copied()).map_err(|code| {
-        BoundaryFailure::new(
-            code,
-            if code == ProblemCode::VersionMissing {
-                400
-            } else {
-                426
-            },
-        )
-        .with_origin(&origin)
-    })?;
+    negotiate_version(versions.first().copied())
+        .map_err(|code| BoundaryFailure::new(code).with_origin(&origin))?;
 
     if !matches!(request.method.as_str(), "GET" | "POST" | "DELETE") {
-        return Err(BoundaryFailure::new(ProblemCode::MethodNotAllowed, 405).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::MethodNotAllowed).with_origin(&origin));
     }
     if request.method == "POST" {
         let content_types = request.values("content-type");
@@ -545,21 +524,21 @@ fn validate_pre_body(
             )
         {
             return Err(
-                BoundaryFailure::new(ProblemCode::ContentTypeUnsupported, 415).with_origin(&origin),
+                BoundaryFailure::new(ProblemCode::ContentTypeUnsupported).with_origin(&origin)
             );
         }
     } else if content_length != 0 {
-        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid).with_origin(&origin));
     }
 
     if is_protected_route(&request.method, &request.target) {
-        let authorization = request.one("authorization").ok_or_else(|| {
-            BoundaryFailure::new(ProblemCode::AuthMissing, 401).with_origin(&origin)
-        })?;
+        let authorization = request
+            .one("authorization")
+            .ok_or_else(|| BoundaryFailure::new(ProblemCode::AuthMissing).with_origin(&origin))?;
         if !authorization.starts_with("Bearer ") || authorization.len() != 50 {
-            return Err(BoundaryFailure::new(ProblemCode::AuthInvalid, 401).with_origin(&origin));
+            return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
         }
-        return Err(BoundaryFailure::new(ProblemCode::AuthInvalid, 401).with_origin(&origin));
+        return Err(BoundaryFailure::new(ProblemCode::AuthInvalid).with_origin(&origin));
     }
 
     Ok(RequestContext {
@@ -572,8 +551,7 @@ fn validate_target_authority(target: &str) -> Result<(), BoundaryFailure> {
     if target.starts_with('/') {
         return Ok(());
     }
-    let url =
-        Url::parse(target).map_err(|_| BoundaryFailure::new(ProblemCode::HostInvalid, 400))?;
+    let url = Url::parse(target).map_err(|_| BoundaryFailure::new(ProblemCode::HostInvalid))?;
     if url.scheme() != "http"
         || url.host_str() != Some("127.0.0.1")
         || url.port() != Some(LISTENER_PORT)
@@ -581,7 +559,7 @@ fn validate_target_authority(target: &str) -> Result<(), BoundaryFailure> {
         || url.password().is_some()
         || url.fragment().is_some()
     {
-        return Err(BoundaryFailure::new(ProblemCode::HostInvalid, 400));
+        return Err(BoundaryFailure::new(ProblemCode::HostInvalid));
     }
     Ok(())
 }
@@ -599,12 +577,12 @@ fn is_protected_route(method: &str, target: &str) -> bool {
 fn validate_preflight(request: &ParsedRequest, _origin: &str) -> Result<Response, BoundaryFailure> {
     let methods = request.values("access-control-request-method");
     if methods.len() != 1 || !matches!(methods[0], "GET" | "POST" | "DELETE" | "OPTIONS") {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied, 403));
+        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
     }
 
     let requested_headers = request.values("access-control-request-headers");
     if requested_headers.len() > 1 {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied, 403));
+        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
     }
     if let Some(value) = requested_headers.first() {
         let mut seen = Vec::new();
@@ -615,7 +593,7 @@ fn validate_preflight(request: &ParsedRequest, _origin: &str) -> Result<Response
                 "authorization" | "content-type" | "x-ovp-client-version"
             ) || seen.contains(&lower)
             {
-                return Err(BoundaryFailure::new(ProblemCode::OriginDenied, 403));
+                return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
             }
             seen.push(lower);
         }
@@ -627,7 +605,7 @@ fn validate_preflight(request: &ParsedRequest, _origin: &str) -> Result<Response
             .first()
             .is_some_and(|value| *value != "true")
     {
-        return Err(BoundaryFailure::new(ProblemCode::OriginDenied, 403));
+        return Err(BoundaryFailure::new(ProblemCode::OriginDenied));
     }
     Ok(Response::preflight(!private_network.is_empty()))
 }
@@ -639,7 +617,7 @@ async fn read_body(
     metrics: &Arc<Metrics>,
 ) -> Result<Vec<u8>, BoundaryFailure> {
     if body.len() > content_length {
-        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400));
+        return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
     }
     let deadline = Instant::now() + BODY_TIMEOUT;
     while body.len() < content_length {
@@ -649,10 +627,10 @@ async fn read_body(
         metrics.body_reads.fetch_add(1, Ordering::SeqCst);
         let read = timeout_at(deadline, stream.read(&mut chunk[..read_limit]))
             .await
-            .map_err(|_| BoundaryFailure::new(ProblemCode::BodyTimeout, 408))?
-            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid, 400))?;
+            .map_err(|_| BoundaryFailure::new(ProblemCode::BodyTimeout))?
+            .map_err(|_| BoundaryFailure::new(ProblemCode::SchemaInvalid))?;
         if read == 0 {
-            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid, 400));
+            return Err(BoundaryFailure::new(ProblemCode::SchemaInvalid));
         }
         body.extend_from_slice(&chunk[..read]);
     }
@@ -672,12 +650,12 @@ async fn dispatch(request: &ParsedRequest, body: &[u8]) -> Response {
         ),
         ("POST", "/v1/pairings/challenges") => {
             if serde_json::from_slice::<serde_json::Value>(body).is_err() {
-                Response::problem(ProblemCode::SchemaInvalid, 400)
+                Response::problem(ProblemCode::SchemaInvalid)
             } else {
-                Response::problem(ProblemCode::PairingNotFound, 404)
+                Response::problem(ProblemCode::PairingNotFound)
             }
         }
-        _ => Response::problem(ProblemCode::ResourceNotFound, 404),
+        _ => Response::problem(ProblemCode::ResourceNotFound),
     }
 }
 
@@ -700,9 +678,10 @@ impl Response {
         }
     }
 
-    fn problem(code: ProblemCode, status: u16) -> Self {
-        let problem = Problem::new(code, status);
-        let request_id = problem.request_id;
+    fn problem(code: ProblemCode) -> Self {
+        let problem = Problem::new(code);
+        let status = problem.status();
+        let request_id = problem.request_id();
         Self {
             status,
             content_type: Some("application/problem+json"),
@@ -797,5 +776,20 @@ const fn reason_phrase(status: u16) -> &'static str {
         503 => "Service Unavailable",
         504 => "Gateway Timeout",
         _ => "Error",
+    }
+}
+
+#[cfg(test)]
+mod c5_checked_status_tests {
+    use super::*;
+
+    #[test]
+    fn boundary_failures_and_problem_responses_derive_status_from_the_catalog() {
+        let failure = BoundaryFailure::new(ProblemCode::VersionUnsupported);
+        let response = Response::problem(failure.code);
+        assert_eq!(response.status, 426);
+        let value: serde_json::Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(value["status"], 426);
+        assert_eq!(value["code"], "version-unsupported");
     }
 }
