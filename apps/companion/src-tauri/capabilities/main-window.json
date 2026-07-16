@@ -4,5 +4,5 @@
   "description": "Local read-only companion window; all authority remains in Rust.",
   "local": true,
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": []
 }

@@ -30,6 +30,7 @@ const MAX_REDEEM_ATTEMPTS: u8 = 10;
 const MAX_MANUAL_ATTEMPTS: u8 = 5;
 const INACTIVITY_DAYS: i64 = 90;
 const MAX_CHALLENGES: usize = 128;
+const CHALLENGE_TOMBSTONE_RETENTION: Duration = Duration::from_secs(120);
 const CROCKFORD: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 pub use crate::secret::SecretString as BearerSecret;
@@ -123,6 +124,50 @@ struct Challenge {
     status: ChallengeStatus,
     decision_signal: watch::Sender<ChallengeStatus>,
     redeem_attempts: u8,
+}
+
+fn prepare_challenge_slot(challenges: &mut HashMap<Uuid, Challenge>, now: Instant) {
+    for challenge in challenges.values_mut() {
+        if now >= challenge.expires
+            && matches!(
+                challenge.status,
+                ChallengeStatus::Pending | ChallengeStatus::Approved
+            )
+        {
+            challenge.status = ChallengeStatus::Expired;
+            challenge
+                .decision_signal
+                .send_replace(ChallengeStatus::Expired);
+        }
+    }
+
+    // Terminal results remain queryable for one additional challenge TTL. The hard map bound wins
+    // under pressure: oldest terminal tombstones are evicted before a live challenge is refused.
+    challenges.retain(|_, challenge| {
+        challenge
+            .expires
+            .checked_add(CHALLENGE_TOMBSTONE_RETENTION)
+            .is_some_and(|retire_at| now < retire_at)
+    });
+    if challenges.len() < MAX_CHALLENGES {
+        return;
+    }
+
+    let remove_count = challenges.len() - (MAX_CHALLENGES - 1);
+    let mut tombstones = challenges
+        .iter()
+        .filter(|(_, challenge)| {
+            !matches!(
+                challenge.status,
+                ChallengeStatus::Pending | ChallengeStatus::Approved
+            )
+        })
+        .map(|(id, challenge)| (challenge.expires, *id))
+        .collect::<Vec<_>>();
+    tombstones.sort_unstable();
+    for (_, id) in tombstones.into_iter().take(remove_count) {
+        challenges.remove(&id);
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -274,8 +319,8 @@ fn initialize_database(connection: Connection) -> Result<Connection, PairingErro
                origin TEXT NOT NULL,
                client_label TEXT NOT NULL,
                scopes TEXT NOT NULL,
-               created_at INTEGER NOT NULL,
-               last_used_at INTEGER NOT NULL,
+               created_at_ns INTEGER NOT NULL,
+               last_used_at_ns INTEGER NOT NULL,
                revoked INTEGER NOT NULL CHECK(revoked IN (0, 1))
              );",
         )
@@ -297,6 +342,18 @@ fn decode_scopes(value: &str) -> Result<Vec<Scope>, PairingError> {
         .split(',')
         .map(|scope| Scope::parse(scope).ok_or(PairingError::Unavailable))
         .collect()
+}
+
+fn encode_timestamp(timestamp: OffsetDateTime) -> Result<i64, PairingError> {
+    timestamp
+        .unix_timestamp_nanos()
+        .try_into()
+        .map_err(|_| PairingError::Unavailable)
+}
+
+fn decode_timestamp(value: i64) -> Result<OffsetDateTime, PairingError> {
+    OffsetDateTime::from_unix_timestamp_nanos(i128::from(value))
+        .map_err(|_| PairingError::Unavailable)
 }
 
 impl PairingStore for SqlitePairingStore {
@@ -343,6 +400,8 @@ impl PairingStore for SqlitePairingStore {
 
 fn database_insert(connection: &Connection, pairing: &StoredPairing) -> Result<(), PairingError> {
     database_expire_inactive(connection, pairing.record.last_used_at)?;
+    let created_at_ns = encode_timestamp(pairing.record.created_at)?;
+    let last_used_at_ns = encode_timestamp(pairing.record.last_used_at)?;
     let active: i64 = connection
         .query_row(
             "SELECT count(*) FROM pairings WHERE revoked = 0",
@@ -356,7 +415,7 @@ fn database_insert(connection: &Connection, pairing: &StoredPairing) -> Result<(
     connection
         .execute(
             "INSERT INTO pairings
-             (id, bearer_hash, origin, client_label, scopes, created_at, last_used_at, revoked)
+             (id, bearer_hash, origin, client_label, scopes, created_at_ns, last_used_at_ns, revoked)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
             params![
                 pairing.record.id.to_string(),
@@ -364,8 +423,8 @@ fn database_insert(connection: &Connection, pairing: &StoredPairing) -> Result<(
                 &pairing.record.origin,
                 &pairing.record.client_label,
                 encode_scopes(&pairing.record.scopes),
-                pairing.record.created_at.unix_timestamp(),
-                pairing.record.last_used_at.unix_timestamp(),
+                created_at_ns,
+                last_used_at_ns,
             ],
         )
         .map_err(|_| PairingError::Unavailable)?;
@@ -379,7 +438,7 @@ fn database_active(
     database_expire_inactive(connection, now)?;
     let mut statement = connection
         .prepare(
-            "SELECT id, bearer_hash, origin, client_label, scopes, created_at, last_used_at
+            "SELECT id, bearer_hash, origin, client_label, scopes, created_at_ns, last_used_at_ns
              FROM pairings WHERE revoked = 0 ORDER BY id LIMIT 129",
         )
         .map_err(|_| PairingError::Unavailable)?;
@@ -393,34 +452,20 @@ fn database_active(
                     rusqlite::types::Type::Blob,
                 )
             })?;
-            let created = OffsetDateTime::from_unix_timestamp(row.get(5)?).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    5,
-                    rusqlite::types::Type::Integer,
-                    Box::new(error),
-                )
-            })?;
-            let last_used = OffsetDateTime::from_unix_timestamp(row.get(6)?).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    6,
-                    rusqlite::types::Type::Integer,
-                    Box::new(error),
-                )
-            })?;
             Ok((
                 row.get::<_, String>(0)?,
                 hash,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
-                created,
-                last_used,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
             ))
         })
         .map_err(|_| PairingError::Unavailable)?;
     let mut pairings = Vec::new();
     for row in rows {
-        let (id, bearer_hash, origin, client_label, scopes, created_at, last_used_at) =
+        let (id, bearer_hash, origin, client_label, scopes, created_at_ns, last_used_at_ns) =
             row.map_err(|_| PairingError::Unavailable)?;
         pairings.push(StoredPairing {
             bearer_hash,
@@ -429,8 +474,8 @@ fn database_active(
                 origin,
                 client_label,
                 scopes: decode_scopes(&scopes)?,
-                created_at,
-                last_used_at,
+                created_at: decode_timestamp(created_at_ns)?,
+                last_used_at: decode_timestamp(last_used_at_ns)?,
             },
         });
     }
@@ -445,11 +490,12 @@ fn database_touch(
     id: Uuid,
     at: OffsetDateTime,
 ) -> Result<(), PairingError> {
+    let at_ns = encode_timestamp(at)?;
     let changed = connection
         .execute(
-            "UPDATE pairings SET last_used_at = max(last_used_at, ?2)
+            "UPDATE pairings SET last_used_at_ns = max(last_used_at_ns, ?2)
              WHERE id = ?1 AND revoked = 0",
-            params![id.to_string(), at.unix_timestamp()],
+            params![id.to_string(), at_ns],
         )
         .map_err(|_| PairingError::Unavailable)?;
     if changed == 1 {
@@ -484,7 +530,7 @@ fn database_prune_revoked(connection: &Connection) -> Result<(), PairingError> {
                AND rowid NOT IN (
                  SELECT rowid FROM pairings
                  WHERE revoked = 1
-                 ORDER BY last_used_at DESC, rowid DESC
+                 ORDER BY last_used_at_ns DESC, rowid DESC
                  LIMIT ?1
                )",
             [MAX_RETAINED_REVOKED_PAIRINGS as i64],
@@ -497,13 +543,15 @@ fn database_expire_inactive(
     connection: &Connection,
     now: OffsetDateTime,
 ) -> Result<(), PairingError> {
-    let cutoff = now
-        .unix_timestamp()
-        .saturating_sub(INACTIVITY_DAYS.saturating_mul(24 * 60 * 60));
+    let cutoff = encode_timestamp(now)?.saturating_sub(
+        INACTIVITY_DAYS
+            .saturating_mul(24 * 60 * 60)
+            .saturating_mul(1_000_000_000),
+    );
     connection
         .execute(
             "UPDATE pairings SET revoked = 1
-             WHERE revoked = 0 AND last_used_at <= ?1",
+             WHERE revoked = 0 AND last_used_at_ns <= ?1",
             [cutoff],
         )
         .map_err(|_| PairingError::Unavailable)?;
@@ -658,7 +706,7 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
             .challenges
             .lock()
             .map_err(|_| PairingError::Unavailable)?;
-        challenges.retain(|_, challenge| now < challenge.expires);
+        prepare_challenge_slot(&mut challenges, now);
         if challenges.len() >= MAX_CHALLENGES {
             return Err(PairingError::Unavailable);
         }
@@ -764,42 +812,51 @@ impl<A: ApprovalPort + 'static> PairingService<A> {
             |_| hash_bytes(&[0_u8; 32]),
             |decoded| hash_bytes(decoded.as_ref()),
         );
-        let mut challenges = self
-            .challenges
-            .lock()
-            .map_err(|_| PairingError::Unavailable)?;
-        let challenge = challenges
-            .get_mut(&challenge_id)
-            .ok_or(PairingError::InvalidRequest)?;
-        if challenge.origin != origin {
-            return Err(PairingError::OriginMismatch);
-        }
-        if now >= challenge.expires {
-            return Err(PairingError::Expired);
-        }
-        if challenge.redeem_attempts >= MAX_REDEEM_ATTEMPTS {
-            return Err(PairingError::InvalidVerifier);
-        }
-        if !verifier_is_canonical || presented_hash.ct_eq(&challenge.verifier_hash).unwrap_u8() != 1
-        {
-            challenge.redeem_attempts = challenge.redeem_attempts.saturating_add(1);
-            return Err(PairingError::InvalidVerifier);
-        }
-        match challenge.status {
-            ChallengeStatus::Pending => return Err(PairingError::Pending),
-            ChallengeStatus::Denied => return Err(PairingError::Denied),
-            ChallengeStatus::Expired => return Err(PairingError::Expired),
-            ChallengeStatus::Consumed => return Err(PairingError::Consumed),
-            ChallengeStatus::Approved => challenge.status = ChallengeStatus::Consumed,
-        }
+        let (challenge_origin, client_label, scopes, created_utc) = {
+            let mut challenges = self
+                .challenges
+                .lock()
+                .map_err(|_| PairingError::Unavailable)?;
+            let challenge = challenges
+                .get_mut(&challenge_id)
+                .ok_or(PairingError::InvalidRequest)?;
+            if challenge.origin != origin {
+                return Err(PairingError::OriginMismatch);
+            }
+            if now >= challenge.expires {
+                return Err(PairingError::Expired);
+            }
+            if challenge.redeem_attempts >= MAX_REDEEM_ATTEMPTS {
+                return Err(PairingError::InvalidVerifier);
+            }
+            if !verifier_is_canonical
+                || presented_hash.ct_eq(&challenge.verifier_hash).unwrap_u8() != 1
+            {
+                challenge.redeem_attempts = challenge.redeem_attempts.saturating_add(1);
+                return Err(PairingError::InvalidVerifier);
+            }
+            match challenge.status {
+                ChallengeStatus::Pending => return Err(PairingError::Pending),
+                ChallengeStatus::Denied => return Err(PairingError::Denied),
+                ChallengeStatus::Expired => return Err(PairingError::Expired),
+                ChallengeStatus::Consumed => return Err(PairingError::Consumed),
+                ChallengeStatus::Approved => challenge.status = ChallengeStatus::Consumed,
+            }
+            (
+                challenge.origin.clone(),
+                challenge.client_label.clone(),
+                challenge.scopes.clone(),
+                challenge.created_utc,
+            )
+        };
 
         let token = new_secret().map_err(map_secret_error)?;
         let record = PairingRecord {
             id: Uuid::new_v4(),
-            origin: challenge.origin.clone(),
-            client_label: challenge.client_label.clone(),
-            scopes: challenge.scopes.clone(),
-            created_at: challenge.created_utc,
+            origin: challenge_origin,
+            client_label,
+            scopes,
+            created_at: created_utc,
             last_used_at: utc,
         };
         let decoded_token =
@@ -937,10 +994,16 @@ fn validate_client_label(label: &str) -> Result<(), PairingError> {
     }
     let prompt_punctuation = ['<', '>', '{', '}', '[', ']', '`'];
     if label.chars().any(|scalar| {
-        scalar == '\0'
-            || scalar <= '\u{001f}'
-            || matches!(scalar, '\u{007f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-            || prompt_punctuation.contains(&scalar)
+        matches!(
+            scalar,
+            '\u{0000}'..='\u{001f}'
+                | '\u{007f}'
+                | '\u{0080}'..='\u{009f}'
+                | '\u{061c}'
+                | '\u{200e}'..='\u{200f}'
+                | '\u{2028}'..='\u{202e}'
+                | '\u{2066}'..='\u{2069}'
+        ) || prompt_punctuation.contains(&scalar)
     }) {
         return Err(PairingError::InvalidRequest);
     }
@@ -1001,12 +1064,12 @@ mod tests {
 
         let persisted: i64 = connection
             .query_row(
-                "SELECT last_used_at FROM pairings WHERE id = ?1",
+                "SELECT last_used_at_ns FROM pairings WHERE id = ?1",
                 [id.to_string()],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(persisted, later.unix_timestamp());
+        assert_eq!(persisted, encode_timestamp(later).unwrap());
     }
 
     #[test]
@@ -1054,5 +1117,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(retained, 128);
+    }
+
+    #[test]
+    fn sqlite_reload_preserves_the_fractional_inactivity_deadline() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("fractional.sqlite3");
+        let id = Uuid::new_v4();
+        let used_at = OffsetDateTime::UNIX_EPOCH + time::Duration::milliseconds(999);
+        {
+            let connection = initialize_database(Connection::open(&path).unwrap()).unwrap();
+            database_insert(&connection, &stored_pairing(id, used_at)).unwrap();
+        }
+
+        let connection = initialize_database(Connection::open(&path).unwrap()).unwrap();
+        let before_deadline = used_at + time::Duration::days(90) - time::Duration::nanoseconds(1);
+        assert_eq!(
+            database_active(&connection, before_deadline).unwrap().len(),
+            1
+        );
+        assert!(
+            database_active(&connection, used_at + time::Duration::days(90))
+                .unwrap()
+                .is_empty()
+        );
     }
 }

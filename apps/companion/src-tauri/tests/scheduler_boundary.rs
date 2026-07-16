@@ -2,8 +2,8 @@ use std::{
     collections::VecDeque,
     future::pending,
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        Arc, Condvar, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -12,9 +12,9 @@ use async_trait::async_trait;
 use open_voice_companion::{
     protocol::VoiceId,
     scheduler::{
-        AUDIO_TTL, CANCEL_GRACE, Clock, ExecutorError, JobError, JobState, SWEEP_INTERVAL,
-        SYNTHESIS_TIMEOUT, Scheduler, SynthesisExecutor, SynthesisTask, UnavailableExecutor,
-        WORKER_READY_TIMEOUT,
+        AUDIO_TTL, CANCEL_GRACE, Clock, ExecutorError, JobError, JobState, METADATA_RETENTION,
+        SWEEP_INTERVAL, SYNTHESIS_TIMEOUT, Scheduler, SynthesisExecutor, SynthesisTask,
+        UnavailableExecutor, WORKER_READY_TIMEOUT,
     },
 };
 use time::OffsetDateTime;
@@ -54,6 +54,57 @@ impl Clock for ManualClock {
     }
 }
 
+struct ContendedClock {
+    monotonic: Mutex<Instant>,
+    block_first_monotonic: AtomicBool,
+    first_entered: tokio::sync::Notify,
+    later_read: tokio::sync::Notify,
+    release_first: (Mutex<bool>, Condvar),
+}
+
+impl ContendedClock {
+    fn new() -> Self {
+        Self {
+            monotonic: Mutex::new(Instant::now()),
+            block_first_monotonic: AtomicBool::new(true),
+            first_entered: tokio::sync::Notify::new(),
+            later_read: tokio::sync::Notify::new(),
+            release_first: (Mutex::new(false), Condvar::new()),
+        }
+    }
+
+    fn advance(&self, duration: Duration) {
+        *self.monotonic.lock().unwrap() += duration;
+    }
+
+    fn release(&self) {
+        let (released, signal) = &self.release_first;
+        *released.lock().unwrap() = true;
+        signal.notify_all();
+    }
+}
+
+impl Clock for ContendedClock {
+    fn monotonic(&self) -> Instant {
+        let captured = *self.monotonic.lock().unwrap();
+        if self.block_first_monotonic.swap(false, Ordering::SeqCst) {
+            self.first_entered.notify_one();
+            let (released, signal) = &self.release_first;
+            let mut released = released.lock().unwrap();
+            while !*released {
+                released = signal.wait(released).unwrap();
+            }
+        } else {
+            self.later_read.notify_one();
+        }
+        captured
+    }
+
+    fn utc(&self) -> OffsetDateTime {
+        OffsetDateTime::UNIX_EPOCH
+    }
+}
+
 enum Script {
     Gate,
     Ok,
@@ -78,6 +129,86 @@ struct UnavailableProbe {
 
 struct PanickingCancelExecutor {
     starts: mpsc::UnboundedSender<Uuid>,
+}
+
+struct BlockingAvailabilityExecutor {
+    entered: tokio::sync::Notify,
+    release: (Mutex<bool>, Condvar),
+    available: AtomicBool,
+}
+
+struct TimedExecutor {
+    ready_delay: Duration,
+    synthesis_delay: Duration,
+    ready_started: tokio::sync::Notify,
+    synthesis_started: tokio::sync::Notify,
+}
+
+impl TimedExecutor {
+    fn new(ready_delay: Duration, synthesis_delay: Duration) -> Arc<Self> {
+        Arc::new(Self {
+            ready_delay,
+            synthesis_delay,
+            ready_started: tokio::sync::Notify::new(),
+            synthesis_started: tokio::sync::Notify::new(),
+        })
+    }
+}
+
+#[async_trait]
+impl SynthesisExecutor for TimedExecutor {
+    async fn ready(&self, _task: &SynthesisTask) -> Result<(), ExecutorError> {
+        self.ready_started.notify_one();
+        tokio::time::sleep(self.ready_delay).await;
+        Ok(())
+    }
+
+    async fn synthesize(&self, _task: &SynthesisTask) -> Result<Vec<u8>, ExecutorError> {
+        self.synthesis_started.notify_one();
+        tokio::time::sleep(self.synthesis_delay).await;
+        Ok(pcm_wav(2))
+    }
+
+    async fn cancel(&self, _id: Uuid) {}
+}
+
+impl BlockingAvailabilityExecutor {
+    fn new() -> Self {
+        Self {
+            entered: tokio::sync::Notify::new(),
+            release: (Mutex::new(false), Condvar::new()),
+            available: AtomicBool::new(true),
+        }
+    }
+
+    fn release(&self) {
+        let (released, signal) = &self.release;
+        *released.lock().unwrap() = true;
+        signal.notify_all();
+    }
+}
+
+#[async_trait]
+impl SynthesisExecutor for BlockingAvailabilityExecutor {
+    fn is_available(&self) -> bool {
+        self.entered.notify_one();
+        let (released, signal) = &self.release;
+        let mut released = released.lock().unwrap();
+        while !*released {
+            released = signal.wait(released).unwrap();
+        }
+        self.available.load(Ordering::SeqCst)
+    }
+
+    async fn ready(&self, _task: &SynthesisTask) -> Result<(), ExecutorError> {
+        Ok(())
+    }
+
+    async fn synthesize(&self, _task: &SynthesisTask) -> Result<Vec<u8>, ExecutorError> {
+        Ok(pcm_wav(2))
+    }
+
+    async fn cancel(&self, _id: Uuid) {}
 }
 
 #[async_trait]
@@ -480,6 +611,56 @@ async fn ready_synthesis_and_cancel_grace_deadlines_fire_at_exact_boundaries() {
     );
 }
 
+#[tokio::test(start_paused = true)]
+async fn executor_completion_loses_exact_ready_and_synthesis_deadline_ties() {
+    let voice = VoiceId::parse("pocket:alba").unwrap();
+    let owner = Uuid::new_v4();
+
+    let before_ready = TimedExecutor::new(
+        WORKER_READY_TIMEOUT - Duration::from_millis(1),
+        Duration::ZERO,
+    );
+    let scheduler = Scheduler::new(before_ready.clone(), Arc::new(ManualClock::new()));
+    let id = scheduler
+        .enqueue(owner, voice, "ready before".into())
+        .unwrap();
+    before_ready.ready_started.notified().await;
+    tokio::time::advance(WORKER_READY_TIMEOUT - Duration::from_millis(1)).await;
+    scheduler.wait_idle().await;
+    assert_eq!(scheduler.get(owner, id).unwrap().state, JobState::Completed);
+
+    let exact_ready = TimedExecutor::new(WORKER_READY_TIMEOUT, Duration::ZERO);
+    let scheduler = Scheduler::new(exact_ready.clone(), Arc::new(ManualClock::new()));
+    let id = scheduler
+        .enqueue(owner, voice, "ready exact tie".into())
+        .unwrap();
+    exact_ready.ready_started.notified().await;
+    tokio::time::advance(WORKER_READY_TIMEOUT).await;
+    scheduler.wait_idle().await;
+    assert_eq!(scheduler.get(owner, id).unwrap().state, JobState::Failed);
+
+    let before_synthesis =
+        TimedExecutor::new(Duration::ZERO, SYNTHESIS_TIMEOUT - Duration::from_millis(1));
+    let scheduler = Scheduler::new(before_synthesis.clone(), Arc::new(ManualClock::new()));
+    let id = scheduler
+        .enqueue(owner, voice, "synthesis before".into())
+        .unwrap();
+    before_synthesis.synthesis_started.notified().await;
+    tokio::time::advance(SYNTHESIS_TIMEOUT - Duration::from_millis(1)).await;
+    scheduler.wait_idle().await;
+    assert_eq!(scheduler.get(owner, id).unwrap().state, JobState::Completed);
+
+    let exact_synthesis = TimedExecutor::new(Duration::ZERO, SYNTHESIS_TIMEOUT);
+    let scheduler = Scheduler::new(exact_synthesis.clone(), Arc::new(ManualClock::new()));
+    let id = scheduler
+        .enqueue(owner, voice, "synthesis exact tie".into())
+        .unwrap();
+    exact_synthesis.synthesis_started.notified().await;
+    tokio::time::advance(SYNTHESIS_TIMEOUT).await;
+    scheduler.wait_idle().await;
+    assert_eq!(scheduler.get(owner, id).unwrap().state, JobState::Failed);
+}
+
 #[tokio::test]
 async fn production_executor_is_non_operational_and_produces_no_audio() {
     let scheduler = Scheduler::new(
@@ -623,6 +804,66 @@ async fn metadata_retention_uses_monotonic_time_despite_wall_clock_jumps() {
 }
 
 #[tokio::test]
+async fn metadata_is_non_oracular_not_found_at_exact_retention_without_a_sweep() {
+    let (executor, _starts) = ScriptedExecutor::new([Script::Ok]);
+    let clock = Arc::new(ManualClock::new());
+    let scheduler = Scheduler::new(executor, clock.clone());
+    let owner = Uuid::new_v4();
+    let id = scheduler
+        .enqueue(
+            owner,
+            VoiceId::parse("pocket:alba").unwrap(),
+            "retention endpoint boundary".into(),
+        )
+        .unwrap();
+    scheduler.wait_idle().await;
+
+    clock.advance(METADATA_RETENTION - Duration::from_millis(1));
+    assert!(scheduler.get(owner, id).is_ok());
+    assert_eq!(scheduler.audio(owner, id), Err(JobError::Expired));
+    assert_eq!(scheduler.cancel(owner, id), Ok(()));
+
+    clock.advance(Duration::from_millis(1));
+    assert_eq!(scheduler.get(owner, id), Err(JobError::NotFound));
+    assert_eq!(scheduler.audio(owner, id), Err(JobError::NotFound));
+    assert_eq!(scheduler.cancel(owner, id), Err(JobError::NotFound));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn metadata_visibility_uses_a_clock_read_after_waiting_for_the_state_lock() {
+    let (executor, _starts) = ScriptedExecutor::new([Script::Ok]);
+    let clock = Arc::new(ContendedClock::new());
+    let scheduler = Scheduler::new(executor, clock.clone());
+    let owner = Uuid::new_v4();
+    let id = scheduler
+        .enqueue(
+            owner,
+            VoiceId::parse("pocket:alba").unwrap(),
+            "contended retention boundary".into(),
+        )
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(1), clock.first_entered.notified())
+        .await
+        .expect("job completion did not enter the contended monotonic read");
+
+    let get_scheduler = scheduler.clone();
+    let get = tokio::task::spawn_blocking(move || get_scheduler.get(owner, id));
+    let _read_before_release =
+        tokio::time::timeout(Duration::from_millis(50), clock.later_read.notified()).await;
+    clock.advance(METADATA_RETENTION);
+    clock.release();
+    scheduler.wait_idle().await;
+
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(1), get)
+            .await
+            .expect("contended get did not resume")
+            .unwrap(),
+        Err(JobError::NotFound)
+    );
+}
+
+#[tokio::test]
 async fn executor_audio_must_be_a_well_formed_pcm16_mono_24khz_wav() {
     let (executor, _starts) = ScriptedExecutor::new([Script::Malformed]);
     let scheduler = Scheduler::new(executor, Arc::new(ManualClock::new()));
@@ -691,6 +932,28 @@ async fn shutdown_is_bounded_and_drops_queued_jobs_and_audio() {
         scheduler.enqueue(owner, voice, "late".into()),
         Err(JobError::ShuttingDown)
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn enqueue_rechecks_shutdown_after_a_blocked_availability_probe() {
+    let executor = Arc::new(BlockingAvailabilityExecutor::new());
+    let scheduler = Scheduler::new(executor.clone(), Arc::new(ManualClock::new()));
+    let enqueue_scheduler = scheduler.clone();
+    let owner = Uuid::new_v4();
+    let voice = VoiceId::parse("pocket:alba").unwrap();
+    let enqueue = tokio::task::spawn_blocking(move || {
+        enqueue_scheduler.enqueue(owner, voice, "shutdown race".into())
+    });
+    tokio::time::timeout(Duration::from_secs(1), executor.entered.notified())
+        .await
+        .expect("availability probe did not block");
+
+    tokio::time::timeout(Duration::from_secs(1), scheduler.shutdown())
+        .await
+        .expect("shutdown must not wait for an availability probe");
+    executor.release();
+
+    assert_eq!(enqueue.await.unwrap(), Err(JobError::ShuttingDown));
 }
 
 #[tokio::test(flavor = "current_thread")]

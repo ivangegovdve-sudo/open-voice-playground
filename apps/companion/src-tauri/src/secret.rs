@@ -27,7 +27,9 @@ impl SecretString {
 pub fn generate_secret() -> Result<SecretString, SecretError> {
     let mut bytes = Zeroizing::new([0_u8; 32]);
     getrandom::fill(bytes.as_mut()).map_err(|_| SecretError::Randomness)?;
-    Ok(SecretString(Zeroizing::new(URL_SAFE_NO_PAD.encode(*bytes))))
+    Ok(SecretString(Zeroizing::new(
+        URL_SAFE_NO_PAD.encode(bytes.as_ref()),
+    )))
 }
 
 pub fn decode_canonical_secret(value: &str) -> Result<Zeroizing<[u8; 32]>, SecretError> {
@@ -38,16 +40,14 @@ pub fn decode_canonical_secret(value: &str) -> Result<Zeroizing<[u8; 32]>, Secre
     {
         return Err(SecretError::InvalidEncoding);
     }
-    let decoded = URL_SAFE_NO_PAD
-        .decode(value)
+    let mut bytes = Zeroizing::new([0_u8; 32]);
+    let decoded_length = URL_SAFE_NO_PAD
+        .decode_slice(value, bytes.as_mut())
         .map_err(|_| SecretError::InvalidEncoding)?;
-    let bytes: [u8; 32] = decoded
-        .try_into()
-        .map_err(|_| SecretError::InvalidEncoding)?;
-    if URL_SAFE_NO_PAD.encode(bytes) != value {
+    if decoded_length != bytes.len() {
         return Err(SecretError::InvalidEncoding);
     }
-    Ok(Zeroizing::new(bytes))
+    Ok(bytes)
 }
 
 pub fn is_canonical_secret(value: &str) -> bool {
@@ -63,5 +63,5 @@ pub fn hash_for_transport(value: &[u8]) -> String {
         .ok()
         .and_then(|encoded| decode_canonical_secret(encoded).ok())
         .map_or_else(|| hash_bytes(value), |decoded| hash_bytes(decoded.as_ref()));
-    URL_SAFE_NO_PAD.encode(hash)
+    URL_SAFE_NO_PAD.encode(hash.as_slice())
 }

@@ -1,7 +1,8 @@
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     ffi::OsString,
-    sync::{Arc, Mutex},
+    sync::atomic::{AtomicBool, Ordering},
+    sync::{Arc, Condvar, Mutex},
     time::{Duration, Instant},
 };
 
@@ -34,6 +35,29 @@ fn encoded_inbound_secrets_are_validated_and_immediately_owned_by_the_zeroizing_
     let secret = BearerSecret::from_encoded(encoded.clone()).unwrap();
     assert_eq!(secret.expose(), encoded);
     assert!(BearerSecret::from_encoded("not-a-canonical-secret".to_owned()).is_err());
+}
+
+#[test]
+fn canonical_secret_final_characters_are_exhaustive_and_decoding_uses_a_bounded_buffer() {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let canonical = fixed_state(43);
+    let prefix = &canonical[..42];
+    for (index, final_character) in ALPHABET.iter().copied().enumerate() {
+        let candidate = format!("{prefix}{}", char::from(final_character));
+        assert_eq!(
+            BearerSecret::from_encoded(candidate).is_ok(),
+            index.is_multiple_of(4),
+            "base64url final character index {index} has canonical trailing bits iff divisible by four"
+        );
+    }
+
+    let source = include_str!("../src/secret.rs");
+    assert!(source.contains("decode_slice"));
+    assert!(!source.contains(".decode("));
+    assert!(!source.contains("URL_SAFE_NO_PAD.encode(bytes)"));
+    assert!(!source.contains("URL_SAFE_NO_PAD.encode(*bytes)"));
+    assert!(source.contains("URL_SAFE_NO_PAD.encode(bytes.as_ref())"));
+    assert!(source.contains("URL_SAFE_NO_PAD.encode(hash.as_slice())"));
 }
 
 struct ControlledApproval {
@@ -74,6 +98,79 @@ impl PairingStore for FailingStore {
 
     fn active(&self, _now: OffsetDateTime) -> Result<Vec<StoredPairing>, PairingError> {
         Ok(Vec::new())
+    }
+
+    fn touch(&self, _id: uuid::Uuid, _at: OffsetDateTime) -> Result<(), PairingError> {
+        Ok(())
+    }
+
+    fn revoke(&self, _id: uuid::Uuid) -> Result<(), PairingError> {
+        Ok(())
+    }
+
+    fn revoke_all(&self) -> Result<(), PairingError> {
+        Ok(())
+    }
+}
+
+struct LabelApproval {
+    decisions: Mutex<HashMap<String, oneshot::Receiver<ApprovalDecision>>>,
+}
+
+#[async_trait]
+impl ApprovalPort for LabelApproval {
+    async fn decide(
+        &self,
+        request: open_voice_companion::pairing::ApprovalRequest,
+    ) -> ApprovalDecision {
+        let receiver = self.decisions.lock().unwrap().remove(&request.client_label);
+        match receiver {
+            Some(receiver) => receiver.await.unwrap_or(ApprovalDecision::Deny),
+            None => ApprovalDecision::Deny,
+        }
+    }
+}
+
+struct BlockingFirstInsertStore {
+    block_first: AtomicBool,
+    insert_started: Notify,
+    release: (Mutex<bool>, Condvar),
+    pairings: Mutex<Vec<StoredPairing>>,
+}
+
+impl BlockingFirstInsertStore {
+    fn new() -> Self {
+        Self {
+            block_first: AtomicBool::new(true),
+            insert_started: Notify::new(),
+            release: (Mutex::new(false), Condvar::new()),
+            pairings: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn release(&self) {
+        let (released, signal) = &self.release;
+        *released.lock().unwrap() = true;
+        signal.notify_all();
+    }
+}
+
+impl PairingStore for BlockingFirstInsertStore {
+    fn insert(&self, pairing: &StoredPairing) -> Result<(), PairingError> {
+        if self.block_first.swap(false, Ordering::SeqCst) {
+            self.insert_started.notify_one();
+            let (released, signal) = &self.release;
+            let mut released = released.lock().unwrap();
+            while !*released {
+                released = signal.wait(released).unwrap();
+            }
+        }
+        self.pairings.lock().unwrap().push(pairing.clone());
+        Ok(())
+    }
+
+    fn active(&self, _now: OffsetDateTime) -> Result<Vec<StoredPairing>, PairingError> {
+        Ok(self.pairings.lock().unwrap().clone())
     }
 
     fn touch(&self, _id: uuid::Uuid, _at: OffsetDateTime) -> Result<(), PairingError> {
@@ -222,6 +319,130 @@ async fn challenge_expires_at_the_exact_two_minute_boundary() {
         ),
         Err(PairingError::Expired)
     ));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn expired_challenges_remain_bounded_tombstones_when_later_challenges_are_created() {
+    let deep_links = Arc::new(DeepLinkRegistry::new());
+    let service = Arc::new(PairingService::new(
+        Arc::new(ImmediateApproval),
+        Arc::new(SqlitePairingStore::open_in_memory().unwrap()),
+        deep_links.clone(),
+        Arc::new(ManualCodeRegistry::new()),
+    ));
+    let now = Instant::now();
+    let verifier = generate_secret().unwrap();
+    let verifier_hash = hash_for_transport(verifier.expose().as_bytes());
+    let origin = "http://127.0.0.1:5173";
+    let old_state = fixed_state(68);
+    deep_links
+        .record_argv(
+            &[
+                executable(),
+                OsString::from(format!("ovp-companion://pair/{old_state}")),
+            ],
+            now,
+        )
+        .unwrap();
+    let old = service
+        .clone()
+        .create_deep_link_challenge(
+            &old_state,
+            &verifier_hash,
+            "Old browser",
+            &fixed_scopes(),
+            origin,
+            now,
+            OffsetDateTime::UNIX_EPOCH,
+        )
+        .unwrap();
+
+    let later = now + Duration::from_secs(120);
+    let new_state = fixed_state(69);
+    deep_links
+        .record_argv(
+            &[
+                executable(),
+                OsString::from(format!("ovp-companion://pair/{new_state}")),
+            ],
+            later,
+        )
+        .unwrap();
+    service
+        .clone()
+        .create_deep_link_challenge(
+            &new_state,
+            &verifier_hash,
+            "New browser",
+            &fixed_scopes(),
+            origin,
+            later,
+            OffsetDateTime::UNIX_EPOCH,
+        )
+        .unwrap();
+    assert!(matches!(
+        service.redeem(
+            old.id,
+            verifier.expose(),
+            origin,
+            later,
+            OffsetDateTime::UNIX_EPOCH,
+        ),
+        Err(PairingError::Expired)
+    ));
+
+    let pressure_links = Arc::new(DeepLinkRegistry::new());
+    let pressure_service = Arc::new(PairingService::new(
+        Arc::new(ImmediateApproval),
+        Arc::new(SqlitePairingStore::open_in_memory().unwrap()),
+        pressure_links.clone(),
+        Arc::new(ManualCodeRegistry::new()),
+    ));
+    for byte in 0_u8..128 {
+        let state = fixed_state(byte);
+        pressure_links
+            .record_argv(
+                &[
+                    executable(),
+                    OsString::from(format!("ovp-companion://pair/{state}")),
+                ],
+                now,
+            )
+            .unwrap();
+        pressure_service
+            .clone()
+            .create_deep_link_challenge(
+                &state,
+                &verifier_hash,
+                "Pressure browser",
+                &fixed_scopes(),
+                origin,
+                now,
+                OffsetDateTime::UNIX_EPOCH,
+            )
+            .unwrap();
+    }
+    let overflow_state = fixed_state(200);
+    pressure_links
+        .record_argv(
+            &[
+                executable(),
+                OsString::from(format!("ovp-companion://pair/{overflow_state}")),
+            ],
+            later,
+        )
+        .unwrap();
+    pressure_service
+        .create_deep_link_challenge(
+            &overflow_state,
+            &verifier_hash,
+            "Pressure replacement",
+            &fixed_scopes(),
+            origin,
+            later,
+            OffsetDateTime::UNIX_EPOCH,
+        )
+        .expect("expired tombstones must yield bounded capacity under pressure");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -603,7 +824,7 @@ async fn pairing_is_atomic_one_time_hash_only_origin_and_scope_bound() {
     let mut statement = audit_connection
         .prepare(
             "SELECT id, hex(bearer_hash), origin, client_label, scopes,
-                    created_at, last_used_at, revoked FROM pairings ORDER BY id",
+                    created_at_ns, last_used_at_ns, revoked FROM pairings ORDER BY id",
         )
         .unwrap();
     let raw_database = statement
@@ -721,6 +942,14 @@ async fn concurrent_redeem_delivers_only_one_bearer_and_labels_fail_closed() {
         "",
         "line\nbreak",
         "bell\u{0007}",
+        "c1\u{0080}control",
+        "next\u{0085}line",
+        "c1\u{009f}control",
+        "line\u{2028}separator",
+        "paragraph\u{2029}separator",
+        "arabic\u{061c}mark",
+        "left\u{200e}mark",
+        "right\u{200f}mark",
         "right\u{202e}left",
         "isolate\u{2066}text",
         "<Approve this request>",
@@ -877,4 +1106,134 @@ async fn persistence_failure_still_consumes_the_approved_challenge() {
         service.redeem(challenge.id, verifier.expose(), origin, now, utc),
         Err(PairingError::Consumed)
     ));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn blocked_persistence_does_not_hold_the_global_challenge_lock() {
+    let (blocked_tx, blocked_rx) = oneshot::channel();
+    let (_redeem_tx, redeem_rx) = oneshot::channel();
+    let (decision_tx, decision_rx) = oneshot::channel();
+    let approval = Arc::new(LabelApproval {
+        decisions: Mutex::new(HashMap::from([
+            ("Blocked insert".to_owned(), blocked_rx),
+            ("Independent redeem".to_owned(), redeem_rx),
+            ("Independent decision".to_owned(), decision_rx),
+        ])),
+    });
+    let store = Arc::new(BlockingFirstInsertStore::new());
+    let deep_links = Arc::new(DeepLinkRegistry::new());
+    let service = Arc::new(PairingService::new(
+        approval,
+        store.clone(),
+        deep_links.clone(),
+        Arc::new(ManualCodeRegistry::new()),
+    ));
+    let now = Instant::now();
+    let utc = OffsetDateTime::UNIX_EPOCH;
+    let origin = "http://127.0.0.1:5173";
+    let verifier = generate_secret().unwrap();
+    let verifier_hash = hash_for_transport(verifier.expose().as_bytes());
+
+    let create = |byte: u8, label: &str| {
+        let state = fixed_state(byte);
+        deep_links
+            .record_argv(
+                &[
+                    executable(),
+                    OsString::from(format!("ovp-companion://pair/{state}")),
+                ],
+                now,
+            )
+            .unwrap();
+        service
+            .clone()
+            .create_deep_link_challenge(
+                &state,
+                &verifier_hash,
+                label,
+                &fixed_scopes(),
+                origin,
+                now,
+                utc,
+            )
+            .unwrap()
+    };
+    let blocked = create(101, "Blocked insert");
+    let independent_redeem = create(102, "Independent redeem");
+    let independent_decision = create(103, "Independent decision");
+
+    blocked_tx.send(ApprovalDecision::Approve).unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(1),
+        service.wait_for_decision(blocked.id),
+    )
+    .await
+    .expect("blocked challenge approval did not arrive");
+
+    let first_service = service.clone();
+    let first_verifier = verifier.expose().to_owned();
+    let first = tokio::task::spawn_blocking(move || {
+        first_service.redeem(blocked.id, &first_verifier, origin, now, utc)
+    });
+    tokio::time::timeout(Duration::from_secs(1), store.insert_started.notified())
+        .await
+        .expect("the first persistence call did not start");
+
+    let second_service = service.clone();
+    let second_verifier = verifier.expose().to_owned();
+    let mut second = tokio::task::spawn_blocking(move || {
+        second_service.redeem(independent_redeem.id, &second_verifier, origin, now, utc)
+    });
+    let second_before_release = tokio::time::timeout(Duration::from_millis(50), &mut second).await;
+    let second_finished_before_release = second_before_release.is_ok();
+    if let Ok(result) = second_before_release {
+        assert!(matches!(result.unwrap(), Err(PairingError::Pending)));
+    }
+
+    decision_tx.send(ApprovalDecision::Approve).unwrap();
+    let decision_service = service.clone();
+    let mut decision = tokio::spawn(async move {
+        decision_service
+            .wait_for_decision(independent_decision.id)
+            .await;
+    });
+    let decision_before_release =
+        tokio::time::timeout(Duration::from_millis(50), &mut decision).await;
+    let decision_finished_before_release = decision_before_release.is_ok();
+    if let Ok(result) = decision_before_release {
+        result.unwrap();
+    }
+
+    store.release();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), first)
+            .await
+            .expect("blocked redeem did not resume after persistence release")
+            .unwrap()
+            .is_ok()
+    );
+    if !second_finished_before_release {
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), second)
+                .await
+                .expect("independent redeem did not resume after persistence release")
+                .unwrap(),
+            Err(PairingError::Pending)
+        ));
+    }
+    if !decision_finished_before_release {
+        tokio::time::timeout(Duration::from_secs(1), decision)
+            .await
+            .expect("independent decision did not resume after persistence release")
+            .unwrap();
+    }
+
+    assert!(
+        second_finished_before_release,
+        "an unrelated redeem stalled behind the blocked persistence call"
+    );
+    assert!(
+        decision_finished_before_release,
+        "an unrelated native decision stalled behind the blocked persistence call"
+    );
 }

@@ -323,6 +323,9 @@ impl Scheduler {
         }
         validate_synthesis_text(&text).map_err(|_| JobError::InvalidText)?;
         let mut state = self.core.state.lock().map_err(|_| JobError::Conflict)?;
+        if self.core.shutdown.load(Ordering::SeqCst) {
+            return Err(JobError::ShuttingDown);
+        }
         if state.queued >= MAX_GLOBAL_QUEUED {
             return Err(JobError::QueueFull);
         }
@@ -387,27 +390,29 @@ impl Scheduler {
 
     pub fn get(&self, pairing_id: Uuid, id: Uuid) -> Result<JobSnapshot, JobError> {
         let state = self.core.state.lock().map_err(|_| JobError::Conflict)?;
+        let monotonic = self.core.clock.monotonic();
         let job = state
             .jobs
             .get(&id)
-            .filter(|job| job.task.pairing_id == pairing_id)
+            .filter(|job| job.task.pairing_id == pairing_id && metadata_is_visible(job, monotonic))
             .ok_or(JobError::NotFound)?;
-        Ok(snapshot(job, self.core.clock.monotonic()))
+        Ok(snapshot(job, monotonic))
     }
 
     pub fn audio(&self, pairing_id: Uuid, id: Uuid) -> Result<Vec<u8>, JobError> {
         let state = self.core.state.lock().map_err(|_| JobError::Conflict)?;
+        let monotonic = self.core.clock.monotonic();
         let job = state
             .jobs
             .get(&id)
-            .filter(|job| job.task.pairing_id == pairing_id)
+            .filter(|job| job.task.pairing_id == pairing_id && metadata_is_visible(job, monotonic))
             .ok_or(JobError::NotFound)?;
         if job.state != JobState::Completed {
             return Err(JobError::Conflict);
         }
         if job
             .audio_expires
-            .is_some_and(|expires| self.core.clock.monotonic() >= expires)
+            .is_some_and(|expires| monotonic >= expires)
         {
             return Err(JobError::Expired);
         }
@@ -416,10 +421,10 @@ impl Scheduler {
 
     pub fn cancel(&self, pairing_id: Uuid, id: Uuid) -> Result<(), JobError> {
         let mut state = self.core.state.lock().map_err(|_| JobError::Conflict)?;
-        let owner_matches = state
-            .jobs
-            .get(&id)
-            .is_some_and(|job| job.task.pairing_id == pairing_id);
+        let monotonic = self.core.clock.monotonic();
+        let owner_matches = state.jobs.get(&id).is_some_and(|job| {
+            job.task.pairing_id == pairing_id && metadata_is_visible(job, monotonic)
+        });
         if !owner_matches {
             return Err(JobError::NotFound);
         }
@@ -507,6 +512,11 @@ fn snapshot(job: &JobEntry, monotonic: Instant) -> JobSnapshot {
         created_at: job.created_at,
         finished_at: job.finished_at,
     }
+}
+
+fn metadata_is_visible(job: &JobEntry, monotonic: Instant) -> bool {
+    job.metadata_expires
+        .is_none_or(|expires| monotonic < expires)
 }
 
 fn remove_queued(state: &mut SchedulerState, pairing_id: Uuid, id: Uuid) {
@@ -624,6 +634,9 @@ async fn process_job(
 ) {
     let ready = core.executor.ready(&task);
     tokio::pin!(ready);
+    let ready_deadline = tokio::time::Instant::now() + WORKER_READY_TIMEOUT;
+    let ready_timeout = tokio::time::sleep_until(ready_deadline);
+    tokio::pin!(ready_timeout);
     let ready_result = tokio::select! {
         biased;
         _ = cancellation.cancelled() => {
@@ -631,9 +644,10 @@ async fn process_job(
             finish(core, task.id, generation, JobState::Cancelled, None);
             return;
         }
-        result = timeout(WORKER_READY_TIMEOUT, &mut ready) => result,
+        () = &mut ready_timeout => None,
+        result = &mut ready => Some(result),
     };
-    if !matches!(ready_result, Ok(Ok(()))) {
+    if !matches!(ready_result, Some(Ok(()))) {
         cancel_executor(core, task.id).await;
         finish(core, task.id, generation, JobState::Failed, None);
         return;
@@ -652,11 +666,14 @@ async fn process_job(
         Cancel,
         Timeout,
     }
+    let synthesis_deadline = tokio::time::Instant::now() + SYNTHESIS_TIMEOUT;
+    let synthesis_timeout = tokio::time::sleep_until(synthesis_deadline);
+    tokio::pin!(synthesis_timeout);
     let outcome = tokio::select! {
         biased;
         _ = cancellation.cancelled() => Outcome::Cancel,
+        () = &mut synthesis_timeout => Outcome::Timeout,
         result = &mut synthesis => Outcome::Result(result),
-        _ = tokio::time::sleep(SYNTHESIS_TIMEOUT) => Outcome::Timeout,
     };
     match outcome {
         Outcome::Cancel => {
