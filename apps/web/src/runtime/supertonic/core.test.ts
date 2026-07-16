@@ -207,13 +207,14 @@ type FakeRuntime = {
 };
 
 function makeFakeRuntime(
-  options: { duration?: number; failVectorStep?: number } = {},
+  options: { duration?: number; failVectorStep?: number; failCreateAt?: number } = {},
 ): FakeRuntime {
   const metadata = officialMetadata();
   const tensors: FakeTensor[] = [];
   const outputs: FakeTensor[] = [];
   const duration = options.duration ?? 0.1;
   let vectorStep = 0;
+  let createCall = 0;
 
   const output = <T extends OrtTensorType>(
     type: T,
@@ -283,6 +284,10 @@ function makeFakeRuntime(
       data: OrtTensorData<T>,
       dims: readonly number[],
     ): OrtTensorLease<T> {
+      createCall += 1;
+      if (createCall === options.failCreateAt) {
+        throw new Error('Supertonic test tensor allocation failed.');
+      }
       const tensor = new FakeTensor(type, dims, data);
       tensors.push(tensor);
       return tensor;
@@ -297,6 +302,56 @@ function makeFakeRuntime(
     tensors,
     outputs,
   };
+}
+
+type MetadataTransform = (
+  sessionIndex: number,
+  direction: 'input' | 'output',
+  name: string,
+  shape: readonly (number | string)[],
+) => readonly (number | string)[];
+
+function prepareTransformedMetadata(transform: MetadataTransform): PreparedSupertonicOrtPort {
+  const runtime = makeFakeRuntime();
+  const sessions = officialMetadata().map(
+    (metadata, sessionIndex) =>
+      new FakeSession(
+        metadata.inputNames,
+        metadata.outputNames,
+        metadata.inputMetadata.map((entry) =>
+          entry.isTensor
+            ? {
+                ...entry,
+                shape: transform(sessionIndex, 'input', entry.name, entry.shape),
+              }
+            : entry,
+        ),
+        metadata.outputMetadata.map((entry) =>
+          entry.isTensor
+            ? {
+                ...entry,
+                shape: transform(sessionIndex, 'output', entry.name, entry.shape),
+              }
+            : entry,
+        ),
+        async () => ({}),
+      ),
+  ) as unknown as readonly [FakeSession, FakeSession, FakeSession, FakeSession];
+
+  return prepareSupertonicOrtPort({
+    createTensor: runtime.unprepared.createTensor,
+    sessions,
+  });
+}
+
+function replaceShapeAxis(
+  shape: readonly (number | string)[],
+  axis: number,
+  value: number | string,
+): readonly (number | string)[] {
+  const replaced = shape.slice();
+  replaced[axis] = value;
+  return replaced;
 }
 
 const parsedConfig = () => parseSupertonicConfig(validConfigJson());
@@ -549,8 +604,10 @@ describe('Supertonic deterministic random source', () => {
 });
 
 describe('Supertonic ORT port', () => {
-  it('accepts the official four-session order, names, types, ranks, fixed axes, and joins', () => {
-    expect(makeFakeRuntime().port.sessions).toHaveLength(4);
+  it('accepts official differing dynamic symbols across encoder output and vector input', () => {
+    expect(
+      prepareTransformedMetadata((_session, _direction, _name, shape) => shape).sessions,
+    ).toHaveLength(4);
   });
 
   it('fails closed when session order or a fixed ABI axis differs', () => {
@@ -628,6 +685,61 @@ describe('Supertonic ORT port', () => {
       }),
     ).toThrow('Supertonic vocoder ABI is invalid.');
   });
+
+  it('rejects fixed encoder output batch two against dynamic vector batch metadata', () => {
+    expect(() =>
+      prepareTransformedMetadata((session, direction, name, shape) =>
+        session === 1 && direction === 'output' && name === 'text_emb' ? [2, 256, 99] : shape,
+      ),
+    ).toThrow('Supertonic text encoder ABI is invalid.');
+  });
+
+  it('rejects conflicting concrete text lengths across encoder input, output, and vector input', () => {
+    expect(() =>
+      prepareTransformedMetadata((session, direction, name, shape) => {
+        if (session === 1 && direction === 'output' && name === 'text_emb') {
+          return replaceShapeAxis(shape, 2, 8);
+        }
+        const isTextInput =
+          direction === 'input' &&
+          ((session <= 1 && (name === 'text_ids' || name === 'text_mask')) ||
+            (session === 2 && (name === 'text_emb' || name === 'text_mask')));
+        return isTextInput ? replaceShapeAxis(shape, shape.length - 1, 7) : shape;
+      }),
+    ).toThrow('Supertonic text encoder ABI is invalid.');
+  });
+
+  it('accepts compatible concrete batch and text axes throughout the joined sessions', () => {
+    expect(() =>
+      prepareTransformedMetadata((session, direction, name, shape) => {
+        let compatible = replaceShapeAxis(shape, 0, 1);
+        const isTextAxis =
+          (session === 1 && direction === 'output' && name === 'text_emb') ||
+          (direction === 'input' &&
+            ((session <= 1 && (name === 'text_ids' || name === 'text_mask')) ||
+              (session === 2 && (name === 'text_emb' || name === 'text_mask'))));
+        if (isTextAxis) compatible = replaceShapeAxis(compatible, compatible.length - 1, 7);
+        return compatible;
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects conflicting concrete encoder-output and vector-input batch axes', () => {
+    expect(() =>
+      prepareTransformedMetadata((session, direction, name, shape) => {
+        const batch = session === 1 && direction === 'output' && name === 'text_emb' ? 2 : 1;
+        return replaceShapeAxis(shape, 0, batch);
+      }),
+    ).toThrow('Supertonic text encoder ABI is invalid.');
+  });
+
+  it('rejects a fixed non-unit batch even when every session agrees on it', () => {
+    expect(() =>
+      prepareTransformedMetadata((_session, _direction, _name, shape) =>
+        replaceShapeAxis(shape, 0, 2),
+      ),
+    ).toThrow('Supertonic text encoder ABI is invalid.');
+  });
 });
 
 describe('Supertonic synthesis lifecycle', () => {
@@ -668,6 +780,79 @@ describe('Supertonic synthesis lifecycle', () => {
     ).rejects.toThrow('Supertonic ORT port has not passed ABI preparation.');
     expect(runtime.sessions.every(({ calls }) => calls.length === 0)).toBe(true);
     expect(runtime.tensors).toHaveLength(0);
+  });
+
+  it('disposes style TTL when the following style DP allocation throws', async () => {
+    const runtime = makeFakeRuntime({ failCreateAt: 2 });
+    const progress: Array<readonly [number, number]> = [];
+
+    await expect(
+      synthesizeSupertonic({
+        text: 'Style allocation failure.',
+        language: 'en',
+        speed: 1,
+        config: parsedConfig(),
+        indexer: parsedIndexer(),
+        style: parsedStyle(),
+        ort: runtime.port,
+        onProgress: (completed, total) => progress.push([completed, total]),
+      }),
+    ).rejects.toThrow('Supertonic test tensor allocation failed.');
+
+    expect(runtime.tensors).toHaveLength(1);
+    expect(runtime.tensors[0]?.disposeCalls).toBe(1);
+    expect(runtime.sessions.map(({ calls }) => calls.length)).toEqual([0, 0, 0, 0]);
+    expect(progress).toEqual([]);
+  });
+
+  it('disposes styles and text IDs when the following text-mask allocation throws', async () => {
+    const runtime = makeFakeRuntime({ failCreateAt: 4 });
+    const progress: Array<readonly [number, number]> = [];
+
+    await expect(
+      synthesizeSupertonic({
+        text: 'Text allocation failure.',
+        language: 'en',
+        speed: 1,
+        config: parsedConfig(),
+        indexer: parsedIndexer(),
+        style: parsedStyle(),
+        ort: runtime.port,
+        onProgress: (completed, total) => progress.push([completed, total]),
+      }),
+    ).rejects.toThrow('Supertonic test tensor allocation failed.');
+
+    expect(runtime.tensors).toHaveLength(3);
+    for (const tensor of runtime.tensors) expect(tensor.disposeCalls).toBe(1);
+    expect(runtime.sessions.map(({ calls }) => calls.length)).toEqual([0, 0, 0, 0]);
+    expect(progress).toEqual([]);
+  });
+
+  it('disposes prior leases when the first denoising step allocation pair is interrupted', async () => {
+    const runtime = makeFakeRuntime({ failCreateAt: 9 });
+    const progress: Array<readonly [number, number]> = [];
+
+    await expect(
+      synthesizeSupertonic({
+        text: 'Denoising allocation failure.',
+        language: 'en',
+        speed: 1,
+        config: parsedConfig(),
+        indexer: parsedIndexer(),
+        style: parsedStyle(),
+        ort: runtime.port,
+        onProgress: (completed, total) => progress.push([completed, total]),
+      }),
+    ).rejects.toThrow('Supertonic test tensor allocation failed.');
+
+    expect(runtime.tensors).toHaveLength(8);
+    for (const tensor of runtime.tensors) expect(tensor.disposeCalls).toBe(1);
+    for (const tensor of runtime.outputs) expect(tensor.disposeCalls).toBe(1);
+    expect(runtime.sessions.map(({ calls }) => calls.length)).toEqual([1, 1, 0, 0]);
+    expect(progress).toEqual([
+      [1, 11],
+      [2, 11],
+    ]);
   });
 
   it('runs exact feeds in duration/text/eight-vector/vocoder order with bounded flat allocation', async () => {

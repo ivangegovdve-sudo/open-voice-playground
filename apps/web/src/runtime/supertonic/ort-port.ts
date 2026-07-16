@@ -182,6 +182,25 @@ function axesMatch(
   return true;
 }
 
+type AxisReference = readonly [shape: readonly (number | string)[] | null, axis: number];
+
+function joinedAxesAreCompatible(
+  references: readonly AxisReference[],
+  requiredConcrete?: number,
+): boolean {
+  let concrete = requiredConcrete;
+  for (const [shape, axis] of references) {
+    const dimension = shape?.[axis];
+    if (dimension === undefined) return false;
+    if (typeof dimension === 'number') {
+      if (!Number.isSafeInteger(dimension) || dimension < 1) return false;
+      if (concrete !== undefined && dimension !== concrete) return false;
+      concrete = dimension;
+    }
+  }
+  return true;
+}
+
 function validateCrossSessionJoins(sessions: SupertonicSessionTuple): void {
   const [duration, textEncoder, vectorEstimator, vocoder] = sessions;
   const durationIds = tensorShape(duration, 'input', 'text_ids');
@@ -197,11 +216,31 @@ function validateCrossSessionJoins(sessions: SupertonicSessionTuple): void {
   const encoderIds = tensorShape(textEncoder, 'input', 'text_ids');
   const encoderStyle = tensorShape(textEncoder, 'input', 'style_ttl');
   const encoderMask = tensorShape(textEncoder, 'input', 'text_mask');
+  const encoderText = tensorShape(textEncoder, 'output', 'text_emb');
+  const vectorTextInput = tensorShape(vectorEstimator, 'input', 'text_emb');
+  const vectorTextInputMask = tensorShape(vectorEstimator, 'input', 'text_mask');
   if (
     !axesMatch(encoderIds, [0], encoderStyle, [0]) ||
     !axesMatch(encoderIds, [0, 1], encoderMask, [0, 2]) ||
     !axesMatch(durationIds, [0, 1], encoderIds, [0, 1]) ||
-    !axesMatch(durationMask, [0, 1, 2], encoderMask, [0, 1, 2])
+    !axesMatch(durationMask, [0, 1, 2], encoderMask, [0, 1, 2]) ||
+    !joinedAxesAreCompatible(
+      [
+        [encoderIds, 0],
+        [encoderMask, 0],
+        [encoderText, 0],
+        [vectorTextInput, 0],
+        [vectorTextInputMask, 0],
+      ],
+      1,
+    ) ||
+    !joinedAxesAreCompatible([
+      [encoderIds, 1],
+      [encoderMask, 2],
+      [encoderText, 2],
+      [vectorTextInput, 2],
+      [vectorTextInputMask, 2],
+    ])
   ) {
     throw new Error('Supertonic text encoder ABI is invalid.');
   }

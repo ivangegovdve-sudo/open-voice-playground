@@ -682,9 +682,9 @@ async function synthesizeChunk(
 ): Promise<{ readonly pcm: Float32Array; readonly trimSamples: number }> {
   const owned: OrtTensorLease[] = [];
   const tokenLength = chunk.textIds.length;
-  const textIds = makeTensor(ort, owned, 'int64', chunk.textIds, [1, tokenLength]);
-  const textMask = makeTensor(ort, owned, 'float32', chunk.textMask, [1, 1, tokenLength]);
   try {
+    const textIds = makeTensor(ort, owned, 'int64', chunk.textIds, [1, tokenLength]);
+    const textMask = makeTensor(ort, owned, 'float32', chunk.textMask, [1, 1, tokenLength]);
     const durationOutputs = await ort.sessions[0].run({
       text_ids: textIds,
       style_dp: styleDp,
@@ -737,13 +737,13 @@ async function synthesizeChunk(
 
     for (let step = 0; step < DENOISING_STEPS; step += 1) {
       const stepOwned: OrtTensorLease[] = [];
-      const noisyLatent = makeTensor(ort, stepOwned, 'float32', currentLatent, [
-        1,
-        SUPERTONIC_LATENT_CHANNELS,
-        latentLength,
-      ]);
-      const currentStep = makeTensor(ort, stepOwned, 'float32', new Float32Array([step]), [1]);
       try {
+        const noisyLatent = makeTensor(ort, stepOwned, 'float32', currentLatent, [
+          1,
+          SUPERTONIC_LATENT_CHANNELS,
+          latentLength,
+        ]);
+        const currentStep = makeTensor(ort, stepOwned, 'float32', new Float32Array([step]), [1]);
         const vectorOutputs = await ort.sessions[2].run({
           noisy_latent: noisyLatent,
           text_emb: textEmbedding,
@@ -807,11 +807,17 @@ export async function synthesizeSupertonic(
   };
   const random = createSupertonicRandom(42);
   const outerOwned: OrtTensorLease[] = [];
-  const styleTtl = makeTensor(options.ort, outerOwned, 'float32', options.style.ttl, [1, 50, 256]);
-  const styleDp = makeTensor(options.ort, outerOwned, 'float32', options.style.dp, [1, 8, 16]);
   const rendered: Float32Array[] = [];
   let totalSamples = 0;
   try {
+    const styleTtl = makeTensor(
+      options.ort,
+      outerOwned,
+      'float32',
+      options.style.ttl,
+      [1, 50, 256],
+    );
+    const styleDp = makeTensor(options.ort, outerOwned, 'float32', options.style.dp, [1, 8, 16]);
     for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
       const chunk = chunks[chunkIndex];
       if (chunk === undefined) throw new Error('Supertonic chunk sequence invariant failed.');
