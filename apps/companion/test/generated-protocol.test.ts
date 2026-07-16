@@ -213,6 +213,24 @@ describe('generated companion protocol validators', () => {
     });
   });
 
+  it('exports the generated client API and recursively freezes routing and status metadata', () => {
+    expect(runtime.COMPANION_CLIENT_VERSION).toBe(runtime.CLIENT_VERSION);
+    expect(runtime.createCompanionClient).toBeTypeOf('function');
+    expect(runtime.CompanionProtocolError).toBeTypeOf('function');
+    expect(runtime.CompanionHttpError).toBeTypeOf('function');
+    expect(Object.isFrozen(runtime.ROUTES)).toBe(true);
+    expect(Object.isFrozen(runtime.HTTP_CONTRACT)).toBe(true);
+
+    const contract = runtime.HTTP_CONTRACT as {
+      readonly operations: Readonly<
+        Record<string, { readonly responses: readonly Readonly<{ status: number }>[] }>
+      >;
+    };
+    expect(Object.isFrozen(contract.operations)).toBe(true);
+    expect(Object.isFrozen(contract.operations.getHealth?.responses)).toBe(true);
+    expect(Object.isFrozen(contract.operations.getHealth?.responses[0])).toBe(true);
+  });
+
   it('generates a strict guard and parser for every owned schema', () => {
     expect(runtime.ProtocolValidationError).toBeTypeOf('function');
     for (const name of schemaNames) {

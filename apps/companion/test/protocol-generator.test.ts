@@ -1077,6 +1077,156 @@ export type SyntheticTypeContract = readonly [
     },
   );
 
+  it('emits the exact generated client surface, explicit wrappers, and no ambient I/O hooks', async () => {
+    const source = generator.generateProtocol(await sourceDocument());
+    for (const [kind, publicName] of [
+      ['type', 'CompanionClientOperationId'],
+      ['type', 'CompanionHttpStatus'],
+      ['type', 'CompanionRequestHeaderName'],
+      ['type', 'CompanionRequestInit'],
+      ['type', 'CompanionFetch'],
+      ['type', 'CompanionResponseHeaders'],
+      ['type', 'CompanionWav'],
+      ['type', 'CompanionResult'],
+      ['type', 'CompanionClient'],
+      ['type', 'CompanionProtocolErrorReason'],
+      ['class', 'CompanionProtocolError'],
+      ['class', 'CompanionHttpError'],
+    ] as const) {
+      expect(source, publicName).toContain(`export ${kind} ${publicName}`);
+    }
+    expect(source).toContain('export function createCompanionClient(');
+    expect(source).toContain('targetAddressSpace: "loopback"');
+    expect(source).toContain('const JSON_BYTE_CAPS = recursivelyFreeze(');
+    expect(source).not.toContain('export const JSON_BYTE_CAPS');
+    expect(source).not.toMatch(/globalThis\.fetch|new\s+Request\s*\(|new\s+URL\s*\(/u);
+    expect(source).not.toMatch(/setTimeout|setInterval|localStorage|sessionStorage|indexedDB/u);
+    expect(source).not.toMatch(/^import\s/mu);
+
+    const runtime = await importGenerated(source);
+    const createClient = runtime.createCompanionClient as (fetchImpl: unknown) => object;
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', () => {
+      throw new Error('ambient fetch must not be used');
+    });
+    try {
+      const client = createClient(fetchSpy);
+      expect(Object.keys(client)).toEqual(Object.keys(runtime.ROUTES as object));
+      expect(Object.keys(client)).toHaveLength(14);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('mechanically derives the pinned reachable JSON byte caps and responds to bounded mutations', async () => {
+    function capsFrom(source: string): Record<string, number> {
+      const match = /const JSON_BYTE_CAPS = recursivelyFreeze\((\{[\s\S]*?\}) as const\);/u.exec(
+        source,
+      );
+      expect(match).not.toBeNull();
+      return JSON.parse(match![1]!) as Record<string, number>;
+    }
+
+    const document = await sourceDocument();
+    const expected = {
+      EngineListResponse: 75,
+      HealthResponse: 84,
+      JobCreateRequest: 12045,
+      JobResponse: 528,
+      PackActionRequest: 20,
+      PackActionResponse: 311,
+      PackListResponse: 105,
+      PairingChallengeRequest: 1061,
+      PairingChallengeResponse: 468,
+      PairingResponse: 1191,
+      Problem: 698,
+      RedeemPendingResponse: 19,
+      RedeemRequest: 273,
+      RedeemResponse: 1472,
+      RuntimeResponse: 94,
+      VoiceListResponse: 1892,
+    };
+    expect(capsFrom(generator.generateProtocol(document))).toEqual(expected);
+
+    const mutated = structuredClone(document);
+    mutated.components.schemas.SynthesisText!.maxLength = 1999;
+    const changed = capsFrom(generator.generateProtocol(mutated));
+    expect(changed.JobCreateRequest).toBe(12039);
+    expect(changed).toEqual({ ...expected, JobCreateRequest: 12039 });
+  });
+
+  it('fails generation for an unbounded or unsupported client-reachable body shape', async () => {
+    const unbounded = await sourceDocument();
+    delete unbounded.components.schemas.SynthesisText!.maxLength;
+    delete unbounded.components.schemas.SynthesisText!['x-maxUtf8Bytes'];
+    expect(() => generator.generateProtocol(unbounded)).toThrow(/unbounded|byte cap/iu);
+
+    const unsupported = await sourceDocument();
+    unsupported.components.schemas.JobCreateRequest!.properties = {
+      ...(unsupported.components.schemas.JobCreateRequest!.properties as Record<string, unknown>),
+      count: { type: 'number' },
+    };
+    expect(() => generator.generateProtocol(unsupported)).toThrow(/unbounded|byte cap/iu);
+  });
+
+  it('bounds anyOf by its largest branch and intersecting allOf assertions by their smallest cap', async () => {
+    function jobCap(source: string): number {
+      const match = /const JSON_BYTE_CAPS = recursivelyFreeze\((\{[\s\S]*?\}) as const\);/u.exec(
+        source,
+      );
+      expect(match).not.toBeNull();
+      return (JSON.parse(match![1]!) as Record<string, number>).JobCreateRequest!;
+    }
+
+    const anyOfDocument = await sourceDocument();
+    anyOfDocument.components.schemas.SynthesisText = {
+      type: 'string',
+      minLength: 1,
+      anyOf: [{ type: 'string', maxLength: 10 }, { const: 'x' }],
+    };
+    const anyOfSource = generator.generateProtocol(anyOfDocument);
+    expect(jobCap(anyOfSource)).toBe(105);
+    const anyOfRuntime = await importGenerated(anyOfSource);
+    expect(is(anyOfRuntime, 'SynthesisText', 'abcdefghij')).toBe(true);
+    expect(is(anyOfRuntime, 'SynthesisText', 'abcdefghijk')).toBe(false);
+
+    const allOfDocument = await sourceDocument();
+    allOfDocument.components.schemas.SynthesisText = {
+      type: 'string',
+      minLength: 1,
+      allOf: [
+        { type: 'string', maxLength: 10 },
+        { type: 'string', maxLength: 5 },
+      ],
+    };
+    const allOfSource = generator.generateProtocol(allOfDocument);
+    expect(jobCap(allOfSource)).toBe(75);
+    const allOfRuntime = await importGenerated(allOfSource);
+    expect(is(allOfRuntime, 'SynthesisText', 'abcde')).toBe(true);
+    expect(is(allOfRuntime, 'SynthesisText', 'abcdef')).toBe(false);
+  });
+
+  it('recursively freezes the generated contract and routes against route/status/origin mutation', async () => {
+    const runtime = await importGenerated(generator.generateProtocol(await sourceDocument()));
+    const routes = runtime.ROUTES as Record<string, string>;
+    const contract = runtime.HTTP_CONTRACT as {
+      operations: Record<string, { responses: Array<{ status: number }> }>;
+    };
+    expect(Object.isFrozen(routes)).toBe(true);
+    expect(Object.isFrozen(contract)).toBe(true);
+    expect(Object.isFrozen(contract.operations)).toBe(true);
+    expect(Object.isFrozen(contract.operations.getHealth!.responses)).toBe(true);
+    expect(Object.isFrozen(contract.operations.getHealth!.responses[0])).toBe(true);
+    expect(() => {
+      routes.getHealth = 'GET http://attacker.invalid/';
+    }).toThrow(TypeError);
+    expect(() => {
+      contract.operations.getHealth!.responses[0]!.status = 599;
+    }).toThrow(TypeError);
+    expect(Reflect.set(runtime, 'COMPANION_API_ORIGIN', 'http://attacker.invalid')).toBe(false);
+  });
+
   it('rejects unresolvable/non-component references and reference cycles', async () => {
     const externalShape = await sourceDocument();
     externalShape.components.schemas.BadRef = { $ref: '#/components/parameters/Origin' };

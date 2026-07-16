@@ -1,8 +1,20 @@
 // Generated from openapi/openapi.yaml. Do not edit by hand.
+function recursivelyFreeze<Value>(value: Value): Value {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return value;
+  if (Object.isFrozen(value)) return value;
+  for (const key of Reflect.ownKeys(value as object)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value as object, key);
+    if (descriptor !== undefined && "value" in descriptor) recursivelyFreeze(descriptor.value);
+  }
+  Object.freeze(value as object);
+  return value;
+}
+
 export const COMPANION_API_ORIGIN = "http://127.0.0.1:17843" as const;
 export const CLIENT_VERSION = "1.0.0" as const;
+export const COMPANION_CLIENT_VERSION = CLIENT_VERSION;
 export const PROTOCOL_MAJOR = 1 as const;
-export const HTTP_CONTRACT = {
+export const HTTP_CONTRACT = recursivelyFreeze({
   "version": 1,
   "policy": {
     "version": 1,
@@ -22029,8 +22041,8 @@ export const HTTP_CONTRACT = {
       ]
     }
   }
-} as const;
-export const ROUTES = {
+} as const);
+export const ROUTES = recursivelyFreeze({
   "cancelJob": "DELETE /v1/jobs/{id}",
   "createJob": "POST /v1/jobs",
   "createPairingChallenge": "POST /v1/pairings/challenges",
@@ -22045,7 +22057,25 @@ export const ROUTES = {
   "redeemPairingChallenge": "POST /v1/pairings/challenges/{id}/redeem",
   "requestPackAction": "POST /v1/packs/{id}/actions",
   "revokeCurrentPairing": "DELETE /v1/pairings/current"
-} as const;
+} as const);
+const JSON_BYTE_CAPS = recursivelyFreeze({
+  "EngineListResponse": 75,
+  "HealthResponse": 84,
+  "JobCreateRequest": 12045,
+  "JobResponse": 528,
+  "PackActionRequest": 20,
+  "PackActionResponse": 311,
+  "PackListResponse": 105,
+  "PairingChallengeRequest": 1061,
+  "PairingChallengeResponse": 468,
+  "PairingResponse": 1191,
+  "Problem": 698,
+  "RedeemPendingResponse": 19,
+  "RedeemRequest": 273,
+  "RedeemResponse": 1472,
+  "RuntimeResponse": 94,
+  "VoiceListResponse": 1892
+} as const);
 
 declare const protocolBrand: unique symbol;
 type Brand<Name extends string> = { readonly [protocolBrand]: { readonly [Key in Name]: true } };
@@ -22116,6 +22146,102 @@ export type VoiceListResponse = ((object) & ({ readonly "voices": ((readonly ((V
 
 export type VoiceResponse = ((object) & ({ readonly "availableInPack": (true) & (boolean); readonly "engineId": ("pocket") & (string); readonly "id": (VoiceId); readonly "operational": (false) & (boolean); })) & Brand<"VoiceResponse">;
 
+export type CompanionClientOperationId = keyof typeof ROUTES;
+
+export type CompanionHttpStatus =
+  | 400
+  | 401
+  | 403
+  | 404
+  | 405
+  | 408
+  | 409
+  | 410
+  | 413
+  | 414
+  | 415
+  | 426
+  | 429
+  | 431
+  | 503
+  | 504;
+
+export type CompanionRequestHeaderName =
+  | "Authorization"
+  | "Content-Type"
+  | "X-OVP-Client-Version";
+
+export type CompanionRequestInit = Readonly<{
+  method: "GET" | "POST" | "DELETE";
+  mode: "cors";
+  credentials: "omit";
+  cache: "no-store";
+  redirect: "error";
+  targetAddressSpace: "loopback";
+  headers: Readonly<Partial<Record<CompanionRequestHeaderName, string>>>;
+  body?: string;
+  signal?: AbortSignal;
+}>;
+
+export type CompanionFetch = (
+  input: string,
+  init: CompanionRequestInit,
+) => Promise<Response>;
+
+export type CompanionResponseHeaders = Readonly<{
+  requestId: CanonicalUuid;
+  etag: string | null;
+  location: string | null;
+  retryAfterSeconds: number | null;
+}>;
+
+export type CompanionWav = Readonly<{
+  mediaType: "audio/wav";
+  bytes: Uint8Array;
+}>;
+
+export type CompanionResult<S extends number, B> = Readonly<{
+  status: S;
+  body: B;
+  headers: CompanionResponseHeaders;
+}>;
+
+export type CompanionProtocolErrorReason =
+  | "invalid-response"
+  | "redirected-response"
+  | "response-url-mismatch"
+  | "response-type-mismatch"
+  | "unknown-status"
+  | "invalid-response-header"
+  | "content-type-mismatch"
+  | "invalid-content-length"
+  | "body-too-large"
+  | "content-length-mismatch"
+  | "unexpected-body"
+  | "body-unreadable"
+  | "invalid-utf8"
+  | "invalid-json"
+  | "schema-mismatch"
+  | "non-http-problem-code"
+  | "problem-status-mismatch";
+
+export type CompanionClient = Readonly<{
+  readonly cancelJob: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<202, JobResponse>>;
+  readonly createJob: (options: Readonly<{ readonly body: JobCreateRequest; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<202, JobResponse>>;
+  readonly createPairingChallenge: (options: Readonly<{ readonly body: PairingChallengeRequest; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<201, PairingChallengeResponse>>;
+  readonly getCurrentPairing: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, PairingResponse>>;
+  readonly getHealth: (options: Readonly<{ readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, HealthResponse>>;
+  readonly getJob: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, JobResponse>>;
+  readonly getJobAudio: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, CompanionWav>>;
+  readonly getRuntime: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, RuntimeResponse>>;
+  readonly listEngines: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, EngineListResponse>>;
+  readonly listPacks: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, PackListResponse>>;
+  readonly listVoices: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, VoiceListResponse>>;
+  readonly redeemPairingChallenge: (options: Readonly<{ readonly id: CanonicalUuid; readonly body: RedeemRequest; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<200, RedeemResponse> | CompanionResult<202, RedeemPendingResponse>>;
+  readonly requestPackAction: (options: Readonly<{ readonly id: PackId; readonly body: PackActionRequest; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<202, PackActionResponse>>;
+  readonly revokeCurrentPairing: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>) => Promise<CompanionResult<204, undefined>>;
+}>;
+
 export type OwnedSchemaName = "CanonicalDateTime" | "CanonicalUuid" | "ClientLabel" | "ClientVersion" | "DeepLinkChallengeRequest" | "EngineListResponse" | "EngineResponse" | "HealthResponse" | "JobCreateRequest" | "JobResponse" | "ManualChallengeRequest" | "OpaqueSecret" | "OperationalState" | "PackActionRequest" | "PackActionResponse" | "PackId" | "PackListResponse" | "PackResponse" | "PairingChallengeRequest" | "PairingChallengeResponse" | "PairingResponse" | "Problem" | "ProblemCode" | "RedeemPendingResponse" | "RedeemRequest" | "RedeemResponse" | "RuntimeResponse" | "Scope" | "ScopeList" | "SynthesisText" | "VoiceId" | "VoiceListResponse" | "VoiceResponse";
 
 type JsonValue =
@@ -22129,6 +22255,8 @@ type JsonValue =
 type RuntimeSchema = {
   readonly $ref?: string;
   readonly additionalProperties?: false;
+  readonly allOf?: readonly RuntimeSchema[];
+  readonly anyOf?: readonly RuntimeSchema[];
   readonly const?: JsonValue;
   readonly enum?: readonly JsonValue[];
   readonly exclusiveMaximum?: number;
@@ -22335,6 +22463,19 @@ function validateSchema(
     const result = validateSchema(referenced, value, path, depth + 1);
     if (!result.valid) return result;
   }
+  if (schema.allOf !== undefined) {
+    for (const branch of schema.allOf) {
+      const result = validateSchema(branch, value, path, depth + 1);
+      if (!result.valid) return result;
+    }
+  }
+  if (schema.anyOf !== undefined) {
+    let matches = false;
+    for (const branch of schema.anyOf) {
+      if (validateSchema(branch, value, path, depth + 1).valid) matches = true;
+    }
+    if (!matches) return invalid(path);
+  }
   if (schema.oneOf !== undefined) {
     let matches = 0;
     for (const branch of schema.oneOf) {
@@ -22452,7 +22593,7 @@ export class ProtocolValidationError extends Error {
   }
 }
 
-const SCHEMAS = JSON.parse("{\"CanonicalDateTime\":{\"format\":\"date-time\",\"maxLength\":35,\"minLength\":20,\"pattern\":\"^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\\\.[0-9]{1,9})?(Z|\\\\+([01][0-9]|2[0-3]):[0-5][0-9]|-(?!00:00$)([01][0-9]|2[0-3]):[0-5][0-9])$\",\"type\":\"string\"},\"CanonicalUuid\":{\"format\":\"uuid\",\"maxLength\":36,\"minLength\":36,\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"ClientLabel\":{\"maxLength\":64,\"minLength\":1,\"pattern\":\"^(?!(.)\\\\1{32,}$)[^\\\\u0000-\\\\u001F\\\\u007F-\\\\u009F\\\\u061C\\\\u200E\\\\u200F\\\\u2028-\\\\u202E\\\\u2066-\\\\u2069<>{}\\\\[\\\\]`]+$\",\"type\":\"string\",\"x-maxUtf8Bytes\":128},\"ClientVersion\":{\"maxLength\":32,\"minLength\":5,\"pattern\":\"^1\\\\.(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)$\",\"type\":\"string\"},\"DeepLinkChallengeRequest\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"},\"state\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"},\"verifierHash\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"clientLabel\",\"scopes\",\"state\",\"verifierHash\"],\"type\":\"object\"},\"EngineListResponse\":{\"additionalProperties\":false,\"properties\":{\"engines\":{\"items\":{\"$ref\":\"#/components/schemas/EngineResponse\"},\"maxItems\":1,\"minItems\":1,\"type\":\"array\"}},\"required\":[\"engines\"],\"type\":\"object\"},\"EngineResponse\":{\"additionalProperties\":false,\"properties\":{\"id\":{\"const\":\"pocket\",\"type\":\"string\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"state\":{\"const\":\"pack-unverified\",\"type\":\"string\"}},\"required\":[\"id\",\"operational\",\"state\"],\"type\":\"object\"},\"HealthResponse\":{\"additionalProperties\":false,\"properties\":{\"app\":{\"const\":\"open-voice-companion\",\"type\":\"string\"},\"listenerState\":{\"enum\":[\"listener-conflict\",\"listening\"],\"type\":\"string\"},\"protocolMajor\":{\"const\":1,\"type\":\"integer\"}},\"required\":[\"app\",\"listenerState\",\"protocolMajor\"],\"type\":\"object\"},\"JobCreateRequest\":{\"additionalProperties\":false,\"properties\":{\"text\":{\"$ref\":\"#/components/schemas/SynthesisText\"},\"voiceId\":{\"$ref\":\"#/components/schemas/VoiceId\"}},\"required\":[\"text\",\"voiceId\"],\"type\":\"object\"},\"JobResponse\":{\"additionalProperties\":false,\"properties\":{\"audioAvailable\":{\"const\":false,\"type\":\"boolean\"},\"createdAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"state\":{\"enum\":[\"cancelled\",\"cancelling\",\"expired\",\"failed\",\"queued\"],\"type\":\"string\"},\"voiceId\":{\"$ref\":\"#/components/schemas/VoiceId\"}},\"required\":[\"audioAvailable\",\"createdAt\",\"id\",\"state\",\"voiceId\"],\"type\":\"object\"},\"ManualChallengeRequest\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"code\":{\"maxLength\":12,\"minLength\":12,\"pattern\":\"^[0-9A-HJKMNP-TV-Z]{12}$\",\"type\":\"string\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"},\"verifierHash\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"clientLabel\",\"code\",\"scopes\",\"verifierHash\"],\"type\":\"object\"},\"OpaqueSecret\":{\"maxLength\":43,\"minLength\":43,\"pattern\":\"^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$\",\"type\":\"string\"},\"OperationalState\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"PackActionRequest\":{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"install\",\"remove\",\"repair\",\"update\"],\"type\":\"string\"}},\"required\":[\"action\"],\"type\":\"object\"},\"PackActionResponse\":{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"install\",\"remove\",\"repair\",\"update\"],\"type\":\"string\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"packId\":{\"$ref\":\"#/components/schemas/PackId\"},\"state\":{\"const\":\"pending-native-decision\",\"type\":\"string\"}},\"required\":[\"action\",\"id\",\"packId\",\"state\"],\"type\":\"object\"},\"PackId\":{\"const\":\"pocket-companion-pack\",\"type\":\"string\"},\"PackListResponse\":{\"additionalProperties\":false,\"properties\":{\"packs\":{\"items\":{\"$ref\":\"#/components/schemas/PackResponse\"},\"maxItems\":1,\"minItems\":1,\"type\":\"array\"}},\"required\":[\"packs\"],\"type\":\"object\"},\"PackResponse\":{\"additionalProperties\":false,\"properties\":{\"id\":{\"$ref\":\"#/components/schemas/PackId\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"state\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"verified\":{\"const\":false,\"type\":\"boolean\"}},\"required\":[\"id\",\"operational\",\"state\",\"verified\"],\"type\":\"object\"},\"PairingChallengeRequest\":{\"oneOf\":[{\"$ref\":\"#/components/schemas/DeepLinkChallengeRequest\"},{\"$ref\":\"#/components/schemas/ManualChallengeRequest\"}]},\"PairingChallengeResponse\":{\"additionalProperties\":false,\"properties\":{\"expiresAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"state\":{\"const\":\"pending\",\"type\":\"string\"}},\"required\":[\"expiresAt\",\"id\",\"state\"],\"type\":\"object\"},\"PairingResponse\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"createdAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"lastUsedAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"}},\"required\":[\"clientLabel\",\"createdAt\",\"id\",\"lastUsedAt\",\"scopes\"],\"type\":\"object\"},\"Problem\":{\"oneOf\":[{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"action-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested pack action is not accepted.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:action-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token is not valid.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"A bearer token is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-origin-mismatch\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token is not valid for this origin.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-origin-mismatch\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"body-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request body did not arrive within the deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":408,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:body-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"body-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The JSON request body exceeds the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":413,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:body-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"conflict\",\"type\":\"string\"},\"detail\":{\"const\":\"The request conflicts with current state.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":409,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:conflict\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"content-type-unsupported\",\"type\":\"string\"},\"detail\":{\"const\":\"The request content type is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":415,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:content-type-unsupported\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"duplicate-header\",\"type\":\"string\"},\"detail\":{\"const\":\"A security-sensitive header was duplicated.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:duplicate-header\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"handler-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request handler exceeded its deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":504,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:handler-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"header-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request headers did not arrive within the deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":408,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:header-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"headers-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP headers exceed the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":431,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:headers-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"host-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The request Host is not the companion loopback authority.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:host-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"listener-conflict\",\"type\":\"string\"},\"detail\":{\"const\":\"The fixed loopback port is already in use.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Listener unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:listener-conflict\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"method-not-allowed\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP method is not supported for this route.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":405,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:method-not-allowed\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"origin-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The requesting origin is not allowed.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Origin denied\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:origin-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"origin-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"The Origin header is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:origin-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"ownership-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:ownership-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"detail\":{\"const\":\"No verified Pocket pack is installed.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Runtime unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pack-unverified\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-attempts-exhausted\",\"type\":\"string\"},\"detail\":{\"const\":\"The manual pairing attempts are exhausted.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-attempts-exhausted\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-consumed\",\"type\":\"string\"},\"detail\":{\"const\":\"The request conflicts with current state.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":409,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-consumed\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The native pairing request was denied.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-expired\",\"type\":\"string\"},\"detail\":{\"const\":\"The pairing request has expired.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":410,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-expired\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-not-found\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-not-found\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"queue-full\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis queue is at capacity.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:queue-full\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"rate-limited\",\"type\":\"string\"},\"detail\":{\"const\":\"The request rate limit has been reached.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":429,\"type\":\"integer\"},\"title\":{\"const\":\"Rate limit exceeded\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:rate-limited\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"request-line-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP request line exceeds the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":414,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:request-line-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"resource-not-found\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:resource-not-found\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"runtime-unavailable\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis runtime is unavailable.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Runtime unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:runtime-unavailable\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"schema-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The request body does not match the protocol schema.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Invalid request\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:schema-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"scope-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token lacks the required scope.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:scope-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"text-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis text is outside the accepted bounds.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:text-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"transfer-encoding-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP transfer encoding is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:transfer-encoding-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"version-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"The client version header is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:version-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"version-unsupported\",\"type\":\"string\"},\"detail\":{\"const\":\"The client protocol major is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":426,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:version-unsupported\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"}]},\"ProblemCode\":{\"enum\":[\"action-invalid\",\"auth-invalid\",\"auth-missing\",\"auth-origin-mismatch\",\"body-timeout\",\"body-too-large\",\"conflict\",\"content-type-unsupported\",\"duplicate-header\",\"handler-timeout\",\"header-timeout\",\"headers-too-large\",\"host-invalid\",\"listener-conflict\",\"method-not-allowed\",\"origin-denied\",\"origin-missing\",\"ownership-denied\",\"pack-unverified\",\"pairing-attempts-exhausted\",\"pairing-consumed\",\"pairing-denied\",\"pairing-expired\",\"pairing-not-found\",\"queue-full\",\"rate-limited\",\"request-line-too-large\",\"resource-not-found\",\"runtime-unavailable\",\"schema-invalid\",\"scope-denied\",\"text-invalid\",\"transfer-encoding-invalid\",\"version-missing\",\"version-unsupported\"],\"type\":\"string\"},\"RedeemPendingResponse\":{\"additionalProperties\":false,\"properties\":{\"state\":{\"const\":\"pending\",\"type\":\"string\"}},\"required\":[\"state\"],\"type\":\"object\"},\"RedeemRequest\":{\"additionalProperties\":false,\"properties\":{\"verifier\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"verifier\"],\"type\":\"object\"},\"RedeemResponse\":{\"additionalProperties\":false,\"properties\":{\"pairing\":{\"$ref\":\"#/components/schemas/PairingResponse\"},\"token\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"pairing\",\"token\"],\"type\":\"object\"},\"RuntimeResponse\":{\"additionalProperties\":false,\"properties\":{\"engineId\":{\"const\":\"pocket\",\"type\":\"string\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"reason\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"state\":{\"$ref\":\"#/components/schemas/OperationalState\"}},\"required\":[\"engineId\",\"operational\",\"reason\",\"state\"],\"type\":\"object\"},\"Scope\":{\"enum\":[\"audio:read\",\"health:read\",\"jobs:cancel\",\"jobs:read\",\"packs:request\",\"runtime:read\",\"synthesis:create\"],\"type\":\"string\"},\"ScopeList\":{\"const\":[\"health:read\",\"runtime:read\",\"synthesis:create\",\"jobs:read\",\"jobs:cancel\",\"audio:read\",\"packs:request\"],\"items\":{\"$ref\":\"#/components/schemas/Scope\"},\"maxItems\":7,\"minItems\":7,\"type\":\"array\",\"uniqueItems\":true},\"SynthesisText\":{\"maxLength\":2000,\"minLength\":1,\"pattern\":\"^[^\\\\u0000-\\\\u0008\\\\u000E-\\\\u001F]+$\",\"type\":\"string\",\"x-maxUtf8Bytes\":8000},\"VoiceId\":{\"enum\":[\"pocket:alba\",\"pocket:anna\",\"pocket:azelma\",\"pocket:bill_boerst\",\"pocket:caro_davy\",\"pocket:charles\",\"pocket:eponine\",\"pocket:estelle\",\"pocket:eve\",\"pocket:fantine\",\"pocket:george\",\"pocket:jane\",\"pocket:javert\",\"pocket:marius\",\"pocket:mary\",\"pocket:michael\",\"pocket:paul\",\"pocket:peter_yearsley\",\"pocket:stuart_bell\",\"pocket:vera\"],\"type\":\"string\"},\"VoiceListResponse\":{\"additionalProperties\":false,\"properties\":{\"voices\":{\"items\":{\"$ref\":\"#/components/schemas/VoiceResponse\"},\"maxItems\":20,\"minItems\":20,\"type\":\"array\",\"uniqueItems\":true}},\"required\":[\"voices\"],\"type\":\"object\"},\"VoiceResponse\":{\"additionalProperties\":false,\"properties\":{\"availableInPack\":{\"const\":true,\"type\":\"boolean\"},\"engineId\":{\"const\":\"pocket\",\"type\":\"string\"},\"id\":{\"$ref\":\"#/components/schemas/VoiceId\"},\"operational\":{\"const\":false,\"type\":\"boolean\"}},\"required\":[\"availableInPack\",\"engineId\",\"id\",\"operational\"],\"type\":\"object\"}}") as Readonly<Record<OwnedSchemaName, RuntimeSchema>>;
+const SCHEMAS = recursivelyFreeze(JSON.parse("{\"CanonicalDateTime\":{\"format\":\"date-time\",\"maxLength\":35,\"minLength\":20,\"pattern\":\"^(?!0000)[0-9]{4}-[0-9]{2}-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\\\.[0-9]{1,9})?(Z|\\\\+([01][0-9]|2[0-3]):[0-5][0-9]|-(?!00:00$)([01][0-9]|2[0-3]):[0-5][0-9])$\",\"type\":\"string\"},\"CanonicalUuid\":{\"format\":\"uuid\",\"maxLength\":36,\"minLength\":36,\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"ClientLabel\":{\"maxLength\":64,\"minLength\":1,\"pattern\":\"^(?!(.)\\\\1{32,}$)[^\\\\u0000-\\\\u001F\\\\u007F-\\\\u009F\\\\u061C\\\\u200E\\\\u200F\\\\u2028-\\\\u202E\\\\u2066-\\\\u2069<>{}\\\\[\\\\]`]+$\",\"type\":\"string\",\"x-maxUtf8Bytes\":128},\"ClientVersion\":{\"maxLength\":32,\"minLength\":5,\"pattern\":\"^1\\\\.(0|[1-9][0-9]*)\\\\.(0|[1-9][0-9]*)$\",\"type\":\"string\"},\"DeepLinkChallengeRequest\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"},\"state\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"},\"verifierHash\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"clientLabel\",\"scopes\",\"state\",\"verifierHash\"],\"type\":\"object\"},\"EngineListResponse\":{\"additionalProperties\":false,\"properties\":{\"engines\":{\"items\":{\"$ref\":\"#/components/schemas/EngineResponse\"},\"maxItems\":1,\"minItems\":1,\"type\":\"array\"}},\"required\":[\"engines\"],\"type\":\"object\"},\"EngineResponse\":{\"additionalProperties\":false,\"properties\":{\"id\":{\"const\":\"pocket\",\"type\":\"string\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"state\":{\"const\":\"pack-unverified\",\"type\":\"string\"}},\"required\":[\"id\",\"operational\",\"state\"],\"type\":\"object\"},\"HealthResponse\":{\"additionalProperties\":false,\"properties\":{\"app\":{\"const\":\"open-voice-companion\",\"type\":\"string\"},\"listenerState\":{\"enum\":[\"listener-conflict\",\"listening\"],\"type\":\"string\"},\"protocolMajor\":{\"const\":1,\"type\":\"integer\"}},\"required\":[\"app\",\"listenerState\",\"protocolMajor\"],\"type\":\"object\"},\"JobCreateRequest\":{\"additionalProperties\":false,\"properties\":{\"text\":{\"$ref\":\"#/components/schemas/SynthesisText\"},\"voiceId\":{\"$ref\":\"#/components/schemas/VoiceId\"}},\"required\":[\"text\",\"voiceId\"],\"type\":\"object\"},\"JobResponse\":{\"additionalProperties\":false,\"properties\":{\"audioAvailable\":{\"const\":false,\"type\":\"boolean\"},\"createdAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"state\":{\"enum\":[\"cancelled\",\"cancelling\",\"expired\",\"failed\",\"queued\"],\"type\":\"string\"},\"voiceId\":{\"$ref\":\"#/components/schemas/VoiceId\"}},\"required\":[\"audioAvailable\",\"createdAt\",\"id\",\"state\",\"voiceId\"],\"type\":\"object\"},\"ManualChallengeRequest\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"code\":{\"maxLength\":12,\"minLength\":12,\"pattern\":\"^[0-9A-HJKMNP-TV-Z]{12}$\",\"type\":\"string\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"},\"verifierHash\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"clientLabel\",\"code\",\"scopes\",\"verifierHash\"],\"type\":\"object\"},\"OpaqueSecret\":{\"maxLength\":43,\"minLength\":43,\"pattern\":\"^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$\",\"type\":\"string\"},\"OperationalState\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"PackActionRequest\":{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"install\",\"remove\",\"repair\",\"update\"],\"type\":\"string\"}},\"required\":[\"action\"],\"type\":\"object\"},\"PackActionResponse\":{\"additionalProperties\":false,\"properties\":{\"action\":{\"enum\":[\"install\",\"remove\",\"repair\",\"update\"],\"type\":\"string\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"packId\":{\"$ref\":\"#/components/schemas/PackId\"},\"state\":{\"const\":\"pending-native-decision\",\"type\":\"string\"}},\"required\":[\"action\",\"id\",\"packId\",\"state\"],\"type\":\"object\"},\"PackId\":{\"const\":\"pocket-companion-pack\",\"type\":\"string\"},\"PackListResponse\":{\"additionalProperties\":false,\"properties\":{\"packs\":{\"items\":{\"$ref\":\"#/components/schemas/PackResponse\"},\"maxItems\":1,\"minItems\":1,\"type\":\"array\"}},\"required\":[\"packs\"],\"type\":\"object\"},\"PackResponse\":{\"additionalProperties\":false,\"properties\":{\"id\":{\"$ref\":\"#/components/schemas/PackId\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"state\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"verified\":{\"const\":false,\"type\":\"boolean\"}},\"required\":[\"id\",\"operational\",\"state\",\"verified\"],\"type\":\"object\"},\"PairingChallengeRequest\":{\"oneOf\":[{\"$ref\":\"#/components/schemas/DeepLinkChallengeRequest\"},{\"$ref\":\"#/components/schemas/ManualChallengeRequest\"}]},\"PairingChallengeResponse\":{\"additionalProperties\":false,\"properties\":{\"expiresAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"state\":{\"const\":\"pending\",\"type\":\"string\"}},\"required\":[\"expiresAt\",\"id\",\"state\"],\"type\":\"object\"},\"PairingResponse\":{\"additionalProperties\":false,\"properties\":{\"clientLabel\":{\"$ref\":\"#/components/schemas/ClientLabel\"},\"createdAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"id\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"lastUsedAt\":{\"$ref\":\"#/components/schemas/CanonicalDateTime\"},\"scopes\":{\"$ref\":\"#/components/schemas/ScopeList\"}},\"required\":[\"clientLabel\",\"createdAt\",\"id\",\"lastUsedAt\",\"scopes\"],\"type\":\"object\"},\"Problem\":{\"oneOf\":[{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"action-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested pack action is not accepted.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:action-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token is not valid.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"A bearer token is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"auth-origin-mismatch\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token is not valid for this origin.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":401,\"type\":\"integer\"},\"title\":{\"const\":\"Authentication failed\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:auth-origin-mismatch\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"body-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request body did not arrive within the deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":408,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:body-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"body-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The JSON request body exceeds the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":413,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:body-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"conflict\",\"type\":\"string\"},\"detail\":{\"const\":\"The request conflicts with current state.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":409,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:conflict\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"content-type-unsupported\",\"type\":\"string\"},\"detail\":{\"const\":\"The request content type is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":415,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:content-type-unsupported\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"duplicate-header\",\"type\":\"string\"},\"detail\":{\"const\":\"A security-sensitive header was duplicated.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:duplicate-header\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"handler-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request handler exceeded its deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":504,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:handler-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"header-timeout\",\"type\":\"string\"},\"detail\":{\"const\":\"The request headers did not arrive within the deadline.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":408,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:header-timeout\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"headers-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP headers exceed the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":431,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:headers-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"host-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The request Host is not the companion loopback authority.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:host-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"listener-conflict\",\"type\":\"string\"},\"detail\":{\"const\":\"The fixed loopback port is already in use.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Listener unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:listener-conflict\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"method-not-allowed\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP method is not supported for this route.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":405,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:method-not-allowed\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"origin-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The requesting origin is not allowed.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Origin denied\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:origin-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"origin-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"The Origin header is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:origin-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"ownership-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:ownership-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"detail\":{\"const\":\"No verified Pocket pack is installed.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Runtime unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pack-unverified\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-attempts-exhausted\",\"type\":\"string\"},\"detail\":{\"const\":\"The manual pairing attempts are exhausted.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-attempts-exhausted\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-consumed\",\"type\":\"string\"},\"detail\":{\"const\":\"The request conflicts with current state.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":409,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-consumed\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The native pairing request was denied.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-expired\",\"type\":\"string\"},\"detail\":{\"const\":\"The pairing request has expired.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":410,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-expired\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"pairing-not-found\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:pairing-not-found\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"queue-full\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis queue is at capacity.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:queue-full\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"rate-limited\",\"type\":\"string\"},\"detail\":{\"const\":\"The request rate limit has been reached.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":429,\"type\":\"integer\"},\"title\":{\"const\":\"Rate limit exceeded\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:rate-limited\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"request-line-too-large\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP request line exceeds the limit.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":414,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:request-line-too-large\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"resource-not-found\",\"type\":\"string\"},\"detail\":{\"const\":\"The requested resource was not found.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":404,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:resource-not-found\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"runtime-unavailable\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis runtime is unavailable.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":503,\"type\":\"integer\"},\"title\":{\"const\":\"Runtime unavailable\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:runtime-unavailable\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"schema-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The request body does not match the protocol schema.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Invalid request\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:schema-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"scope-denied\",\"type\":\"string\"},\"detail\":{\"const\":\"The bearer token lacks the required scope.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":403,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:scope-denied\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"text-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The synthesis text is outside the accepted bounds.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:text-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"transfer-encoding-invalid\",\"type\":\"string\"},\"detail\":{\"const\":\"The HTTP transfer encoding is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:transfer-encoding-invalid\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"version-missing\",\"type\":\"string\"},\"detail\":{\"const\":\"The client version header is required.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":400,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:version-missing\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"},{\"additionalProperties\":false,\"properties\":{\"code\":{\"const\":\"version-unsupported\",\"type\":\"string\"},\"detail\":{\"const\":\"The client protocol major is not supported.\",\"type\":\"string\"},\"instance\":{\"maxLength\":45,\"minLength\":45,\"pattern\":\"^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\",\"type\":\"string\"},\"requestId\":{\"$ref\":\"#/components/schemas/CanonicalUuid\"},\"status\":{\"const\":426,\"type\":\"integer\"},\"title\":{\"const\":\"Request rejected\",\"type\":\"string\"},\"type\":{\"const\":\"urn:ovp:problem:version-unsupported\",\"type\":\"string\"}},\"required\":[\"code\",\"detail\",\"instance\",\"requestId\",\"status\",\"title\",\"type\"],\"type\":\"object\"}]},\"ProblemCode\":{\"enum\":[\"action-invalid\",\"auth-invalid\",\"auth-missing\",\"auth-origin-mismatch\",\"body-timeout\",\"body-too-large\",\"conflict\",\"content-type-unsupported\",\"duplicate-header\",\"handler-timeout\",\"header-timeout\",\"headers-too-large\",\"host-invalid\",\"listener-conflict\",\"method-not-allowed\",\"origin-denied\",\"origin-missing\",\"ownership-denied\",\"pack-unverified\",\"pairing-attempts-exhausted\",\"pairing-consumed\",\"pairing-denied\",\"pairing-expired\",\"pairing-not-found\",\"queue-full\",\"rate-limited\",\"request-line-too-large\",\"resource-not-found\",\"runtime-unavailable\",\"schema-invalid\",\"scope-denied\",\"text-invalid\",\"transfer-encoding-invalid\",\"version-missing\",\"version-unsupported\"],\"type\":\"string\"},\"RedeemPendingResponse\":{\"additionalProperties\":false,\"properties\":{\"state\":{\"const\":\"pending\",\"type\":\"string\"}},\"required\":[\"state\"],\"type\":\"object\"},\"RedeemRequest\":{\"additionalProperties\":false,\"properties\":{\"verifier\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"verifier\"],\"type\":\"object\"},\"RedeemResponse\":{\"additionalProperties\":false,\"properties\":{\"pairing\":{\"$ref\":\"#/components/schemas/PairingResponse\"},\"token\":{\"$ref\":\"#/components/schemas/OpaqueSecret\"}},\"required\":[\"pairing\",\"token\"],\"type\":\"object\"},\"RuntimeResponse\":{\"additionalProperties\":false,\"properties\":{\"engineId\":{\"const\":\"pocket\",\"type\":\"string\"},\"operational\":{\"const\":false,\"type\":\"boolean\"},\"reason\":{\"const\":\"pack-unverified\",\"type\":\"string\"},\"state\":{\"$ref\":\"#/components/schemas/OperationalState\"}},\"required\":[\"engineId\",\"operational\",\"reason\",\"state\"],\"type\":\"object\"},\"Scope\":{\"enum\":[\"audio:read\",\"health:read\",\"jobs:cancel\",\"jobs:read\",\"packs:request\",\"runtime:read\",\"synthesis:create\"],\"type\":\"string\"},\"ScopeList\":{\"const\":[\"health:read\",\"runtime:read\",\"synthesis:create\",\"jobs:read\",\"jobs:cancel\",\"audio:read\",\"packs:request\"],\"items\":{\"$ref\":\"#/components/schemas/Scope\"},\"maxItems\":7,\"minItems\":7,\"type\":\"array\",\"uniqueItems\":true},\"SynthesisText\":{\"maxLength\":2000,\"minLength\":1,\"pattern\":\"^[^\\\\u0000-\\\\u0008\\\\u000E-\\\\u001F]+$\",\"type\":\"string\",\"x-maxUtf8Bytes\":8000},\"VoiceId\":{\"enum\":[\"pocket:alba\",\"pocket:anna\",\"pocket:azelma\",\"pocket:bill_boerst\",\"pocket:caro_davy\",\"pocket:charles\",\"pocket:eponine\",\"pocket:estelle\",\"pocket:eve\",\"pocket:fantine\",\"pocket:george\",\"pocket:jane\",\"pocket:javert\",\"pocket:marius\",\"pocket:mary\",\"pocket:michael\",\"pocket:paul\",\"pocket:peter_yearsley\",\"pocket:stuart_bell\",\"pocket:vera\"],\"type\":\"string\"},\"VoiceListResponse\":{\"additionalProperties\":false,\"properties\":{\"voices\":{\"items\":{\"$ref\":\"#/components/schemas/VoiceResponse\"},\"maxItems\":20,\"minItems\":20,\"type\":\"array\",\"uniqueItems\":true}},\"required\":[\"voices\"],\"type\":\"object\"},\"VoiceResponse\":{\"additionalProperties\":false,\"properties\":{\"availableInPack\":{\"const\":true,\"type\":\"boolean\"},\"engineId\":{\"const\":\"pocket\",\"type\":\"string\"},\"id\":{\"$ref\":\"#/components/schemas/VoiceId\"},\"operational\":{\"const\":false,\"type\":\"boolean\"}},\"required\":[\"availableInPack\",\"engineId\",\"id\",\"operational\"],\"type\":\"object\"}}") as Readonly<Record<OwnedSchemaName, RuntimeSchema>>);
 
 export function isCanonicalDateTime(value: unknown): value is CanonicalDateTime {
   return validateOwned("CanonicalDateTime", value).valid;
@@ -22782,4 +22923,828 @@ export function parseVoiceResponse(value: unknown): VoiceResponse {
   const result = validateOwned("VoiceResponse", value);
   if (!result.valid) throw new ProtocolValidationError("VoiceResponse", result.path);
   return value as VoiceResponse;
+}
+
+type ClientPathParameter = Readonly<{
+  name: string;
+  required: true;
+  schemaRef: OwnedSchemaName;
+}>;
+
+type ClientRequestBody =
+  | Readonly<{ kind: "none" }>
+  | Readonly<{
+      kind: "json";
+      required: true;
+      mediaType: "application/json";
+      schemaRef: OwnedSchemaName;
+    }>;
+
+type ClientResponseBody =
+  | Readonly<{
+      kind: "json";
+      mediaType: "application/json" | "application/problem+json";
+      schemaRef: OwnedSchemaName;
+    }>
+  | Readonly<{ kind: "audio"; mediaType: "audio/wav"; maxBytes: number }>
+  | Readonly<{ kind: "empty" }>;
+
+type ClientHeaderSchema = Readonly<{
+  kind: string;
+  value?: unknown;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+  schemaRef?: OwnedSchemaName;
+}>;
+
+type ClientResponseHeaderDescriptor = Readonly<{
+  name: string;
+  required: boolean;
+  condition: string | null;
+  schema: ClientHeaderSchema;
+}>;
+
+type ClientResponseDescriptor = Readonly<{
+  status: number;
+  body: ClientResponseBody;
+  headers: readonly ClientResponseHeaderDescriptor[];
+}>;
+
+type ClientOperationContract = Readonly<{
+  path: string;
+  method: "GET" | "POST" | "DELETE";
+  access: Readonly<{
+    auth: "bearer" | "origin-only";
+    scope: string | null;
+    ownership: "job-owner" | "none" | "token-self";
+  }>;
+  pathParameters: readonly ClientPathParameter[];
+  request: Readonly<{ body: ClientRequestBody }>;
+  responses: readonly ClientResponseDescriptor[];
+}>;
+
+type ClientHeaderSnapshot = Readonly<{
+  cacheControl: string | null;
+  contentLength: string | null;
+  contentType: string | null;
+  etag: string | null;
+  location: string | null;
+  retryAfter: string | null;
+  requestId: string | null;
+}>;
+
+const TYPED_ARRAY_BYTE_LENGTH_GETTER = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype) as object,
+  "byteLength",
+)?.get;
+const UINT8_ARRAY_SET = Uint8Array.prototype.set;
+
+export class CompanionProtocolError extends Error {
+  readonly operationId: CompanionClientOperationId;
+  readonly reason: CompanionProtocolErrorReason;
+  readonly status: number | null;
+
+  constructor(
+    operationId: CompanionClientOperationId,
+    reason: CompanionProtocolErrorReason,
+    status: number | null,
+  ) {
+    super("Companion response failed protocol validation.");
+    Object.defineProperty(this, "name", { value: "CompanionProtocolError", configurable: true });
+    this.operationId = operationId;
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+export class CompanionHttpError extends Error {
+  readonly operationId: CompanionClientOperationId;
+  readonly status: CompanionHttpStatus;
+  readonly problem: Problem;
+  readonly headers: CompanionResponseHeaders;
+
+  constructor(
+    operationId: CompanionClientOperationId,
+    status: CompanionHttpStatus,
+    problem: Problem,
+    headers: CompanionResponseHeaders,
+  ) {
+    super("Companion request failed with a declared HTTP error.");
+    Object.defineProperty(this, "name", { value: "CompanionHttpError", configurable: true });
+    this.operationId = operationId;
+    this.status = status;
+    this.problem = problem;
+    this.headers = headers;
+  }
+}
+
+function clientOperationContract(operationId: CompanionClientOperationId): ClientOperationContract {
+  return (
+    HTTP_CONTRACT.operations as unknown as Readonly<
+      Record<CompanionClientOperationId, ClientOperationContract>
+    >
+  )[operationId];
+}
+
+function throwIfClientAborted(signal: AbortSignal | undefined): void {
+  if (signal !== undefined) AbortSignal.prototype.throwIfAborted.call(signal);
+}
+
+function throwProtocol(
+  operationId: CompanionClientOperationId,
+  reason: CompanionProtocolErrorReason,
+  status: number | null,
+  signal: AbortSignal | undefined,
+): never {
+  throwIfClientAborted(signal);
+  throw new CompanionProtocolError(operationId, reason, status);
+}
+
+function invalidOptions(): never {
+  throw new TypeError("Invalid companion client options.");
+}
+
+function isNativeAbortSignal(value: unknown): value is AbortSignal {
+  try {
+    return value instanceof AbortSignal;
+  } catch {
+    return false;
+  }
+}
+
+function exactOptions(
+  operation: ClientOperationContract,
+  value: unknown,
+): Readonly<{ record: Readonly<Record<string, unknown>>; signal: AbortSignal | undefined }> {
+  let prototype: object | null;
+  let keys: readonly PropertyKey[];
+  try {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) invalidOptions();
+    prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) invalidOptions();
+    keys = Reflect.ownKeys(value);
+  } catch {
+    invalidOptions();
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  const allowed = new Set<string>(operation.pathParameters.map((parameter) => parameter.name));
+  const required = new Set<string>(allowed);
+  if (operation.request.body.kind === "json") {
+    allowed.add("body");
+    required.add("body");
+  }
+  if (operation.access.auth === "bearer") {
+    allowed.add("token");
+    required.add("token");
+  }
+  allowed.add("signal");
+  let signal: AbortSignal | undefined;
+  const present = new Set<string>();
+  for (const key of keys) {
+    if (typeof key !== "string" || !allowed.has(key)) invalidOptions();
+    present.add(key);
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(record, key);
+    } catch {
+      invalidOptions();
+    }
+    if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true) {
+      invalidOptions();
+    }
+    if (key === "signal") {
+      if (!isNativeAbortSignal(descriptor.value)) invalidOptions();
+      signal = descriptor.value;
+    }
+  }
+  for (const name of required) {
+    if (!present.has(name)) invalidOptions();
+  }
+  return { record, signal };
+}
+
+function optionValue(record: Readonly<Record<string, unknown>>, name: string): unknown {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(record, name);
+    if (descriptor === undefined || !("value" in descriptor)) invalidOptions();
+    return descriptor.value;
+  } catch {
+    invalidOptions();
+  }
+}
+
+function parseClientOwned(name: OwnedSchemaName, value: unknown): JsonValue {
+  const result = validateOwned(name, value);
+  if (!result.valid) throw new ProtocolValidationError(name, result.path);
+  return value as JsonValue;
+}
+
+function serializeClientBody(name: OwnedSchemaName, value: unknown): string {
+  const validated = parseClientOwned(name, value);
+  let serialized: string;
+  try {
+    const candidate = JSON.stringify(validated);
+    if (typeof candidate !== "string") throw new TypeError();
+    serialized = candidate;
+  } catch {
+    throw new TypeError("Invalid companion request body.");
+  }
+  const cap = (JSON_BYTE_CAPS as Readonly<Record<string, number>>)[name];
+  if (cap === undefined || new TextEncoder().encode(serialized).byteLength > cap) {
+    throw new TypeError("Invalid companion request body.");
+  }
+  let wireValue: unknown;
+  try {
+    wireValue = JSON.parse(serialized) as unknown;
+  } catch {
+    throw new TypeError("Invalid companion request body.");
+  }
+  const result = validateOwned(name, wireValue);
+  if (!result.valid) throw new ProtocolValidationError(name, result.path);
+  return serialized;
+}
+
+async function bestEffortCancelResponse(response: unknown): Promise<void> {
+  try {
+    if (response === null || typeof response !== "object") return;
+    const body = (response as { readonly body?: unknown }).body;
+    if (body === null || typeof body !== "object") return;
+    const cancel = (body as { readonly cancel?: unknown }).cancel;
+    if (typeof cancel === "function") await Reflect.apply(cancel, body, []);
+  } catch {
+    // Cancellation failures never mask the owned protocol failure.
+  }
+}
+
+async function bestEffortCancelReader(reader: unknown): Promise<void> {
+  try {
+    if (reader === null || typeof reader !== "object") return;
+    const cancel = (reader as { readonly cancel?: unknown }).cancel;
+    if (typeof cancel === "function") await Reflect.apply(cancel, reader, []);
+  } catch {
+    // Cancellation failures never mask the owned protocol failure.
+  }
+}
+
+function responseHeaders(
+  response: Response,
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+): ClientHeaderSnapshot {
+  const names = [
+    ["cacheControl", "Cache-Control"],
+    ["contentLength", "Content-Length"],
+    ["contentType", "Content-Type"],
+    ["etag", "ETag"],
+    ["location", "Location"],
+    ["retryAfter", "Retry-After"],
+    ["requestId", "X-Request-Id"],
+  ] as const;
+  const values: Partial<Record<(typeof names)[number][0], string | null>> = {};
+  try {
+    const headers = response.headers;
+    if (headers === null || typeof headers !== "object") throw new TypeError();
+    const get = (headers as { readonly get?: unknown }).get;
+    if (typeof get !== "function") throw new TypeError();
+    for (const [field, name] of names) {
+      const value = Reflect.apply(get, headers, [name]) as unknown;
+      if (value !== null && typeof value !== "string") throw new TypeError();
+      values[field] = value;
+    }
+  } catch {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  return values as ClientHeaderSnapshot;
+}
+
+function headerDescriptor(
+  response: ClientResponseDescriptor,
+  name: string,
+): ClientResponseHeaderDescriptor | undefined {
+  return response.headers.find((header) => header.name === name);
+}
+
+function canonicalDecimal(value: string, minimum: number, maximum: number): number | null {
+  if (!/^(0|[1-9][0-9]*)$/u.test(value)) return null;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) return null;
+  return number;
+}
+
+function validExposedHeaderValue(value: string, schema: ClientHeaderSchema): boolean {
+  if (schema.kind === "const") return value === schema.value;
+  if (schema.kind === "bounded-string") {
+    return (
+      schema.minLength !== undefined &&
+      schema.maxLength !== undefined &&
+      value.length >= schema.minLength &&
+      value.length <= schema.maxLength
+    );
+  }
+  if (schema.kind === "bounded-integer") {
+    return (
+      schema.minimum !== undefined &&
+      schema.maximum !== undefined &&
+      canonicalDecimal(value, schema.minimum, schema.maximum) !== null
+    );
+  }
+  if (schema.kind === "schema-ref" && schema.schemaRef !== undefined) {
+    return validateOwned(schema.schemaRef, value).valid;
+  }
+  return false;
+}
+
+function validateExposedHeader(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  response: ClientResponseDescriptor,
+  name: "ETag" | "Location" | "Retry-After",
+  value: string | null,
+): number | string | null {
+  const descriptor = headerDescriptor(response, name);
+  if (descriptor === undefined) {
+    if (value !== null) throwProtocol(operationId, "invalid-response-header", status, signal);
+    return null;
+  }
+  if (value === null) {
+    if (descriptor.required) throwProtocol(operationId, "invalid-response-header", status, signal);
+    return null;
+  }
+  if (!validExposedHeaderValue(value, descriptor.schema)) {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  if (name === "Retry-After") return Number(value);
+  return value;
+}
+
+function validateResponseHeaders(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  descriptor: ClientResponseDescriptor,
+  snapshot: ClientHeaderSnapshot,
+): CompanionResponseHeaders {
+  if (snapshot.cacheControl !== "no-store") {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  if (snapshot.requestId === null || !validateOwned("CanonicalUuid", snapshot.requestId).valid) {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  const etag = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "ETag",
+    snapshot.etag,
+  );
+  const location = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "Location",
+    snapshot.location,
+  );
+  const retryAfter = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "Retry-After",
+    snapshot.retryAfter,
+  );
+  return Object.freeze({
+    requestId: snapshot.requestId as CanonicalUuid,
+    etag: etag as string | null,
+    location: location as string | null,
+    retryAfterSeconds: retryAfter as number | null,
+  });
+}
+
+function isAscii(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) > 0x7f) return false;
+  }
+  return true;
+}
+
+function matchesJsonContentType(value: string, expected: string): boolean {
+  if (!isAscii(value)) return false;
+  const match = /^(application\/json|application\/problem\+json)(?:[ \t]*;[ \t]*charset[ \t]*=[ \t]*(?:utf-8|"utf-8"))?$/i.exec(
+    value,
+  );
+  return match !== null && match[1]!.toLowerCase() === expected;
+}
+
+function validateContentType(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  body: ClientResponseBody,
+  value: string | null,
+): void {
+  let valid: boolean;
+  if (body.kind === "empty") valid = value === null;
+  else if (body.kind === "audio") {
+    valid = value !== null && isAscii(value) && /^audio\/wav$/i.test(value);
+  }
+  else valid = value !== null && matchesJsonContentType(value, body.mediaType);
+  if (!valid) throwProtocol(operationId, "content-type-mismatch", status, signal);
+}
+
+function contentLength(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  body: ClientResponseBody,
+  value: string | null,
+): number | null {
+  if (value === null) return null;
+  const parsed = canonicalDecimal(value, 0, Number.MAX_SAFE_INTEGER);
+  if (parsed === null || (body.kind === "empty" && parsed !== 0)) {
+    throwProtocol(operationId, "invalid-content-length", status, signal);
+  }
+  return parsed;
+}
+
+async function readBodyBytes(
+  response: Response,
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  cap: number,
+  declaredLength: number | null,
+  emptyBody: boolean,
+): Promise<Uint8Array> {
+  if (declaredLength !== null && declaredLength > cap) {
+    throwProtocol(operationId, "body-too-large", status, signal);
+  }
+  let body: ReadableStream<Uint8Array> | null;
+  try {
+    body = response.body;
+  } catch {
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  if (body === null) {
+    if (declaredLength !== null && declaredLength !== 0) {
+      throwProtocol(operationId, "content-length-mismatch", status, signal);
+    }
+    return new Uint8Array();
+  }
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try {
+    reader = body.getReader();
+  } catch {
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  const chunks: Array<Readonly<{ value: Uint8Array; byteLength: number }>> = [];
+  let total = 0;
+  while (true) {
+    throwIfClientAborted(signal);
+    let part: ReadableStreamReadResult<Uint8Array>;
+    try {
+      part = await reader.read();
+    } catch {
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    throwIfClientAborted(signal);
+    let done: boolean;
+    let value: Uint8Array | undefined;
+    try {
+      if (part === null || typeof part !== "object") throw new TypeError();
+      done = part.done;
+      if (typeof done !== "boolean") throw new TypeError();
+      if (!done) value = part.value;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    if (done) break;
+    let valueByteLength: number;
+    try {
+      if (!(value instanceof Uint8Array) || TYPED_ARRAY_BYTE_LENGTH_GETTER === undefined) {
+        throw new TypeError();
+      }
+      const measured = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH_GETTER, value, []) as unknown;
+      if (typeof measured !== "number" || !Number.isSafeInteger(measured) || measured < 0) {
+        throw new TypeError();
+      }
+      valueByteLength = measured;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    const nextTotal = total + valueByteLength;
+    if (!Number.isSafeInteger(nextTotal) || nextTotal > cap) {
+      await bestEffortCancelReader(reader);
+      throwProtocol(
+        operationId,
+        emptyBody ? "unexpected-body" : "body-too-large",
+        status,
+        signal,
+      );
+    }
+    if (declaredLength !== null && nextTotal > declaredLength) {
+      await bestEffortCancelReader(reader);
+      throwProtocol(operationId, "content-length-mismatch", status, signal);
+    }
+    let ownedValue: Uint8Array;
+    try {
+      ownedValue = new Uint8Array(valueByteLength);
+      Reflect.apply(UINT8_ARRAY_SET, ownedValue, [value, 0]);
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    chunks.push({ value: ownedValue, byteLength: valueByteLength });
+    total = nextTotal;
+  }
+  if (declaredLength !== null && total !== declaredLength) {
+    throwProtocol(operationId, "content-length-mismatch", status, signal);
+  }
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(total);
+  } catch {
+    await bestEffortCancelReader(reader);
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  let offset = 0;
+  for (const chunk of chunks) {
+    try {
+      Reflect.apply(UINT8_ARRAY_SET, bytes, [chunk.value, offset]);
+      offset += chunk.byteLength;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+  }
+  return bytes;
+}
+
+function parseResponseJson(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  schemaRef: OwnedSchemaName,
+  bytes: Uint8Array,
+): JsonValue {
+  if (
+    bytes.byteLength >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf
+  ) {
+    throwProtocol(operationId, "invalid-utf8", status, signal);
+  }
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "invalid-utf8", status, signal);
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "invalid-json", status, signal);
+  }
+  const validation = validateOwned(schemaRef, value);
+  if (!validation.valid) throwProtocol(operationId, "schema-mismatch", status, signal);
+  return recursivelyFreeze(value as JsonValue);
+}
+
+async function validateClientResponse(
+  operationId: CompanionClientOperationId,
+  operation: ClientOperationContract,
+  requestedUrl: string,
+  response: unknown,
+  signal: AbortSignal | undefined,
+): Promise<Readonly<{ status: number; body: unknown; headers: CompanionResponseHeaders }>> {
+  if (response === null || typeof response !== "object") {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  let type: unknown;
+  let url: unknown;
+  let redirected: unknown;
+  try {
+    type = (response as Response).type;
+    url = (response as Response).url;
+    redirected = (response as Response).redirected;
+  } catch {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  if (type !== "cors") throwProtocol(operationId, "response-type-mismatch", null, signal);
+  if (url !== requestedUrl) throwProtocol(operationId, "response-url-mismatch", null, signal);
+  if (redirected !== false) throwProtocol(operationId, "redirected-response", null, signal);
+
+  let status: unknown;
+  try {
+    status = (response as Response).status;
+  } catch {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  if (
+    typeof status !== "number" ||
+    !Number.isSafeInteger(status) ||
+    status < 200 ||
+    status > 599
+  ) {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  const numericStatus = status as number;
+  const descriptor = operation.responses.find((candidate) => candidate.status === numericStatus);
+  if (descriptor === undefined) throwProtocol(operationId, "unknown-status", numericStatus, signal);
+
+  const snapshot = responseHeaders(response as Response, operationId, numericStatus, signal);
+  const headers = validateResponseHeaders(
+    operationId,
+    numericStatus,
+    signal,
+    descriptor,
+    snapshot,
+  );
+  validateContentType(operationId, numericStatus, signal, descriptor.body, snapshot.contentType);
+  const declaredLength = contentLength(
+    operationId,
+    numericStatus,
+    signal,
+    descriptor.body,
+    snapshot.contentLength,
+  );
+  const cap =
+    descriptor.body.kind === "json"
+      ? (JSON_BYTE_CAPS as Readonly<Record<string, number>>)[descriptor.body.schemaRef]
+      : descriptor.body.kind === "audio"
+        ? descriptor.body.maxBytes
+        : 0;
+  if (cap === undefined) throwProtocol(operationId, "invalid-response", numericStatus, signal);
+  const bytes = await readBodyBytes(
+    response as Response,
+    operationId,
+    numericStatus,
+    signal,
+    cap,
+    declaredLength,
+    descriptor.body.kind === "empty",
+  );
+
+  let body: unknown;
+  if (descriptor.body.kind === "empty") {
+    body = undefined;
+  } else if (descriptor.body.kind === "audio") {
+    body = Object.freeze({ mediaType: "audio/wav" as const, bytes });
+  } else {
+    body = parseResponseJson(
+      operationId,
+      numericStatus,
+      signal,
+      descriptor.body.schemaRef,
+      bytes,
+    );
+  }
+
+  const successful = numericStatus >= 200 && numericStatus < 300;
+  if (!successful) {
+    const problem = body as Problem;
+    if (!(HTTP_CONTRACT.policy.problemCodes.http as readonly string[]).includes(problem.code)) {
+      throwProtocol(operationId, "non-http-problem-code", numericStatus, signal);
+    }
+    if (problem.status !== numericStatus) {
+      throwProtocol(operationId, "problem-status-mismatch", numericStatus, signal);
+    }
+    const retryDescriptor = headerDescriptor(descriptor, "Retry-After");
+    if (retryDescriptor?.condition === "queue-full-problem") {
+      const required = problem.code === HTTP_CONTRACT.policy.retryAfter.queueFullProblemCode;
+      if ((headers.retryAfterSeconds !== null) !== required) {
+        throwProtocol(operationId, "invalid-response-header", numericStatus, signal);
+      }
+    }
+    throw new CompanionHttpError(
+      operationId,
+      numericStatus as CompanionHttpStatus,
+      problem,
+      headers,
+    );
+  }
+  return Object.freeze({ status: numericStatus, body, headers });
+}
+
+async function executeClientOperation<Result>(
+  operationId: CompanionClientOperationId,
+  rawOptions: unknown,
+  fetchImpl: CompanionFetch,
+): Promise<Result> {
+  const operation = clientOperationContract(operationId);
+  const { record, signal } = exactOptions(operation, rawOptions);
+  throwIfClientAborted(signal);
+
+  let path = operation.path;
+  for (const parameter of operation.pathParameters) {
+    const value = parseClientOwned(parameter.schemaRef, optionValue(record, parameter.name));
+    path = path.replace("{" + parameter.name + "}", value as string);
+  }
+  const headers: Partial<Record<CompanionRequestHeaderName, string>> = {
+    "X-OVP-Client-Version": COMPANION_CLIENT_VERSION,
+  };
+  let serializedBody: string | undefined;
+  if (operation.request.body.kind === "json") {
+    serializedBody = serializeClientBody(operation.request.body.schemaRef, optionValue(record, "body"));
+    headers["Content-Type"] = "application/json";
+  }
+  if (operation.access.auth === "bearer") {
+    const validatedToken = parseClientOwned("OpaqueSecret", optionValue(record, "token"));
+    headers.Authorization = "Bearer " + (validatedToken as string);
+  }
+  const requestedUrl = COMPANION_API_ORIGIN + path;
+  const init = Object.freeze({
+    method: operation.method,
+    mode: "cors" as const,
+    credentials: "omit" as const,
+    cache: "no-store" as const,
+    redirect: "error" as const,
+    targetAddressSpace: "loopback" as const,
+    headers: Object.freeze(headers),
+    ...(serializedBody === undefined ? {} : { body: serializedBody }),
+    ...(signal === undefined ? {} : { signal }),
+  }) satisfies CompanionRequestInit;
+
+  const response = await fetchImpl(requestedUrl, init);
+  try {
+    throwIfClientAborted(signal);
+  } catch (error) {
+    await bestEffortCancelResponse(response);
+    throw error;
+  }
+  try {
+    const result = (await validateClientResponse(
+      operationId,
+      operation,
+      requestedUrl,
+      response,
+      signal,
+    )) as Result;
+    throwIfClientAborted(signal);
+    return result;
+  } catch (error) {
+    try {
+      throwIfClientAborted(signal);
+    } catch (abortError) {
+      await bestEffortCancelResponse(response);
+      throw abortError;
+    }
+    if (error instanceof CompanionProtocolError) {
+      await bestEffortCancelResponse(response);
+      throwIfClientAborted(signal);
+    }
+    throw error;
+  }
+}
+
+export function createCompanionClient(fetchImpl: CompanionFetch): CompanionClient {
+  if (typeof fetchImpl !== "function") throw new TypeError("Companion fetch implementation is required.");
+  const wrappers: CompanionClient = {
+    cancelJob: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<202, JobResponse>> =>
+      executeClientOperation<CompanionResult<202, JobResponse>>("cancelJob", options, fetchImpl),
+    createJob: (options: Readonly<{ readonly body: JobCreateRequest; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<202, JobResponse>> =>
+      executeClientOperation<CompanionResult<202, JobResponse>>("createJob", options, fetchImpl),
+    createPairingChallenge: (options: Readonly<{ readonly body: PairingChallengeRequest; readonly signal?: AbortSignal; }>): Promise<CompanionResult<201, PairingChallengeResponse>> =>
+      executeClientOperation<CompanionResult<201, PairingChallengeResponse>>("createPairingChallenge", options, fetchImpl),
+    getCurrentPairing: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, PairingResponse>> =>
+      executeClientOperation<CompanionResult<200, PairingResponse>>("getCurrentPairing", options, fetchImpl),
+    getHealth: (options: Readonly<{ readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, HealthResponse>> =>
+      executeClientOperation<CompanionResult<200, HealthResponse>>("getHealth", options, fetchImpl),
+    getJob: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, JobResponse>> =>
+      executeClientOperation<CompanionResult<200, JobResponse>>("getJob", options, fetchImpl),
+    getJobAudio: (options: Readonly<{ readonly id: CanonicalUuid; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, CompanionWav>> =>
+      executeClientOperation<CompanionResult<200, CompanionWav>>("getJobAudio", options, fetchImpl),
+    getRuntime: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, RuntimeResponse>> =>
+      executeClientOperation<CompanionResult<200, RuntimeResponse>>("getRuntime", options, fetchImpl),
+    listEngines: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, EngineListResponse>> =>
+      executeClientOperation<CompanionResult<200, EngineListResponse>>("listEngines", options, fetchImpl),
+    listPacks: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, PackListResponse>> =>
+      executeClientOperation<CompanionResult<200, PackListResponse>>("listPacks", options, fetchImpl),
+    listVoices: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, VoiceListResponse>> =>
+      executeClientOperation<CompanionResult<200, VoiceListResponse>>("listVoices", options, fetchImpl),
+    redeemPairingChallenge: (options: Readonly<{ readonly id: CanonicalUuid; readonly body: RedeemRequest; readonly signal?: AbortSignal; }>): Promise<CompanionResult<200, RedeemResponse> | CompanionResult<202, RedeemPendingResponse>> =>
+      executeClientOperation<CompanionResult<200, RedeemResponse> | CompanionResult<202, RedeemPendingResponse>>("redeemPairingChallenge", options, fetchImpl),
+    requestPackAction: (options: Readonly<{ readonly id: PackId; readonly body: PackActionRequest; readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<202, PackActionResponse>> =>
+      executeClientOperation<CompanionResult<202, PackActionResponse>>("requestPackAction", options, fetchImpl),
+    revokeCurrentPairing: (options: Readonly<{ readonly token: OpaqueSecret; readonly signal?: AbortSignal; }>): Promise<CompanionResult<204, undefined>> =>
+      executeClientOperation<CompanionResult<204, undefined>>("revokeCurrentPairing", options, fetchImpl),
+  };
+  const client = Object.assign(Object.create(null) as object, wrappers);
+  return Object.freeze(client);
 }

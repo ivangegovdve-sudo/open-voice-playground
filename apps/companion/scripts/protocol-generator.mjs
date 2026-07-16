@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer';
+
 import { assertProtocolNamePolicy } from './protocol-name-policy.mjs';
 import { buildHttpContract } from './http-contract.mjs';
 
@@ -5,6 +7,8 @@ const supportedSchemaKeywords = new Set([
   '$ref',
   '$schema',
   'additionalProperties',
+  'allOf',
+  'anyOf',
   'const',
   'contentEncoding',
   'contentMediaType',
@@ -38,6 +42,8 @@ const supportedSchemaKeywords = new Set([
 const runtimeSchemaKeywords = new Set([
   '$ref',
   'additionalProperties',
+  'allOf',
+  'anyOf',
   'const',
   'enum',
   'exclusiveMaximum',
@@ -62,6 +68,18 @@ const runtimeSchemaKeywords = new Set([
 const reservedSchemaNames = new Set([
   'Array',
   'Brand',
+  'CompanionClient',
+  'CompanionClientOperationId',
+  'CompanionFetch',
+  'CompanionHttpError',
+  'CompanionHttpStatus',
+  'CompanionProtocolError',
+  'CompanionProtocolErrorReason',
+  'CompanionRequestHeaderName',
+  'CompanionRequestInit',
+  'CompanionResponseHeaders',
+  'CompanionResult',
+  'CompanionWav',
   'Error',
   'JSON',
   'JsonValue',
@@ -77,11 +95,11 @@ const reservedSchemaNames = new Set([
   'SCHEMAS',
   'Set',
   'ValidationResult',
+  'createCompanionClient',
 ]);
 
 const allowedTypes = new Set(['array', 'boolean', 'integer', 'number', 'object', 'string']);
 const allowedFormats = new Set(['date-time', 'uuid']);
-const methods = new Set(['delete', 'get', 'options', 'post']);
 const draft202012 = 'https://json-schema.org/draft/2020-12/schema';
 const schemaReferencePrefix = '#/components/schemas/';
 
@@ -254,12 +272,13 @@ function validateSchema(schema, path, schemas) {
       }
     }
   }
-  if (schema.oneOf !== undefined) {
-    if (!Array.isArray(schema.oneOf) || schema.oneOf.length === 0) {
-      fail(`${path}.oneOf must be a nonempty array.`);
+  for (const keyword of ['allOf', 'anyOf', 'oneOf']) {
+    if (schema[keyword] === undefined) continue;
+    if (!Array.isArray(schema[keyword]) || schema[keyword].length === 0) {
+      fail(`${path}.${keyword} must be a nonempty array.`);
     }
-    schema.oneOf.forEach((branch, index) =>
-      validateSchema(branch, `${path}.oneOf[${index}]`, schemas),
+    schema[keyword].forEach((branch, index) =>
+      validateSchema(branch, `${path}.${keyword}[${index}]`, schemas),
     );
   }
   if (schema.type === 'object') {
@@ -307,7 +326,9 @@ function validateSchema(schema, path, schemas) {
     schema.type === undefined &&
     schema.const === undefined &&
     schema.enum === undefined &&
-    schema.oneOf === undefined
+    schema.oneOf === undefined &&
+    schema.anyOf === undefined &&
+    schema.allOf === undefined
   ) {
     fail(`${path} has no supported validation assertion.`);
   }
@@ -317,7 +338,11 @@ function assertAcyclicReferences(schemas) {
   const edges = new Map();
   function collect(schema, names) {
     if (schema.$ref !== undefined) names.add(referenceName(schema.$ref, schemas, '$ref'));
-    if (Array.isArray(schema.oneOf)) for (const branch of schema.oneOf) collect(branch, names);
+    for (const keyword of ['allOf', 'anyOf', 'oneOf']) {
+      if (Array.isArray(schema[keyword])) {
+        for (const branch of schema[keyword]) collect(branch, names);
+      }
+    }
     if (isPlainObject(schema.properties)) {
       for (const property of Object.values(schema.properties)) collect(property, names);
     }
@@ -381,7 +406,7 @@ function canonicalRuntimeSchema(schema) {
       entries.push([key, canonicalRuntimeSchema(value)]);
     } else if (key === 'enum') {
       entries.push([key, canonicalJsonSet(value)]);
-    } else if (key === 'oneOf') {
+    } else if (key === 'allOf' || key === 'anyOf' || key === 'oneOf') {
       entries.push([key, value.map(canonicalRuntimeSchema).sort(compareCanonicalJson)]);
     } else if (key === 'required') {
       entries.push([key, [...value].sort(compareCodeUnits)]);
@@ -419,6 +444,20 @@ function schemaType(schema, path) {
       sortedSchemaSet(schema.oneOf)
         .map((branch, index) => schemaType(branch, `${path}.oneOf${index}`))
         .join(' | '),
+    );
+  }
+  if (schema.anyOf !== undefined) {
+    assertions.push(
+      sortedSchemaSet(schema.anyOf)
+        .map((branch, index) => schemaType(branch, `${path}.anyOf${index}`))
+        .join(' | '),
+    );
+  }
+  if (schema.allOf !== undefined) {
+    assertions.push(
+      sortedSchemaSet(schema.allOf)
+        .map((branch, index) => schemaType(branch, `${path}.allOf${index}`))
+        .join(' & '),
     );
   }
   if (schema.type === 'object') {
@@ -463,30 +502,439 @@ function schemaType(schema, path) {
   return constrained ? `(${base}) & Brand<${JSON.stringify(path)}>` : base;
 }
 
-function collectRoutes(document) {
-  if (!isPlainObject(document.paths)) fail('paths must be an object.');
-  const routes = [];
-  const operationIds = new Set();
-  for (const [path, item] of sortedEntries(document.paths)) {
-    if (!isPlainObject(item)) fail(`path ${path} is invalid.`);
-    for (const [method, operation] of sortedEntries(item)) {
-      if (!methods.has(method) || method === 'options') continue;
-      if (!isPlainObject(operation) || typeof operation.operationId !== 'string') {
-        fail(`${method.toUpperCase()} ${path} has no operationId.`);
+function safeAdd(left, right, path) {
+  const result = left + right;
+  if (!Number.isSafeInteger(result)) fail(`${path} JSON byte cap exceeds the safe integer range.`);
+  return result;
+}
+
+function safeMultiply(left, right, path) {
+  const result = left * right;
+  if (!Number.isSafeInteger(result)) fail(`${path} JSON byte cap exceeds the safe integer range.`);
+  return result;
+}
+
+function serializedByteLength(value) {
+  const serialized = JSON.stringify(value);
+  if (typeof serialized !== 'string') fail('JSON byte cap encountered an unserializable value.');
+  return Buffer.byteLength(serialized, 'utf8');
+}
+
+function schemaJsonByteCap(schema, schemas, path, memo = new Map(), visiting = new Set()) {
+  const candidates = [];
+  if (schema.$ref !== undefined) {
+    const name = referenceName(schema.$ref, schemas, `${path}.$ref`);
+    let cap = memo.get(name);
+    if (cap === undefined) {
+      if (visiting.has(name)) fail(`${path} JSON byte cap reaches a reference cycle.`);
+      visiting.add(name);
+      cap = schemaJsonByteCap(schemas[name], schemas, `components.schemas.${name}`, memo, visiting);
+      visiting.delete(name);
+      memo.set(name, cap);
+    }
+    if (cap !== null) candidates.push(cap);
+  }
+  if (schema.const !== undefined) candidates.push(serializedByteLength(schema.const));
+  if (schema.enum !== undefined) {
+    candidates.push(Math.max(...schema.enum.map((value) => serializedByteLength(value))));
+  }
+  for (const keyword of ['anyOf', 'oneOf']) {
+    if (schema[keyword] === undefined) continue;
+    const branchCaps = schema[keyword].map((branch, index) =>
+      schemaJsonByteCap(branch, schemas, `${path}.${keyword}[${index}]`, memo, visiting),
+    );
+    if (branchCaps.every((cap) => cap !== null)) candidates.push(Math.max(...branchCaps));
+  }
+  if (schema.allOf !== undefined) {
+    const branchCaps = schema.allOf
+      .map((branch, index) =>
+        schemaJsonByteCap(branch, schemas, `${path}.allOf[${index}]`, memo, visiting),
+      )
+      .filter((cap) => cap !== null);
+    if (branchCaps.length > 0) candidates.push(Math.min(...branchCaps));
+  }
+
+  if (schema.type === 'boolean') {
+    candidates.push(5);
+  } else if (schema.type === 'string') {
+    const limits = [schema.maxLength, schema['x-maxUtf8Bytes']].filter(
+      (limit) => limit !== undefined,
+    );
+    if (limits.length > 0) {
+      candidates.push(safeAdd(2, safeMultiply(6, Math.min(...limits), path), path));
+    }
+  } else if (schema.type === 'array') {
+    if (schema.maxItems !== undefined) {
+      const itemCap = schemaJsonByteCap(schema.items, schemas, `${path}.items`, memo, visiting);
+      if (itemCap !== null) {
+        const items = safeMultiply(schema.maxItems, itemCap, path);
+        const commas = Math.max(0, schema.maxItems - 1);
+        candidates.push(safeAdd(2, safeAdd(items, commas, path), path));
       }
-      if (!/^[a-z][A-Za-z0-9]*$/u.test(operation.operationId)) {
-        fail(`operationId ${operation.operationId} is not a safe identifier.`);
+    }
+  } else if (schema.type === 'object') {
+    let total = 2;
+    let bounded = true;
+    const properties = sortedEntries(schema.properties);
+    for (const [name, property] of properties) {
+      const propertyCap = schemaJsonByteCap(
+        property,
+        schemas,
+        `${path}.properties.${name}`,
+        memo,
+        visiting,
+      );
+      if (propertyCap === null) {
+        bounded = false;
+        break;
       }
-      if (operationIds.has(operation.operationId)) {
-        fail(`duplicate operationId ${operation.operationId}.`);
-      }
-      operationIds.add(operation.operationId);
-      routes.push([operation.operationId, `${method.toUpperCase()} ${path}`]);
+      total = safeAdd(total, serializedByteLength(name), path);
+      total = safeAdd(total, 1, path);
+      total = safeAdd(total, propertyCap, path);
+    }
+    if (bounded) {
+      total = safeAdd(total, Math.max(0, properties.length - 1), path);
+      candidates.push(total);
     }
   }
-  routes.sort(([left], [right]) => compareCodeUnits(left, right));
-  return Object.fromEntries(routes);
+  return candidates.length === 0 ? null : Math.min(...candidates);
 }
+
+function collectClientOperations(httpContract, schemas) {
+  if (!isPlainObject(httpContract.operations)) fail('HTTP contract operations are missing.');
+  const operations = sortedEntries(httpContract.operations).filter(
+    ([, operation]) => operation.clientCallable === true,
+  );
+  if (operations.length !== 14) fail('client operation inventory is not exactly fourteen.');
+  for (const [operationId, operation] of operations) {
+    if (!/^[a-z][A-Za-z0-9]*$/u.test(operationId) || !isPlainObject(operation)) {
+      fail('client operation identifier or shape is invalid.');
+    }
+    if (!['DELETE', 'GET', 'POST'].includes(operation.method)) {
+      fail(`client operation ${operationId} uses an unsupported method.`);
+    }
+    if (
+      typeof operation.path !== 'string' ||
+      !operation.path.startsWith('/') ||
+      operation.path.includes('?') ||
+      operation.path.includes('#') ||
+      operation.preflight !== null
+    ) {
+      fail(`client operation ${operationId} uses an unsupported path or preflight shape.`);
+    }
+    if (
+      !isPlainObject(operation.access) ||
+      !['bearer', 'origin-only'].includes(operation.access.auth) ||
+      !['job-owner', 'none', 'token-self'].includes(operation.access.ownership) ||
+      !(operation.access.scope === null || typeof operation.access.scope === 'string')
+    ) {
+      fail(`client operation ${operationId} uses an unsupported access shape.`);
+    }
+    if (!Array.isArray(operation.pathParameters)) {
+      fail(`client operation ${operationId} path parameters are invalid.`);
+    }
+    const placeholders = [...operation.path.matchAll(/\{([^{}]+)\}/gu)].map((match) => match[1]);
+    if (operation.path.replaceAll(/\{[^{}]+\}/gu, '').match(/[{}]/u)) {
+      fail(`client operation ${operationId} has malformed placeholders.`);
+    }
+    const parameters = operation.pathParameters.map((parameter) => {
+      if (
+        !isPlainObject(parameter) ||
+        typeof parameter.name !== 'string' ||
+        parameter.required !== true ||
+        !['CanonicalUuid', 'PackId'].includes(parameter.schemaRef) ||
+        !Object.prototype.hasOwnProperty.call(schemas, parameter.schemaRef)
+      ) {
+        fail(`client operation ${operationId} has an unsupported owned path parameter.`);
+      }
+      return parameter.name;
+    });
+    if (
+      new Set(placeholders).size !== placeholders.length ||
+      new Set(parameters).size !== parameters.length ||
+      !jsonEqual([...placeholders].sort(compareCodeUnits), [...parameters].sort(compareCodeUnits))
+    ) {
+      fail(`client operation ${operationId} placeholders do not match owned path parameters.`);
+    }
+    if (
+      !isPlainObject(operation.request) ||
+      !Array.isArray(operation.request.headers) ||
+      !isPlainObject(operation.request.body)
+    ) {
+      fail(`client operation ${operationId} request shape is invalid.`);
+    }
+    const requestHeaderNames = operation.request.headers
+      .map((header) => header?.name)
+      .sort(compareCodeUnits);
+    if (!jsonEqual(requestHeaderNames, ['Origin', 'X-OVP-Client-Version'])) {
+      fail(`client operation ${operationId} has unsupported caller-visible request headers.`);
+    }
+    const requestBody = operation.request.body;
+    if (
+      requestBody.kind !== 'none' &&
+      !(
+        requestBody.kind === 'json' &&
+        requestBody.required === true &&
+        requestBody.mediaType === 'application/json' &&
+        typeof requestBody.schemaRef === 'string' &&
+        Object.prototype.hasOwnProperty.call(schemas, requestBody.schemaRef)
+      )
+    ) {
+      fail(`client operation ${operationId} uses an unsupported request body.`);
+    }
+    if (!Array.isArray(operation.responses) || operation.responses.length === 0) {
+      fail(`client operation ${operationId} responses are missing.`);
+    }
+    const statuses = new Set();
+    for (const response of operation.responses) {
+      if (
+        !isPlainObject(response) ||
+        !Number.isSafeInteger(response.status) ||
+        statuses.has(response.status) ||
+        !isPlainObject(response.body) ||
+        !Array.isArray(response.headers)
+      ) {
+        fail(`client operation ${operationId} has an invalid response descriptor.`);
+      }
+      statuses.add(response.status);
+      const successful = response.status >= 200 && response.status < 300;
+      const body = response.body;
+      const supportedJson =
+        body.kind === 'json' &&
+        body.mediaType === (successful ? 'application/json' : 'application/problem+json') &&
+        typeof body.schemaRef === 'string' &&
+        Object.prototype.hasOwnProperty.call(schemas, body.schemaRef) &&
+        (successful || body.schemaRef === 'Problem');
+      const supportedAudio =
+        successful &&
+        body.kind === 'audio' &&
+        body.mediaType === 'audio/wav' &&
+        Number.isSafeInteger(body.maxBytes) &&
+        body.maxBytes >= 0;
+      const supportedEmpty = successful && response.status === 204 && body.kind === 'empty';
+      if (!supportedJson && !supportedAudio && !supportedEmpty) {
+        fail(`client operation ${operationId} has an unsupported response body.`);
+      }
+      for (const header of response.headers) {
+        if (!isPlainObject(header) || typeof header.name !== 'string') {
+          fail(`client operation ${operationId} has an invalid response header.`);
+        }
+        if (
+          ['Cache-Control', 'ETag', 'Location', 'Retry-After', 'X-Request-Id'].includes(
+            header.name,
+          ) &&
+          header.condition !== null &&
+          header.condition !== 'queue-full-problem'
+        ) {
+          fail(`client operation ${operationId} has an unknown observable header condition.`);
+        }
+      }
+    }
+  }
+  return operations;
+}
+
+function collectRoutes(clientOperations) {
+  return Object.fromEntries(
+    clientOperations.map(([operationId, operation]) => [
+      operationId,
+      `${operation.method} ${operation.path}`,
+    ]),
+  );
+}
+
+function collectJsonByteCaps(clientOperations, schemas) {
+  const names = new Set();
+  for (const [, operation] of clientOperations) {
+    if (operation.request.body.kind === 'json') names.add(operation.request.body.schemaRef);
+    for (const response of operation.responses) {
+      if (response.body.kind === 'json') names.add(response.body.schemaRef);
+    }
+  }
+  const memo = new Map();
+  return Object.fromEntries(
+    [...names].sort(compareCodeUnits).map((name) => {
+      const cap = schemaJsonByteCap(
+        schemas[name],
+        schemas,
+        `components.schemas.${name}`,
+        memo,
+        new Set([name]),
+      );
+      if (cap === null) fail(`client-reachable schema ${name} has an unbounded JSON byte cap.`);
+      return [name, cap];
+    }),
+  );
+}
+
+function clientOptionType(operation) {
+  const fields = [];
+  for (const parameter of operation.pathParameters) {
+    fields.push(`readonly ${parameter.name}: ${parameter.schemaRef};`);
+  }
+  if (operation.request.body.kind === 'json') {
+    fields.push(`readonly body: ${operation.request.body.schemaRef};`);
+  }
+  if (operation.access.auth === 'bearer') fields.push('readonly token: OpaqueSecret;');
+  fields.push('readonly signal?: AbortSignal;');
+  return `Readonly<{ ${fields.join(' ')} }>`;
+}
+
+function clientResponseBodyType(body) {
+  if (body.kind === 'json') return body.schemaRef;
+  if (body.kind === 'audio') return 'CompanionWav';
+  if (body.kind === 'empty') return 'undefined';
+  fail('client response body type is unsupported.');
+}
+
+function clientResultType(operation) {
+  return operation.responses
+    .filter((response) => response.status >= 200 && response.status < 300)
+    .map(
+      (response) => `CompanionResult<${response.status}, ${clientResponseBodyType(response.body)}>`,
+    )
+    .join(' | ');
+}
+
+function clientTypeSource(clientOperations, httpContract) {
+  const errorStatuses = [
+    ...new Set(
+      clientOperations.flatMap(([, operation]) =>
+        operation.responses
+          .filter((response) => response.status < 200 || response.status >= 300)
+          .map((response) => response.status),
+      ),
+    ),
+  ].sort((left, right) => left - right);
+  const requestHeaderNames = httpContract.policy?.preflight?.allowHeaders;
+  if (
+    !Array.isArray(requestHeaderNames) ||
+    !jsonEqual([...requestHeaderNames].sort(compareCodeUnits), [
+      'Authorization',
+      'Content-Type',
+      'X-OVP-Client-Version',
+    ])
+  ) {
+    fail('client request header policy is unsupported.');
+  }
+  const lines = [
+    'export type CompanionClientOperationId = keyof typeof ROUTES;',
+    '',
+    'export type CompanionHttpStatus =',
+    ...errorStatuses.map(
+      (status, index) => `  | ${status}${index === errorStatuses.length - 1 ? ';' : ''}`,
+    ),
+    '',
+    'export type CompanionRequestHeaderName =',
+    ...[...requestHeaderNames]
+      .sort(compareCodeUnits)
+      .map(
+        (name, index, names) =>
+          `  | ${JSON.stringify(name)}${index === names.length - 1 ? ';' : ''}`,
+      ),
+    '',
+    'export type CompanionRequestInit = Readonly<{',
+    '  method: "GET" | "POST" | "DELETE";',
+    '  mode: "cors";',
+    '  credentials: "omit";',
+    '  cache: "no-store";',
+    '  redirect: "error";',
+    '  targetAddressSpace: "loopback";',
+    '  headers: Readonly<Partial<Record<CompanionRequestHeaderName, string>>>;',
+    '  body?: string;',
+    '  signal?: AbortSignal;',
+    '}>;',
+    '',
+    'export type CompanionFetch = (',
+    '  input: string,',
+    '  init: CompanionRequestInit,',
+    ') => Promise<Response>;',
+    '',
+    'export type CompanionResponseHeaders = Readonly<{',
+    '  requestId: CanonicalUuid;',
+    '  etag: string | null;',
+    '  location: string | null;',
+    '  retryAfterSeconds: number | null;',
+    '}>;',
+    '',
+    'export type CompanionWav = Readonly<{',
+    '  mediaType: "audio/wav";',
+    '  bytes: Uint8Array;',
+    '}>;',
+    '',
+    'export type CompanionResult<S extends number, B> = Readonly<{',
+    '  status: S;',
+    '  body: B;',
+    '  headers: CompanionResponseHeaders;',
+    '}>;',
+    '',
+    'export type CompanionProtocolErrorReason =',
+    ...[
+      'invalid-response',
+      'redirected-response',
+      'response-url-mismatch',
+      'response-type-mismatch',
+      'unknown-status',
+      'invalid-response-header',
+      'content-type-mismatch',
+      'invalid-content-length',
+      'body-too-large',
+      'content-length-mismatch',
+      'unexpected-body',
+      'body-unreadable',
+      'invalid-utf8',
+      'invalid-json',
+      'schema-mismatch',
+      'non-http-problem-code',
+      'problem-status-mismatch',
+    ].map(
+      (reason, index, reasons) =>
+        `  | ${JSON.stringify(reason)}${index === reasons.length - 1 ? ';' : ''}`,
+    ),
+    '',
+    'export type CompanionClient = Readonly<{',
+    ...clientOperations.map(
+      ([operationId, operation]) =>
+        `  readonly ${operationId}: (options: ${clientOptionType(operation)}) => Promise<${clientResultType(operation)}>;`,
+    ),
+    '}>;',
+  ];
+  return lines.join('\n');
+}
+
+function clientFactorySource(clientOperations) {
+  const wrappers = clientOperations.flatMap(([operationId, operation]) => {
+    const options = clientOptionType(operation);
+    const result = clientResultType(operation);
+    return [
+      `    ${operationId}: (options: ${options}): Promise<${result}> =>`,
+      `      executeClientOperation<${result}>(${JSON.stringify(operationId)}, options, fetchImpl),`,
+    ];
+  });
+  return [
+    'export function createCompanionClient(fetchImpl: CompanionFetch): CompanionClient {',
+    '  if (typeof fetchImpl !== "function") throw new TypeError("Companion fetch implementation is required.");',
+    '  const wrappers: CompanionClient = {',
+    ...wrappers,
+    '  };',
+    '  const client = Object.assign(Object.create(null) as object, wrappers);',
+    '  return Object.freeze(client);',
+    '}',
+  ].join('\n');
+}
+
+const freezeSource = `
+function recursivelyFreeze<Value>(value: Value): Value {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) return value;
+  if (Object.isFrozen(value)) return value;
+  for (const key of Reflect.ownKeys(value as object)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value as object, key);
+    if (descriptor !== undefined && "value" in descriptor) recursivelyFreeze(descriptor.value);
+  }
+  Object.freeze(value as object);
+  return value;
+}
+`;
 
 const runtimeSource = `
 type JsonValue =
@@ -500,6 +948,8 @@ type JsonValue =
 type RuntimeSchema = {
   readonly $ref?: string;
   readonly additionalProperties?: false;
+  readonly allOf?: readonly RuntimeSchema[];
+  readonly anyOf?: readonly RuntimeSchema[];
   readonly const?: JsonValue;
   readonly enum?: readonly JsonValue[];
   readonly exclusiveMaximum?: number;
@@ -706,6 +1156,19 @@ function validateSchema(
     const result = validateSchema(referenced, value, path, depth + 1);
     if (!result.valid) return result;
   }
+  if (schema.allOf !== undefined) {
+    for (const branch of schema.allOf) {
+      const result = validateSchema(branch, value, path, depth + 1);
+      if (!result.valid) return result;
+    }
+  }
+  if (schema.anyOf !== undefined) {
+    let matches = false;
+    for (const branch of schema.anyOf) {
+      if (validateSchema(branch, value, path, depth + 1).valid) matches = true;
+    }
+    if (!matches) return invalid(path);
+  }
   if (schema.oneOf !== undefined) {
     let matches = 0;
     for (const branch of schema.oneOf) {
@@ -824,6 +1287,796 @@ export class ProtocolValidationError extends Error {
 }
 `;
 
+const clientRuntimeSource = `
+type ClientPathParameter = Readonly<{
+  name: string;
+  required: true;
+  schemaRef: OwnedSchemaName;
+}>;
+
+type ClientRequestBody =
+  | Readonly<{ kind: "none" }>
+  | Readonly<{
+      kind: "json";
+      required: true;
+      mediaType: "application/json";
+      schemaRef: OwnedSchemaName;
+    }>;
+
+type ClientResponseBody =
+  | Readonly<{
+      kind: "json";
+      mediaType: "application/json" | "application/problem+json";
+      schemaRef: OwnedSchemaName;
+    }>
+  | Readonly<{ kind: "audio"; mediaType: "audio/wav"; maxBytes: number }>
+  | Readonly<{ kind: "empty" }>;
+
+type ClientHeaderSchema = Readonly<{
+  kind: string;
+  value?: unknown;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+  schemaRef?: OwnedSchemaName;
+}>;
+
+type ClientResponseHeaderDescriptor = Readonly<{
+  name: string;
+  required: boolean;
+  condition: string | null;
+  schema: ClientHeaderSchema;
+}>;
+
+type ClientResponseDescriptor = Readonly<{
+  status: number;
+  body: ClientResponseBody;
+  headers: readonly ClientResponseHeaderDescriptor[];
+}>;
+
+type ClientOperationContract = Readonly<{
+  path: string;
+  method: "GET" | "POST" | "DELETE";
+  access: Readonly<{
+    auth: "bearer" | "origin-only";
+    scope: string | null;
+    ownership: "job-owner" | "none" | "token-self";
+  }>;
+  pathParameters: readonly ClientPathParameter[];
+  request: Readonly<{ body: ClientRequestBody }>;
+  responses: readonly ClientResponseDescriptor[];
+}>;
+
+type ClientHeaderSnapshot = Readonly<{
+  cacheControl: string | null;
+  contentLength: string | null;
+  contentType: string | null;
+  etag: string | null;
+  location: string | null;
+  retryAfter: string | null;
+  requestId: string | null;
+}>;
+
+const TYPED_ARRAY_BYTE_LENGTH_GETTER = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(Uint8Array.prototype) as object,
+  "byteLength",
+)?.get;
+const UINT8_ARRAY_SET = Uint8Array.prototype.set;
+
+export class CompanionProtocolError extends Error {
+  readonly operationId: CompanionClientOperationId;
+  readonly reason: CompanionProtocolErrorReason;
+  readonly status: number | null;
+
+  constructor(
+    operationId: CompanionClientOperationId,
+    reason: CompanionProtocolErrorReason,
+    status: number | null,
+  ) {
+    super("Companion response failed protocol validation.");
+    Object.defineProperty(this, "name", { value: "CompanionProtocolError", configurable: true });
+    this.operationId = operationId;
+    this.reason = reason;
+    this.status = status;
+  }
+}
+
+export class CompanionHttpError extends Error {
+  readonly operationId: CompanionClientOperationId;
+  readonly status: CompanionHttpStatus;
+  readonly problem: Problem;
+  readonly headers: CompanionResponseHeaders;
+
+  constructor(
+    operationId: CompanionClientOperationId,
+    status: CompanionHttpStatus,
+    problem: Problem,
+    headers: CompanionResponseHeaders,
+  ) {
+    super("Companion request failed with a declared HTTP error.");
+    Object.defineProperty(this, "name", { value: "CompanionHttpError", configurable: true });
+    this.operationId = operationId;
+    this.status = status;
+    this.problem = problem;
+    this.headers = headers;
+  }
+}
+
+function clientOperationContract(operationId: CompanionClientOperationId): ClientOperationContract {
+  return (
+    HTTP_CONTRACT.operations as unknown as Readonly<
+      Record<CompanionClientOperationId, ClientOperationContract>
+    >
+  )[operationId];
+}
+
+function throwIfClientAborted(signal: AbortSignal | undefined): void {
+  if (signal !== undefined) AbortSignal.prototype.throwIfAborted.call(signal);
+}
+
+function throwProtocol(
+  operationId: CompanionClientOperationId,
+  reason: CompanionProtocolErrorReason,
+  status: number | null,
+  signal: AbortSignal | undefined,
+): never {
+  throwIfClientAborted(signal);
+  throw new CompanionProtocolError(operationId, reason, status);
+}
+
+function invalidOptions(): never {
+  throw new TypeError("Invalid companion client options.");
+}
+
+function isNativeAbortSignal(value: unknown): value is AbortSignal {
+  try {
+    return value instanceof AbortSignal;
+  } catch {
+    return false;
+  }
+}
+
+function exactOptions(
+  operation: ClientOperationContract,
+  value: unknown,
+): Readonly<{ record: Readonly<Record<string, unknown>>; signal: AbortSignal | undefined }> {
+  let prototype: object | null;
+  let keys: readonly PropertyKey[];
+  try {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) invalidOptions();
+    prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) invalidOptions();
+    keys = Reflect.ownKeys(value);
+  } catch {
+    invalidOptions();
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  const allowed = new Set<string>(operation.pathParameters.map((parameter) => parameter.name));
+  const required = new Set<string>(allowed);
+  if (operation.request.body.kind === "json") {
+    allowed.add("body");
+    required.add("body");
+  }
+  if (operation.access.auth === "bearer") {
+    allowed.add("token");
+    required.add("token");
+  }
+  allowed.add("signal");
+  let signal: AbortSignal | undefined;
+  const present = new Set<string>();
+  for (const key of keys) {
+    if (typeof key !== "string" || !allowed.has(key)) invalidOptions();
+    present.add(key);
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(record, key);
+    } catch {
+      invalidOptions();
+    }
+    if (descriptor === undefined || !("value" in descriptor) || descriptor.enumerable !== true) {
+      invalidOptions();
+    }
+    if (key === "signal") {
+      if (!isNativeAbortSignal(descriptor.value)) invalidOptions();
+      signal = descriptor.value;
+    }
+  }
+  for (const name of required) {
+    if (!present.has(name)) invalidOptions();
+  }
+  return { record, signal };
+}
+
+function optionValue(record: Readonly<Record<string, unknown>>, name: string): unknown {
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(record, name);
+    if (descriptor === undefined || !("value" in descriptor)) invalidOptions();
+    return descriptor.value;
+  } catch {
+    invalidOptions();
+  }
+}
+
+function parseClientOwned(name: OwnedSchemaName, value: unknown): JsonValue {
+  const result = validateOwned(name, value);
+  if (!result.valid) throw new ProtocolValidationError(name, result.path);
+  return value as JsonValue;
+}
+
+function serializeClientBody(name: OwnedSchemaName, value: unknown): string {
+  const validated = parseClientOwned(name, value);
+  let serialized: string;
+  try {
+    const candidate = JSON.stringify(validated);
+    if (typeof candidate !== "string") throw new TypeError();
+    serialized = candidate;
+  } catch {
+    throw new TypeError("Invalid companion request body.");
+  }
+  const cap = (JSON_BYTE_CAPS as Readonly<Record<string, number>>)[name];
+  if (cap === undefined || new TextEncoder().encode(serialized).byteLength > cap) {
+    throw new TypeError("Invalid companion request body.");
+  }
+  let wireValue: unknown;
+  try {
+    wireValue = JSON.parse(serialized) as unknown;
+  } catch {
+    throw new TypeError("Invalid companion request body.");
+  }
+  const result = validateOwned(name, wireValue);
+  if (!result.valid) throw new ProtocolValidationError(name, result.path);
+  return serialized;
+}
+
+async function bestEffortCancelResponse(response: unknown): Promise<void> {
+  try {
+    if (response === null || typeof response !== "object") return;
+    const body = (response as { readonly body?: unknown }).body;
+    if (body === null || typeof body !== "object") return;
+    const cancel = (body as { readonly cancel?: unknown }).cancel;
+    if (typeof cancel === "function") await Reflect.apply(cancel, body, []);
+  } catch {
+    // Cancellation failures never mask the owned protocol failure.
+  }
+}
+
+async function bestEffortCancelReader(reader: unknown): Promise<void> {
+  try {
+    if (reader === null || typeof reader !== "object") return;
+    const cancel = (reader as { readonly cancel?: unknown }).cancel;
+    if (typeof cancel === "function") await Reflect.apply(cancel, reader, []);
+  } catch {
+    // Cancellation failures never mask the owned protocol failure.
+  }
+}
+
+function responseHeaders(
+  response: Response,
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+): ClientHeaderSnapshot {
+  const names = [
+    ["cacheControl", "Cache-Control"],
+    ["contentLength", "Content-Length"],
+    ["contentType", "Content-Type"],
+    ["etag", "ETag"],
+    ["location", "Location"],
+    ["retryAfter", "Retry-After"],
+    ["requestId", "X-Request-Id"],
+  ] as const;
+  const values: Partial<Record<(typeof names)[number][0], string | null>> = {};
+  try {
+    const headers = response.headers;
+    if (headers === null || typeof headers !== "object") throw new TypeError();
+    const get = (headers as { readonly get?: unknown }).get;
+    if (typeof get !== "function") throw new TypeError();
+    for (const [field, name] of names) {
+      const value = Reflect.apply(get, headers, [name]) as unknown;
+      if (value !== null && typeof value !== "string") throw new TypeError();
+      values[field] = value;
+    }
+  } catch {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  return values as ClientHeaderSnapshot;
+}
+
+function headerDescriptor(
+  response: ClientResponseDescriptor,
+  name: string,
+): ClientResponseHeaderDescriptor | undefined {
+  return response.headers.find((header) => header.name === name);
+}
+
+function canonicalDecimal(value: string, minimum: number, maximum: number): number | null {
+  if (!/^(0|[1-9][0-9]*)$/u.test(value)) return null;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) return null;
+  return number;
+}
+
+function validExposedHeaderValue(value: string, schema: ClientHeaderSchema): boolean {
+  if (schema.kind === "const") return value === schema.value;
+  if (schema.kind === "bounded-string") {
+    return (
+      schema.minLength !== undefined &&
+      schema.maxLength !== undefined &&
+      value.length >= schema.minLength &&
+      value.length <= schema.maxLength
+    );
+  }
+  if (schema.kind === "bounded-integer") {
+    return (
+      schema.minimum !== undefined &&
+      schema.maximum !== undefined &&
+      canonicalDecimal(value, schema.minimum, schema.maximum) !== null
+    );
+  }
+  if (schema.kind === "schema-ref" && schema.schemaRef !== undefined) {
+    return validateOwned(schema.schemaRef, value).valid;
+  }
+  return false;
+}
+
+function validateExposedHeader(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  response: ClientResponseDescriptor,
+  name: "ETag" | "Location" | "Retry-After",
+  value: string | null,
+): number | string | null {
+  const descriptor = headerDescriptor(response, name);
+  if (descriptor === undefined) {
+    if (value !== null) throwProtocol(operationId, "invalid-response-header", status, signal);
+    return null;
+  }
+  if (value === null) {
+    if (descriptor.required) throwProtocol(operationId, "invalid-response-header", status, signal);
+    return null;
+  }
+  if (!validExposedHeaderValue(value, descriptor.schema)) {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  if (name === "Retry-After") return Number(value);
+  return value;
+}
+
+function validateResponseHeaders(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  descriptor: ClientResponseDescriptor,
+  snapshot: ClientHeaderSnapshot,
+): CompanionResponseHeaders {
+  if (snapshot.cacheControl !== "no-store") {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  if (snapshot.requestId === null || !validateOwned("CanonicalUuid", snapshot.requestId).valid) {
+    throwProtocol(operationId, "invalid-response-header", status, signal);
+  }
+  const etag = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "ETag",
+    snapshot.etag,
+  );
+  const location = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "Location",
+    snapshot.location,
+  );
+  const retryAfter = validateExposedHeader(
+    operationId,
+    status,
+    signal,
+    descriptor,
+    "Retry-After",
+    snapshot.retryAfter,
+  );
+  return Object.freeze({
+    requestId: snapshot.requestId as CanonicalUuid,
+    etag: etag as string | null,
+    location: location as string | null,
+    retryAfterSeconds: retryAfter as number | null,
+  });
+}
+
+function isAscii(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value.charCodeAt(index) > 0x7f) return false;
+  }
+  return true;
+}
+
+function matchesJsonContentType(value: string, expected: string): boolean {
+  if (!isAscii(value)) return false;
+  const match = /^(application\\/json|application\\/problem\\+json)(?:[ \\t]*;[ \\t]*charset[ \\t]*=[ \\t]*(?:utf-8|"utf-8"))?$/i.exec(
+    value,
+  );
+  return match !== null && match[1]!.toLowerCase() === expected;
+}
+
+function validateContentType(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  body: ClientResponseBody,
+  value: string | null,
+): void {
+  let valid: boolean;
+  if (body.kind === "empty") valid = value === null;
+  else if (body.kind === "audio") {
+    valid = value !== null && isAscii(value) && /^audio\\/wav$/i.test(value);
+  }
+  else valid = value !== null && matchesJsonContentType(value, body.mediaType);
+  if (!valid) throwProtocol(operationId, "content-type-mismatch", status, signal);
+}
+
+function contentLength(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  body: ClientResponseBody,
+  value: string | null,
+): number | null {
+  if (value === null) return null;
+  const parsed = canonicalDecimal(value, 0, Number.MAX_SAFE_INTEGER);
+  if (parsed === null || (body.kind === "empty" && parsed !== 0)) {
+    throwProtocol(operationId, "invalid-content-length", status, signal);
+  }
+  return parsed;
+}
+
+async function readBodyBytes(
+  response: Response,
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  cap: number,
+  declaredLength: number | null,
+  emptyBody: boolean,
+): Promise<Uint8Array> {
+  if (declaredLength !== null && declaredLength > cap) {
+    throwProtocol(operationId, "body-too-large", status, signal);
+  }
+  let body: ReadableStream<Uint8Array> | null;
+  try {
+    body = response.body;
+  } catch {
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  if (body === null) {
+    if (declaredLength !== null && declaredLength !== 0) {
+      throwProtocol(operationId, "content-length-mismatch", status, signal);
+    }
+    return new Uint8Array();
+  }
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try {
+    reader = body.getReader();
+  } catch {
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  const chunks: Array<Readonly<{ value: Uint8Array; byteLength: number }>> = [];
+  let total = 0;
+  while (true) {
+    throwIfClientAborted(signal);
+    let part: ReadableStreamReadResult<Uint8Array>;
+    try {
+      part = await reader.read();
+    } catch {
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    throwIfClientAborted(signal);
+    let done: boolean;
+    let value: Uint8Array | undefined;
+    try {
+      if (part === null || typeof part !== "object") throw new TypeError();
+      done = part.done;
+      if (typeof done !== "boolean") throw new TypeError();
+      if (!done) value = part.value;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    if (done) break;
+    let valueByteLength: number;
+    try {
+      if (!(value instanceof Uint8Array) || TYPED_ARRAY_BYTE_LENGTH_GETTER === undefined) {
+        throw new TypeError();
+      }
+      const measured = Reflect.apply(TYPED_ARRAY_BYTE_LENGTH_GETTER, value, []) as unknown;
+      if (typeof measured !== "number" || !Number.isSafeInteger(measured) || measured < 0) {
+        throw new TypeError();
+      }
+      valueByteLength = measured;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    const nextTotal = total + valueByteLength;
+    if (!Number.isSafeInteger(nextTotal) || nextTotal > cap) {
+      await bestEffortCancelReader(reader);
+      throwProtocol(
+        operationId,
+        emptyBody ? "unexpected-body" : "body-too-large",
+        status,
+        signal,
+      );
+    }
+    if (declaredLength !== null && nextTotal > declaredLength) {
+      await bestEffortCancelReader(reader);
+      throwProtocol(operationId, "content-length-mismatch", status, signal);
+    }
+    let ownedValue: Uint8Array;
+    try {
+      ownedValue = new Uint8Array(valueByteLength);
+      Reflect.apply(UINT8_ARRAY_SET, ownedValue, [value, 0]);
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+    chunks.push({ value: ownedValue, byteLength: valueByteLength });
+    total = nextTotal;
+  }
+  if (declaredLength !== null && total !== declaredLength) {
+    throwProtocol(operationId, "content-length-mismatch", status, signal);
+  }
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(total);
+  } catch {
+    await bestEffortCancelReader(reader);
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "body-unreadable", status, signal);
+  }
+  let offset = 0;
+  for (const chunk of chunks) {
+    try {
+      Reflect.apply(UINT8_ARRAY_SET, bytes, [chunk.value, offset]);
+      offset += chunk.byteLength;
+    } catch {
+      await bestEffortCancelReader(reader);
+      throwIfClientAborted(signal);
+      throwProtocol(operationId, "body-unreadable", status, signal);
+    }
+  }
+  return bytes;
+}
+
+function parseResponseJson(
+  operationId: CompanionClientOperationId,
+  status: number,
+  signal: AbortSignal | undefined,
+  schemaRef: OwnedSchemaName,
+  bytes: Uint8Array,
+): JsonValue {
+  if (
+    bytes.byteLength >= 3 &&
+    bytes[0] === 0xef &&
+    bytes[1] === 0xbb &&
+    bytes[2] === 0xbf
+  ) {
+    throwProtocol(operationId, "invalid-utf8", status, signal);
+  }
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "invalid-utf8", status, signal);
+  }
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    throwIfClientAborted(signal);
+    throwProtocol(operationId, "invalid-json", status, signal);
+  }
+  const validation = validateOwned(schemaRef, value);
+  if (!validation.valid) throwProtocol(operationId, "schema-mismatch", status, signal);
+  return recursivelyFreeze(value as JsonValue);
+}
+
+async function validateClientResponse(
+  operationId: CompanionClientOperationId,
+  operation: ClientOperationContract,
+  requestedUrl: string,
+  response: unknown,
+  signal: AbortSignal | undefined,
+): Promise<Readonly<{ status: number; body: unknown; headers: CompanionResponseHeaders }>> {
+  if (response === null || typeof response !== "object") {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  let type: unknown;
+  let url: unknown;
+  let redirected: unknown;
+  try {
+    type = (response as Response).type;
+    url = (response as Response).url;
+    redirected = (response as Response).redirected;
+  } catch {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  if (type !== "cors") throwProtocol(operationId, "response-type-mismatch", null, signal);
+  if (url !== requestedUrl) throwProtocol(operationId, "response-url-mismatch", null, signal);
+  if (redirected !== false) throwProtocol(operationId, "redirected-response", null, signal);
+
+  let status: unknown;
+  try {
+    status = (response as Response).status;
+  } catch {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  if (
+    typeof status !== "number" ||
+    !Number.isSafeInteger(status) ||
+    status < 200 ||
+    status > 599
+  ) {
+    throwProtocol(operationId, "invalid-response", null, signal);
+  }
+  const numericStatus = status as number;
+  const descriptor = operation.responses.find((candidate) => candidate.status === numericStatus);
+  if (descriptor === undefined) throwProtocol(operationId, "unknown-status", numericStatus, signal);
+
+  const snapshot = responseHeaders(response as Response, operationId, numericStatus, signal);
+  const headers = validateResponseHeaders(
+    operationId,
+    numericStatus,
+    signal,
+    descriptor,
+    snapshot,
+  );
+  validateContentType(operationId, numericStatus, signal, descriptor.body, snapshot.contentType);
+  const declaredLength = contentLength(
+    operationId,
+    numericStatus,
+    signal,
+    descriptor.body,
+    snapshot.contentLength,
+  );
+  const cap =
+    descriptor.body.kind === "json"
+      ? (JSON_BYTE_CAPS as Readonly<Record<string, number>>)[descriptor.body.schemaRef]
+      : descriptor.body.kind === "audio"
+        ? descriptor.body.maxBytes
+        : 0;
+  if (cap === undefined) throwProtocol(operationId, "invalid-response", numericStatus, signal);
+  const bytes = await readBodyBytes(
+    response as Response,
+    operationId,
+    numericStatus,
+    signal,
+    cap,
+    declaredLength,
+    descriptor.body.kind === "empty",
+  );
+
+  let body: unknown;
+  if (descriptor.body.kind === "empty") {
+    body = undefined;
+  } else if (descriptor.body.kind === "audio") {
+    body = Object.freeze({ mediaType: "audio/wav" as const, bytes });
+  } else {
+    body = parseResponseJson(
+      operationId,
+      numericStatus,
+      signal,
+      descriptor.body.schemaRef,
+      bytes,
+    );
+  }
+
+  const successful = numericStatus >= 200 && numericStatus < 300;
+  if (!successful) {
+    const problem = body as Problem;
+    if (!(HTTP_CONTRACT.policy.problemCodes.http as readonly string[]).includes(problem.code)) {
+      throwProtocol(operationId, "non-http-problem-code", numericStatus, signal);
+    }
+    if (problem.status !== numericStatus) {
+      throwProtocol(operationId, "problem-status-mismatch", numericStatus, signal);
+    }
+    const retryDescriptor = headerDescriptor(descriptor, "Retry-After");
+    if (retryDescriptor?.condition === "queue-full-problem") {
+      const required = problem.code === HTTP_CONTRACT.policy.retryAfter.queueFullProblemCode;
+      if ((headers.retryAfterSeconds !== null) !== required) {
+        throwProtocol(operationId, "invalid-response-header", numericStatus, signal);
+      }
+    }
+    throw new CompanionHttpError(
+      operationId,
+      numericStatus as CompanionHttpStatus,
+      problem,
+      headers,
+    );
+  }
+  return Object.freeze({ status: numericStatus, body, headers });
+}
+
+async function executeClientOperation<Result>(
+  operationId: CompanionClientOperationId,
+  rawOptions: unknown,
+  fetchImpl: CompanionFetch,
+): Promise<Result> {
+  const operation = clientOperationContract(operationId);
+  const { record, signal } = exactOptions(operation, rawOptions);
+  throwIfClientAborted(signal);
+
+  let path = operation.path;
+  for (const parameter of operation.pathParameters) {
+    const value = parseClientOwned(parameter.schemaRef, optionValue(record, parameter.name));
+    path = path.replace("{" + parameter.name + "}", value as string);
+  }
+  const headers: Partial<Record<CompanionRequestHeaderName, string>> = {
+    "X-OVP-Client-Version": COMPANION_CLIENT_VERSION,
+  };
+  let serializedBody: string | undefined;
+  if (operation.request.body.kind === "json") {
+    serializedBody = serializeClientBody(operation.request.body.schemaRef, optionValue(record, "body"));
+    headers["Content-Type"] = "application/json";
+  }
+  if (operation.access.auth === "bearer") {
+    const validatedToken = parseClientOwned("OpaqueSecret", optionValue(record, "token"));
+    headers.Authorization = "Bearer " + (validatedToken as string);
+  }
+  const requestedUrl = COMPANION_API_ORIGIN + path;
+  const init = Object.freeze({
+    method: operation.method,
+    mode: "cors" as const,
+    credentials: "omit" as const,
+    cache: "no-store" as const,
+    redirect: "error" as const,
+    targetAddressSpace: "loopback" as const,
+    headers: Object.freeze(headers),
+    ...(serializedBody === undefined ? {} : { body: serializedBody }),
+    ...(signal === undefined ? {} : { signal }),
+  }) satisfies CompanionRequestInit;
+
+  const response = await fetchImpl(requestedUrl, init);
+  try {
+    throwIfClientAborted(signal);
+  } catch (error) {
+    await bestEffortCancelResponse(response);
+    throw error;
+  }
+  try {
+    const result = (await validateClientResponse(
+      operationId,
+      operation,
+      requestedUrl,
+      response,
+      signal,
+    )) as Result;
+    throwIfClientAborted(signal);
+    return result;
+  } catch (error) {
+    try {
+      throwIfClientAborted(signal);
+    } catch (abortError) {
+      await bestEffortCancelResponse(response);
+      throw abortError;
+    }
+    if (error instanceof CompanionProtocolError) {
+      await bestEffortCancelResponse(response);
+      throwIfClientAborted(signal);
+    }
+    throw error;
+  }
+}
+`;
+
 export function generateProtocol(document) {
   if (!isPlainObject(document) || !isPlainObject(document.components)) {
     fail('OpenAPI document or components are missing.');
@@ -839,7 +2092,9 @@ export function generateProtocol(document) {
   }
   assertAcyclicReferences(schemas);
   const httpContract = buildHttpContract(document);
-  const routes = collectRoutes(document);
+  const clientOperations = collectClientOperations(httpContract, schemas);
+  const routes = collectRoutes(clientOperations);
+  const jsonByteCaps = collectJsonByteCaps(clientOperations, schemas);
   const server = document.servers?.[0]?.url;
   const version = document.info?.version;
   const protocolMajor = document['x-protocol-major'];
@@ -857,11 +2112,15 @@ export function generateProtocol(document) {
   const schemaNames = sortedEntries(schemas).map(([name]) => name);
   const lines = [
     '// Generated from openapi/openapi.yaml. Do not edit by hand.',
+    freezeSource.trim(),
+    '',
     `export const COMPANION_API_ORIGIN = ${JSON.stringify(server)} as const;`,
     `export const CLIENT_VERSION = ${JSON.stringify(version)} as const;`,
+    'export const COMPANION_CLIENT_VERSION = CLIENT_VERSION;',
     `export const PROTOCOL_MAJOR = ${JSON.stringify(protocolMajor)} as const;`,
-    `export const HTTP_CONTRACT = ${JSON.stringify(httpContract, null, 2)} as const;`,
-    `export const ROUTES = ${JSON.stringify(routes, null, 2)} as const;`,
+    `export const HTTP_CONTRACT = recursivelyFreeze(${JSON.stringify(httpContract, null, 2)} as const);`,
+    `export const ROUTES = recursivelyFreeze(${JSON.stringify(routes, null, 2)} as const);`,
+    `const JSON_BYTE_CAPS = recursivelyFreeze(${JSON.stringify(jsonByteCaps, null, 2)} as const);`,
     '',
     'declare const protocolBrand: unique symbol;',
     'type Brand<Name extends string> = { readonly [protocolBrand]: { readonly [Key in Name]: true } };',
@@ -874,11 +2133,13 @@ export function generateProtocol(document) {
     );
   }
   lines.push(
+    clientTypeSource(clientOperations, httpContract),
+    '',
     `export type OwnedSchemaName = ${schemaNames.map((name) => JSON.stringify(name)).join(' | ')};`,
     '',
     runtimeSource.trim(),
     '',
-    `const SCHEMAS = JSON.parse(${JSON.stringify(JSON.stringify(sortedSchemas))}) as Readonly<Record<OwnedSchemaName, RuntimeSchema>>;`,
+    `const SCHEMAS = recursivelyFreeze(JSON.parse(${JSON.stringify(JSON.stringify(sortedSchemas))}) as Readonly<Record<OwnedSchemaName, RuntimeSchema>>);`,
     '',
   );
   for (const [name] of sortedEntries(schemas)) {
@@ -895,5 +2156,6 @@ export function generateProtocol(document) {
       '',
     );
   }
+  lines.push(clientRuntimeSource.trim(), '', clientFactorySource(clientOperations), '');
   return `${lines.join('\n').trimEnd()}\n`;
 }
