@@ -189,6 +189,22 @@ test('first service-worker activation preserves the application shell offline', 
   ).toBeVisible();
   await page.goto('/voices');
   await expect(page.getByRole('heading', { level: 1, name: 'Voice atlas' })).toBeVisible();
+  await page.goto('/voices?mode=catalog-only&engine=pocket&lang=German');
+  await expect(page.getByText('52 catalog entries')).toBeVisible();
+  await expect(page.getByText('Official live demo · internet required').first()).toBeVisible();
+  await expect(page.getByText('Country: Unspecified (not source-published)').first()).toBeVisible();
+  const cachedUrls = await page.evaluate(async () =>
+    (
+      await Promise.all(
+        (await window.caches.keys()).map(async (name) => (await window.caches.open(name)).keys()),
+      )
+    )
+      .flat()
+      .map((request) => request.url),
+  );
+  expect(
+    cachedUrls.some((url) => /kyutai\.org|huggingface\.co|\.(?:wav|mp3)(?:$|\?)/i.test(url)),
+  ).toBe(false);
 });
 
 test('a clean offline catalog state fails honestly and never loads fixtures', async ({

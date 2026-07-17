@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { RUNTIME_LABELS } from '../catalog/catalog';
 import { ArrowIcon } from '../components/Icons';
+import { PocketCoverageSummary } from '../components/PocketCoverageSummary';
 import { useAppServices, useLocalState } from '../state/AppState';
 
 export function EnginePage() {
@@ -28,6 +29,7 @@ export function EnginePage() {
   const voices = catalog.voices.filter((voice) => voice.engineId === engine.id);
   const cache = snapshot.modelCache[engine.id] ?? 'not-cached';
   const operational = voices.some((voice) => runtimeSummary.operationalVoiceIds.includes(voice.id));
+  const pocketCoverage = engine.id === 'pocket' ? catalog.pocketCoverage : null;
 
   return (
     <div className="page page--engine">
@@ -61,6 +63,17 @@ export function EnginePage() {
           </dd>
         </div>
       </dl>
+
+      {pocketCoverage !== null ? (
+        <PocketCoverageSummary
+          coverage={pocketCoverage}
+          eyebrow="Runtime and discovery stay separate"
+          headingId="engine-pocket-coverage"
+          inset
+          pocketPackPresetCount={voices.length}
+          runtimePresetCount={catalog.voices.length}
+        />
+      ) : null}
 
       <section aria-labelledby="engine-presets" className="engine-preset-list">
         <div className="section-heading">

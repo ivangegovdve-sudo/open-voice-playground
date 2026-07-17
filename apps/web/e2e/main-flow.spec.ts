@@ -57,6 +57,34 @@ test('filters runtime presets and catalog-only coverage without widening Edge or
   ).toHaveAttribute('href', '/about/sources#edge-voices-snapshot');
 });
 
+test('renders German Pocket coverage as link-only metadata without remote requests', async ({
+  page,
+}) => {
+  const remoteRequests: string[] = [];
+  page.on('request', (request) => {
+    if (/^(?:kyutai\.org|huggingface\.co)$/i.test(new URL(request.url()).hostname)) {
+      remoteRequests.push(request.url());
+    }
+  });
+
+  await page.goto('/voices?mode=catalog-only&engine=pocket&lang=German');
+  await expect(page.getByText('52 catalog entries')).toBeVisible();
+  const albaRows = page.getByRole('article', {
+    name: /Catalog-only Pocket variant alba · German · german(?:_24l)?$/,
+  });
+  await expect(albaRows).toHaveCount(2);
+  const first = albaRows.first();
+  await expect(first.getByText('Country: Unspecified (not source-published)')).toBeVisible();
+  await expect(first.getByText('Gender: Unspecified (not source-published)')).toBeVisible();
+  await expect(first.getByText('Catalog only · no generation')).toBeVisible();
+  await expect(first.getByRole('button')).toHaveCount(0);
+  await expect(first.locator('audio, input[type="file"]')).toHaveCount(0);
+  await expect(
+    first.getByRole('link', { name: /Open official Pocket TTS live demo/i }),
+  ).toHaveAttribute('href', 'https://kyutai.org/tts');
+  expect(remoteRequests).toEqual([]);
+});
+
 test('keeps play and comparison locked until a concrete adapter is verified', async ({ page }) => {
   await page.goto('/voices?engine=kokoro&q=Heart');
   await expect(page.getByText('1 catalog entry')).toBeVisible();

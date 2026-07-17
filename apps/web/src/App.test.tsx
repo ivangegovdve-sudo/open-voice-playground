@@ -122,6 +122,29 @@ describe('application routes', () => {
     expect(screen.queryByText(/synthetic fixture evidence/i)).not.toBeInTheDocument();
   });
 
+  it('publishes separate Pocket runtime and catalog-only coverage on Home and Pocket Engine', () => {
+    const home = renderLaunchRoute('/');
+    let coverage = screen.getByRole('region', { name: 'Pocket multilingual coverage' });
+    expect(coverage).toHaveTextContent('426 runtime-declared presets');
+    expect(coverage).toHaveTextContent('20 legacy Pocket pack presets');
+    expect(coverage).toHaveTextContent('312 catalog-only variants');
+    expect(coverage).toHaveTextContent(
+      '240 source-license candidates with unpinned assets/runtime',
+    );
+    expect(coverage).toHaveTextContent('Output/personality-rights review still required');
+    expect(coverage).toHaveTextContent('24 noncommercial link-only');
+    expect(coverage).toHaveTextContent('48 provenance-pending link-only');
+    expect(coverage).toHaveTextContent('Zero Pocket output clips');
+
+    home.unmount();
+    renderLaunchRoute('/engines/pocket');
+    coverage = screen.getByRole('region', { name: 'Pocket multilingual coverage' });
+    expect(coverage).toHaveTextContent('20 legacy Pocket pack presets');
+    expect(coverage).toHaveTextContent('312 catalog-only variants');
+    const catalogPresetFact = screen.getByText('Catalog presets').closest('div')!;
+    expect(within(catalogPresetFact).getByText('20')).toBeVisible();
+  });
+
   it.each([
     ['/', 'Find a voice by the shape of its sound.'],
     ['/voices', 'Voice atlas'],

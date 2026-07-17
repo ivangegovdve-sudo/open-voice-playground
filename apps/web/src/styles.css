@@ -643,6 +643,85 @@ svg {
   border-block-end: 1px solid var(--rule);
 }
 
+.pocket-coverage-summary {
+  padding-block: clamp(2.5rem, 5vw, 4.5rem);
+  border-block-end: 1px solid var(--rule);
+}
+
+.pocket-coverage-summary--inset {
+  padding-inline: clamp(1rem, 3vw, 2rem);
+  margin-block-start: clamp(2rem, 4vw, 4rem);
+  border: 1px solid var(--rule);
+  background: linear-gradient(135deg, rgb(89 195 195 / 10%), transparent 45%), var(--paper);
+}
+
+.pocket-coverage-summary__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-block-end: 1.5rem;
+}
+
+.pocket-coverage-summary__heading h2 {
+  margin: 0;
+}
+
+.pocket-coverage-summary__heading span {
+  display: block;
+  margin-block-end: 0.4rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pocket-coverage-summary__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+  margin: 0;
+  border-block: 1px solid var(--ink);
+}
+
+.pocket-coverage-summary__facts > div {
+  padding: 1.25rem;
+}
+
+.pocket-coverage-summary__facts > div + div {
+  border-inline-start: 1px solid var(--rule);
+}
+
+.pocket-coverage-summary__facts dt {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pocket-coverage-summary__facts dd {
+  margin: 0.35rem 0 0;
+  font-family: var(--serif);
+  font-size: clamp(1.15rem, 2vw, 1.65rem);
+  line-height: 1.15;
+}
+
+.pocket-coverage-summary__rights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+}
+
+.pocket-coverage-summary__rights > * {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--soft-rule);
+  background: var(--paper-strong);
+  font-size: 0.76rem;
+}
+
 .runtime-rail ol,
 .engine-rail ol,
 .local-rails ul,
@@ -1998,6 +2077,20 @@ tbody th {
 }
 
 @media (max-width: 52rem) {
+  .pocket-coverage-summary__heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .pocket-coverage-summary__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .pocket-coverage-summary__facts > div + div {
+    border-block-start: 1px solid var(--rule);
+    border-inline-start: 0;
+  }
+
   .gallery-grid {
     grid-template-columns: 1fr;
   }

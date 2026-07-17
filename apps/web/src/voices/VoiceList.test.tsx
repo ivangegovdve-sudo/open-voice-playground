@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -190,6 +190,14 @@ describe('variable-height virtual voice list', () => {
     expect(officialDemo).toHaveAttribute('href', 'https://kyutai.org/tts');
     expect(officialDemo).toHaveAttribute('target', '_blank');
     expect(officialDemo).toHaveAttribute('rel', 'noreferrer');
+    const outputBoundaryId = `pocket-output-boundary-${candidate.id.replaceAll(
+      /[^a-zA-Z0-9_-]/g,
+      '-',
+    )}`;
+    expect(officialDemo).toHaveAttribute('aria-describedby', outputBoundaryId);
+    expect(document.getElementById(outputBoundaryId)).toHaveTextContent(
+      'Official live demo · internet required. The destination performs live generation and is not called, proxied, or cached by this app.',
+    );
   });
 
   it('does not consult runtime state or cause effects while rendering Pocket coverage', () => {
@@ -256,6 +264,101 @@ describe('variable-height virtual voice list', () => {
     );
 
     expect(container.querySelector('li')).toHaveStyle({ minHeight: '440px' });
+  });
+
+  it('virtualizes all 312 Pocket variants with exact positions, unique keys, and focusable links', async () => {
+    const catalog = mapLaunchCatalog(launchJson);
+    const entries = buildExplorerEntries(catalog).filter(
+      (entry): entry is PocketCoverageExplorerEntry =>
+        entry.entryKind === 'catalog-only-pocket-variant',
+    );
+    const finalEntry = entries.at(-1)!;
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog,
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const { container } = render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+    const viewport = container.querySelector<HTMLElement>('.voice-list-viewport')!;
+    fireEvent.scroll(viewport, { target: { scrollTop: 1_000_000 } });
+
+    const finalArticle = await screen.findByRole('article', {
+      name: `Catalog-only Pocket variant ${finalEntry.label} · ${finalEntry.language} · ${finalEntry.selectorId}`,
+    });
+    const finalItem = finalArticle.closest('li');
+    expect(finalItem).toHaveAttribute('aria-posinset', '312');
+    expect(finalItem).toHaveAttribute('aria-setsize', '312');
+    const finalLink = within(finalArticle).getByRole('link', {
+      name: `Open official Pocket TTS live demo for ${finalEntry.label} · ${finalEntry.selectorId}`,
+    });
+    finalLink.focus();
+    expect(finalLink).toHaveFocus();
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringMatching(/unique.*key/i),
+      expect.anything(),
+    );
+  });
+
+  it('resets 312 to 26 to 312 results and preserves a logical list focus target', async () => {
+    const catalog = mapLaunchCatalog(launchJson);
+    const entries = buildExplorerEntries(catalog).filter(
+      (entry): entry is PocketCoverageExplorerEntry =>
+        entry.entryKind === 'catalog-only-pocket-variant',
+    );
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog,
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+    const view = render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+    const viewport = view.container.querySelector<HTMLElement>('.voice-list-viewport')!;
+    fireEvent.scroll(viewport, { target: { scrollTop: 1_000_000 } });
+    const finalEntry = entries.at(-1)!;
+    const finalLink = await screen.findByRole('link', {
+      name: `Open official Pocket TTS live demo for ${finalEntry.label} · ${finalEntry.selectorId}`,
+    });
+    finalLink.focus();
+    expect(finalLink).toHaveFocus();
+
+    view.rerender(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries.slice(0, 26)} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole('article')).toHaveLength(26);
+    expect(screen.getAllByRole('article')[0]!.closest('li')).not.toHaveAttribute('aria-posinset');
+
+    view.rerender(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+    const resetViewport = view.container.querySelector<HTMLElement>('.voice-list-viewport')!;
+    await waitFor(() => expect(resetViewport).toHaveFocus());
+    expect(resetViewport).toHaveProperty('scrollTop', 0);
+    const firstItem = (await screen.findAllByRole('article'))[0]!.closest('li');
+    expect(firstItem).toHaveAttribute('aria-posinset', '1');
+    expect(firstItem).toHaveAttribute('aria-setsize', '312');
   });
 
   it('measures mixed rows and exposes the final item with its full-list position', async () => {

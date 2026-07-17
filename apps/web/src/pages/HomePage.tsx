@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 
 import { RUNTIME_LABELS } from '../catalog/catalog';
 import { ArrowIcon, WaveformMark } from '../components/Icons';
+import { PocketCoverageSummary } from '../components/PocketCoverageSummary';
 import { useAppServices, useLocalState } from '../state/AppState';
 
 export function HomePage() {
@@ -11,6 +12,10 @@ export function HomePage() {
     .map((id) => catalog.voices.find((voice) => voice.id === id))
     .filter((voice) => voice !== undefined);
   const favorites = catalog.voices.filter((voice) => snapshot.favorites.includes(voice.id));
+  const pocketCoverage = catalog.pocketCoverage;
+  const pocketPackPresetCount = catalog.voices.filter(
+    (voice) => voice.engineId === 'pocket' && voice.runtimeModes.includes('companion'),
+  ).length;
 
   return (
     <div className="page page--home">
@@ -48,6 +53,16 @@ export function HomePage() {
           <span className="sonic-map__point sonic-map__point--cyan" />
         </div>
       </section>
+
+      {pocketCoverage !== null ? (
+        <PocketCoverageSummary
+          coverage={pocketCoverage}
+          eyebrow="Catalog boundary"
+          headingId="home-pocket-coverage"
+          pocketPackPresetCount={pocketPackPresetCount}
+          runtimePresetCount={catalog.voices.length}
+        />
+      ) : null}
 
       <section aria-labelledby="runtime-heading" className="runtime-rail">
         <div className="section-heading">

@@ -1,4 +1,5 @@
 import { RUNTIME_LABELS } from '../catalog/catalog';
+import { PocketCoverageSummary } from '../components/PocketCoverageSummary';
 import { useAppServices } from '../state/AppState';
 
 export function CompanionPage() {
@@ -6,6 +7,7 @@ export function CompanionPage() {
   const companionVoices = catalog.voices.filter((voice) =>
     voice.runtimeModes.includes('companion'),
   );
+  const pocketCoverage = catalog.pocketCoverage;
 
   return (
     <div className="page page--companion">
@@ -60,6 +62,17 @@ export function CompanionPage() {
         </ol>
       </section>
 
+      {pocketCoverage !== null ? (
+        <PocketCoverageSummary
+          coverage={pocketCoverage}
+          eyebrow="Discovery is broader than the runtime pack"
+          headingId="companion-pocket-coverage"
+          inset
+          pocketPackPresetCount={companionVoices.length}
+          runtimePresetCount={catalog.voices.length}
+        />
+      ) : null}
+
       <section aria-labelledby="companion-seed" className="companion-seed">
         <div className="section-heading">
           <h2 id="companion-seed">
@@ -71,7 +84,7 @@ export function CompanionPage() {
         </div>
         <ul>
           {companionVoices.map((voice) => (
-            <li key={voice.id}>
+            <li aria-label={`Pocket preset ${voice.name}`} key={voice.id}>
               <strong>{voice.name}</strong>
               <span>{voice.engineName}</span>
               <small>Unavailable until a verified adapter and paired companion are present.</small>

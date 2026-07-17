@@ -282,4 +282,34 @@ describe('service worker catalog/shell install pair', () => {
       expect.arrayContaining([expect.stringMatching(/worker|inference|\.wasm|\.bin/i)]),
     );
   });
+
+  it('never prefetches or caches Pocket demo, blog, model, embedding, prompt, or audio URLs', async () => {
+    const harness = await createHarness(async () =>
+      responseAt(CATALOG_URL, CATALOG, {
+        headers: { 'content-type': 'application/json' },
+        status: 200,
+      }),
+    );
+    await dispatchWaitUntil(harness.listeners, 'install');
+
+    const requestedUrls = harness.fetcher.mock.calls.map(
+      ([input]) => new URL(String(input), ORIGIN),
+    );
+    const cachedUrls = [...harness.records.values()].flatMap((entries) =>
+      [...entries.keys()].map((url) => new URL(url)),
+    );
+    const allUrls = [...requestedUrls, ...cachedUrls];
+    expect(allUrls.every(({ origin }) => origin === ORIGIN)).toBe(true);
+    for (const forbidden of [
+      'https://kyutai.org/tts',
+      'https://kyutai.org/blog/2026-05-04-pocket-tts-multilingual/',
+      'https://huggingface.co/kyutai/pocket-tts',
+      'https://huggingface.co/kyutai/tts-voices',
+      'prompt',
+      '.wav',
+      '.mp3',
+    ]) {
+      expect(allUrls.map(String).join('\n')).not.toContain(forbidden);
+    }
+  });
 });

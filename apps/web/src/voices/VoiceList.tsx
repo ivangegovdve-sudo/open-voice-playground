@@ -243,6 +243,9 @@ function RuntimeVoiceRow({ voice }: { voice: CatalogVoice }) {
 }
 
 function PocketCoverageRow({ entry }: { entry: PocketCoverageExplorerEntry }) {
+  const safeId = entry.id.replaceAll(/[^a-zA-Z0-9_-]/g, '-');
+  const outputBoundaryId = `pocket-output-boundary-${safeId}`;
+
   return (
     <article
       aria-label={`Catalog-only Pocket variant ${entry.label} · ${entry.language} · ${entry.selectorId}`}
@@ -300,11 +303,12 @@ function PocketCoverageRow({ entry }: { entry: PocketCoverageExplorerEntry }) {
         </p>
       </div>
       <div className="voice-row__actions">
-        <p className="sample-only-note">
+        <p className="sample-only-note" id={outputBoundaryId}>
           Official live demo · internet required. The destination performs live generation and is
           not called, proxied, or cached by this app.
         </p>
         <a
+          aria-describedby={outputBoundaryId}
           className="button button--secondary"
           href={entry.officialDemo.pageUrl}
           rel="noreferrer"
@@ -374,6 +378,7 @@ export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
   const shouldVirtualize = voices.length > VIRTUALIZATION_THRESHOLD;
   const resultSetKey = voices.map((voice) => voice.id).join('\u001f');
   const viewportRef = useRef<HTMLDivElement>(null);
+  const hadFocusWithinRef = useRef(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(720);
   const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>({});
@@ -388,6 +393,9 @@ export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
     const viewport = viewportRef.current;
     if (viewport !== null) {
       viewport.scrollTop = 0;
+      if (hadFocusWithinRef.current && !viewport.contains(document.activeElement)) {
+        viewport.focus({ preventScroll: true });
+      }
     }
     setScrollTop(0);
     setMeasuredHeights({});
@@ -447,6 +455,14 @@ export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
     <div
       aria-label="Virtualized voice results"
       className="voice-list-viewport"
+      onBlurCapture={(event) => {
+        if (event.relatedTarget instanceof Node) {
+          hadFocusWithinRef.current = event.currentTarget.contains(event.relatedTarget);
+        }
+      }}
+      onFocusCapture={() => {
+        hadFocusWithinRef.current = true;
+      }}
       onScroll={handleScroll}
       ref={viewportRef}
       tabIndex={0}
