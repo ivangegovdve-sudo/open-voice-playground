@@ -382,6 +382,9 @@ describe('Supertonic exact-selection workbench', () => {
     await waitFor(() => {
       expect(services.supertonicWorkbench!.getSnapshot().hydrated).toBe(true);
     });
+    expect(
+      screen.getByText('Nonconsensual impersonation is prohibited. Use preset voices responsibly.'),
+    ).toBeVisible();
     expect(consentWrite).not.toHaveBeenCalled();
     expectNoAssetIo();
     expect(

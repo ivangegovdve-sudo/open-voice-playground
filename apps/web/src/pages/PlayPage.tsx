@@ -621,6 +621,9 @@ export function PlayPage() {
             )}
             {isSupertonic && supertonicDescription !== null ? (
               <div className="supertonic-consent">
+                <p className="supertonic-consent__warning">
+                  Nonconsensual impersonation is prohibited. Use preset voices responsibly.
+                </p>
                 <details>
                   <summary>Review exact selection</summary>
                   <div className="supertonic-consent__disclosure">

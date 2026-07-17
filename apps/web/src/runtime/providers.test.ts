@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -12,7 +15,6 @@ import {
   createEdgeMetadataAdapter,
   createFutureAzureAdapter,
   createPocketCompanionAdapter,
-  createTestOnlyPcmAdapter,
   createWorkerRuntimeAdapter,
   type WorkerPort,
 } from './providers';
@@ -1723,25 +1725,19 @@ describe('lazy preset-only provider boundaries', () => {
     expect(adapter.packManifest.id).toBe('pocket-assets');
   });
 
-  it('creates decodable non-silent PCM WAV only through the explicit test backend', async () => {
-    expect(() => createTestOnlyPcmAdapter('test-engine', [voice()], 'production')).toThrow(
-      /test-only/i,
+  it('keeps generated fixture audio and test adapters out of production provider source', async () => {
+    const productionSource = await readFile(
+      resolve(process.cwd(), 'src/runtime/providers.ts'),
+      'utf8',
     );
-    const adapter = createTestOnlyPcmAdapter('kokoro', [voice()], 'test');
-    const output = await adapter.synthesize(
-      { voice: voice(), mode: 'browser', text: 'Test fixture tone.', controls: {} },
-      {},
-    );
-    const bytes = await new Promise<Uint8Array>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error);
-      reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
-      reader.readAsArrayBuffer(output.blob);
-    });
 
-    expect(new TextDecoder().decode(bytes.slice(0, 4))).toBe('RIFF');
-    expect(new TextDecoder().decode(bytes.slice(8, 12))).toBe('WAVE');
-    expect(bytes.slice(44).some((value) => value !== 0)).toBe(true);
-    expect(output.filename).toMatch(/test-only/i);
+    for (const forbidden of [
+      'createTestToneWav',
+      'createTestOnlyPcmAdapter',
+      'test-only.wav',
+      '2 * Math.PI * 440',
+    ]) {
+      expect(productionSource, forbidden).not.toContain(forbidden);
+    }
   });
 });

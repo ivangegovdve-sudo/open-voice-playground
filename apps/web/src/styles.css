@@ -1273,6 +1273,17 @@ svg {
   word-break: break-all;
 }
 
+.supertonic-consent__warning {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-inline-start: 0.25rem solid var(--danger);
+  background: var(--paper-strong);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .supertonic-consent__facts {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
