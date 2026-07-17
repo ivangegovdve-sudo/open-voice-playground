@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "kind": "open-voice-supertonic-browser-evidence-ledger",
+  "engineId": "supertonic",
+  "operationalStatus": "disabled",
+  "catalogSha256": "sha256:b0246b36441b95f9ccd579bde76b6f0faf27efc6973ea3eb2bf1cba02b25fd2a",
+  "assetSetId": "supertonic-browser-assets",
+  "manifestDigest": "sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6",
+  "tuples": [
+    {
+      "tupleId": "chrome-webgpu",
+      "browserFamily": "chrome",
+      "backend": "webgpu",
+      "selectionId": "supertonic-webgpu",
+      "selectionDigest": "sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e",
+      "qualification": {
+        "status": "not-run",
+        "reasonCode": "production-qualification-not-run",
+        "detail": "Production qualification has not been run.",
+        "evidence": null
+      }
+    },
+    {
+      "tupleId": "chrome-wasm",
+      "browserFamily": "chrome",
+      "backend": "wasm",
+      "selectionId": "supertonic-wasm",
+      "selectionDigest": "sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9",
+      "qualification": {
+        "status": "not-run",
+        "reasonCode": "production-qualification-not-run",
+        "detail": "Production qualification has not been run.",
+        "evidence": null
+      }
+    },
+    {
+      "tupleId": "edge-webgpu",
+      "browserFamily": "edge",
+      "backend": "webgpu",
+      "selectionId": "supertonic-webgpu",
+      "selectionDigest": "sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e",
+      "qualification": {
+        "status": "not-run",
+        "reasonCode": "qualifying-edge-stable-host-unavailable",
+        "detail": "No qualifying Edge Stable host was available, so production qualification has not been run.",
+        "evidence": null
+      }
+    },
+    {
+      "tupleId": "edge-wasm",
+      "browserFamily": "edge",
+      "backend": "wasm",
+      "selectionId": "supertonic-wasm",
+      "selectionDigest": "sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9",
+      "qualification": {
+        "status": "not-run",
+        "reasonCode": "qualifying-edge-stable-host-unavailable",
+        "detail": "No qualifying Edge Stable host was available, so production qualification has not been run.",
+        "evidence": null
+      }
+    }
+  ]
+}

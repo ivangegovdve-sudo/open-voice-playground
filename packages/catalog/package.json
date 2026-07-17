@@ -19,12 +19,14 @@
     "audit:import": "tsx ./src/audit-cli.ts",
     "build": "tsc -p tsconfig.build.json",
     "generate:launch": "tsx ./src/generate-launch.ts --write",
+    "generate:supertonic-browser-evidence": "tsx ./src/supertonic-browser-evidence.ts --write",
     "review:edge-snapshot": "tsx ./src/edge-snapshot-cli.ts",
     "review:pocket-multilingual": "tsx ./src/pocket-multilingual-cli.ts",
     "check:launch": "tsx ./src/generate-launch.ts --check",
+    "check:supertonic-browser-evidence": "tsx ./src/supertonic-browser-evidence.ts --check",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json && tsx ./src/generate-launch.ts --check"
+    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json && tsx ./src/generate-launch.ts --check && tsx ./src/supertonic-browser-evidence.ts --check"
   },
   "dependencies": {
     "@open-voice/contracts": "0.0.0",

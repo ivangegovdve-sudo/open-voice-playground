@@ -6,6 +6,8 @@ package-lock.json
 docs/implementation-plan.md
 packages/catalog/data/launch-catalog.public.json
 packages/catalog/data/launch-catalog.integrity.json
+packages/catalog/data/supertonic-browser-evidence.public.json
+packages/catalog/data/supertonic-browser-evidence.integrity.json
 packages/catalog/src/launch-data.ts
 packages/catalog/src/launch-assets-browser.ts
 packages/catalog/src/launch-assets-kokoro.ts

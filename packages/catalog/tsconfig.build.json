@@ -8,7 +8,10 @@
     "rootDir": "src",
     "types": ["node"],
     "paths": {
-      "@open-voice/contracts": ["../contracts/dist/index.d.ts"]
+      "@open-voice/contracts": ["../contracts/dist/index.d.ts"],
+      "@open-voice/contracts/supertonic-browser-evidence": [
+        "../contracts/dist/supertonic-browser-evidence.d.ts"
+      ]
     }
   },
   "include": ["src"],

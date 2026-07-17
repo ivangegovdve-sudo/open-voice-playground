@@ -5,7 +5,10 @@
     "noEmit": true,
     "types": ["node", "vitest/globals"],
     "paths": {
-      "@open-voice/contracts": ["../contracts/src/index.ts"]
+      "@open-voice/contracts": ["../contracts/src/index.ts"],
+      "@open-voice/contracts/supertonic-browser-evidence": [
+        "../contracts/src/supertonic-browser-evidence.ts"
+      ]
     }
   },
   "include": ["src", "test", "vitest.config.ts"]

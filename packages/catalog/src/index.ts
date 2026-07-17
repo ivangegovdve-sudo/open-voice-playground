@@ -34,6 +34,16 @@ export {
   type LaunchCatalogManifest,
 } from './launch.js';
 
+export {
+  SupertonicBrowserEvidenceValidationError,
+  buildDisabledSupertonicBrowserEvidence,
+  generateSupertonicBrowserEvidence,
+  parseSupertonicBrowserEvidenceCliMode,
+  stableStringifySupertonicBrowserEvidence,
+  validateSupertonicBrowserEvidence,
+  type SupertonicBrowserEvidencePaths,
+} from './supertonic-browser-evidence.js';
+
 export const CatalogManifestSchema = z
   .object({
     schemaVersion: z.literal(1),

@@ -4,6 +4,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
+      '@open-voice/contracts/supertonic-browser-evidence': fileURLToPath(
+        new URL('../contracts/src/supertonic-browser-evidence.ts', import.meta.url),
+      ),
       '@open-voice/contracts': fileURLToPath(new URL('../contracts/src/index.ts', import.meta.url)),
     },
   },

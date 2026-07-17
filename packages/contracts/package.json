@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./supertonic-browser-evidence": {
+      "types": "./src/supertonic-browser-evidence.ts",
+      "import": "./dist/supertonic-browser-evidence.js"
     }
   },
   "files": [
