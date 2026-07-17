@@ -15,7 +15,9 @@ entry; a poisoned cache entry is rejected and deleted. The catalog remains outsi
 service-worker shell precache.
 
 ```text
-public launch JSON ---> React catalog, filters, gallery, and evidence pages
+public launch JSON ---> 426 runtime-declared voices ---> runtime/asset boundaries
+         |
+         +-----------> 312 Pocket coverage variants ---> metadata/filtering/external link only
          |
          +-----------> immutable asset-set descriptions
                               |
@@ -53,6 +55,87 @@ no voice-cloning, reference-audio, arbitrary-model, filesystem-path, or command 
   not an all-assets runtime certification.
 - All real synthesis workers and the Pocket companion adapter are hard-disabled in the launch
   registry. Consequently, production operational count is zero.
+
+## Pocket multilingual coverage boundary
+
+Schema version 4 carries the following Pocket populations as different data classes:
+
+| Invariant                                    | Exact value |
+| -------------------------------------------- | ----------: |
+| Runtime-declared voices, all engines         |         426 |
+| Legacy Pocket voices inside the runtime pack |          20 |
+| Pocket multilingual coverage variants        |         312 |
+| Source-license candidates                    |         240 |
+| Noncommercial link-only variants             |          24 |
+| Provenance-pending link-only variants        |          48 |
+| Published Pocket output clips                |           0 |
+| Official Pocket live-demo records            |           1 |
+
+The legacy 20 Pocket presets and their pack remain unchanged inside `voices`. The additional 312
+records live only in `pocketCoverage`: none enters `SeedCatalog.voices`, an asset set, runtime
+selection, generation candidate, generated-media record, Play/Compare behavior, the companion
+protocol, or an operational count. The expanded collection is carried by the verified external
+catalog JSON rather than the initial JavaScript bundle.
+
+The coverage inventory is an exact `12 selectors x 26 labels = 312` closure with inventory digest
+`sha256:67bb94d81b1a74f18ba13952a355b474ee8788201a58a66a49126316b9e33f6d`.
+Every stable ID is `pocket:${selectorId}.${label}` and its exact upstream path is
+`languages/${selectorId}/embeddings/${label}.safetensors`. Selectors that share a language remain
+separate identities and paths.
+
+| Base BCP-47 language | Selectors | Variants |
+| -------------------- | --------: | -------: |
+| English (`en`)       |         3 |       78 |
+| French (`fr`)        |         1 |       26 |
+| German (`de`)        |         2 |       52 |
+| Italian (`it`)       |         2 |       52 |
+| Portuguese (`pt`)    |         2 |       52 |
+| Spanish (`es`)       |         2 |       52 |
+
+The selector supplies only its reviewed base language tag. Every coverage record has
+`countryCode: null` and `gender: "unspecified"`; country, region, accent, gender, and identity are
+never inferred from a filename, label, recording, name, or apparent voice.
+
+### Immutable audit pins
+
+| Coverage role                | Exact revision                             |
+| ---------------------------- | ------------------------------------------ |
+| Stable Pocket code           | `058886528d0b6f2f2d4022de2e244a5260729e6e` |
+| Current code audit           | `d108410d23eef7e01db282f9442891162dbc3db6` |
+| Full cloning-capable model   | `4c8ad48f8a003909bc4f1122cbe88a4252124621` |
+| Preset-only no-cloning model | `e041936c75475d350b405bc870bcf7c22da4e9e6` |
+| Voice-source repository      | `323332d33f997de8394f24a193e1a76df720e01a` |
+| Historical prompt snapshot   | `64ab7d24c479d736a83b8cc666c4a776fca30fda` |
+
+The full model and historical snapshot are audit evidence only; this release does not accept their
+gates or download their media. The no-cloning tree establishes inventory, not a release-ready
+multilingual runtime: its selector assets and full runtime closure are not pinned into launch asset
+sets.
+
+### Rights and delivery policy
+
+The 240 `catalog-only-runtime-candidate` variants are **source-license candidates with unpinned
+assets/runtime**. Source-license eligibility is not generated-output clearance and does not settle
+personality, publicity, privacy, performer, consent, publication, commercial-use, or redistribution
+rights. A separate affirmative decision is required before generation or publication.
+
+The 24 Cosette/Expresso and Jean/EARS variants remain `link-only-noncommercial`; they cannot become
+runtime candidates, hosted media, commercial content, or playable clips. The 48 Giovanni, Lola,
+Juergen, and Rafael variants remain `link-only-provenance-pending` until exact per-clip source,
+license, consent, and attribution evidence exists.
+
+There are zero reviewed Pocket-generated output clips. Source WAV/MP3 files are conditioning or
+prompt recordings, not model output, and cannot be relabeled, copied, proxied, cached, or played as
+samples. The one official-demo record points to `https://kyutai.org/tts` as ordinary external,
+internet-required navigation. Page construction, offline startup, filtering, and scrolling make no
+request to the demo, blog, Hugging Face, model, embedding, prompt, source audio, or generated audio;
+none enters the service-worker shell cache. Verified coverage metadata remains usable offline, but
+the live demo does not.
+
+Repository MIT terms apply only to repository-authored code. They do not relicense Pocket code,
+models, weights, embeddings, datasets, voices, conditioning/source recordings, services, or
+generated outputs. The exact gate for a separately reviewed project-generated clip is defined in
+`docs/GENERATED_MEDIA_NOTICE.md`.
 
 ## Gallery boundary
 
