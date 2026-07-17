@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type UIEvent
 import { Link } from 'react-router-dom';
 
 import { RUNTIME_LABELS } from '../catalog/catalog';
+import type { PocketCoverageExplorerEntry } from '../catalog/explorer';
 import type { CatalogVoice } from '../catalog/filters';
 import { calculateVariableVirtualRange } from '../catalog/virtual-range';
 import { ArrowIcon, PlayIcon, StarIcon } from '../components/Icons';
@@ -10,8 +11,21 @@ import { useAppServices, useLocalState } from '../state/AppState';
 const VIRTUALIZATION_THRESHOLD = 30;
 const ESTIMATED_ROW_HEIGHT = 280;
 const ESTIMATED_SAMPLE_ROW_HEIGHT = 440;
+const ESTIMATED_CATALOG_ONLY_ROW_HEIGHT = 440;
+
+const POCKET_POLICY_COPY: Record<PocketCoverageExplorerEntry['listingPolicy'], string> = {
+  'catalog-only-runtime-candidate':
+    'Catalog candidate · embedding assets and companion runtime are not release-pinned.',
+  'link-only-noncommercial': 'Link only · source terms are noncommercial.',
+  'link-only-provenance-pending': 'Link only · per-clip provenance is unresolved.',
+};
+
+function isPocketCoverageEntry(voice: CatalogVoice): voice is PocketCoverageExplorerEntry {
+  return 'entryKind' in voice && voice.entryKind === 'catalog-only-pocket-variant';
+}
 
 function estimatedHeight(voice: CatalogVoice): number {
+  if (isPocketCoverageEntry(voice)) return ESTIMATED_CATALOG_ONLY_ROW_HEIGHT;
   return voice.sample === null ? ESTIMATED_ROW_HEIGHT : ESTIMATED_SAMPLE_ROW_HEIGHT;
 }
 
@@ -27,7 +41,7 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-function VoiceRow({ voice }: { voice: CatalogVoice }) {
+function RuntimeVoiceRow({ voice }: { voice: CatalogVoice }) {
   const services = useAppServices();
   const { catalog, preview, runtimeSummary } = services;
   const { snapshot, toggleFavorite, recordRecent } = useLocalState();
@@ -226,6 +240,89 @@ function VoiceRow({ voice }: { voice: CatalogVoice }) {
       </div>
     </article>
   );
+}
+
+function PocketCoverageRow({ entry }: { entry: PocketCoverageExplorerEntry }) {
+  return (
+    <article
+      aria-label={`Catalog-only Pocket variant ${entry.label} · ${entry.language} · ${entry.selectorId}`}
+      className="voice-row"
+    >
+      <div className="voice-row__coordinate" aria-hidden="true">
+        {entry.locale}
+      </div>
+      <div className="voice-row__main">
+        <div className="voice-row__heading">
+          <div>
+            <h2>{entry.name}</h2>
+            <span>{entry.engineName}</span>
+          </div>
+        </div>
+        <div className="voice-row__meta">
+          <span>{entry.language}</span>
+          <span>{entry.selectorId}</span>
+          <span>Country: Unspecified (not source-published)</span>
+          <span>Gender: Unspecified (not source-published)</span>
+        </div>
+        <div aria-label="Catalog availability" className="runtime-list">
+          <span className="runtime-label">Catalog only · no generation</span>
+        </div>
+
+        <p className="voice-row__gate-detail">{POCKET_POLICY_COPY[entry.listingPolicy]}</p>
+
+        <div aria-label={`Evidence for ${entry.name}`} className="voice-row__evidence">
+          <span>Voice evidence</span>
+          <p>
+            License:{' '}
+            {entry.licenseIds.map((licenseId, index) => (
+              <span key={licenseId}>
+                {index > 0 ? ', ' : null}
+                <Link aria-label={`Voice license ${licenseId}`} to={`/about/sources#${licenseId}`}>
+                  {licenseId}
+                </Link>
+              </span>
+            ))}
+            {' · '}Source:{' '}
+            {entry.sourceIds.map((sourceId, index) => (
+              <span key={sourceId}>
+                {index > 0 ? ', ' : null}
+                <Link aria-label={`Voice source ${sourceId}`} to={`/about/sources#${sourceId}`}>
+                  {sourceId}
+                </Link>
+              </span>
+            ))}
+          </p>
+        </div>
+
+        <p className="voice-row__notice">
+          No stable official generated Pocket TTS output clip was found. Conditioning/source audio
+          is not a model sample.
+        </p>
+      </div>
+      <div className="voice-row__actions">
+        <p className="sample-only-note">
+          Official live demo · internet required. The destination performs live generation and is
+          not called, proxied, or cached by this app.
+        </p>
+        <a
+          className="button button--secondary"
+          href={entry.officialDemo.pageUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open official Pocket TTS live demo for {entry.label} · {entry.selectorId}
+          <ArrowIcon />
+        </a>
+      </div>
+    </article>
+  );
+}
+
+function VoiceRow({ voice }: { voice: CatalogVoice }) {
+  if (isPocketCoverageEntry(voice)) {
+    return <PocketCoverageRow entry={voice} />;
+  }
+  return <RuntimeVoiceRow voice={voice} />;
 }
 
 function MeasuredVoiceItem({

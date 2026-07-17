@@ -172,6 +172,22 @@ describe('launch catalog web adapter', () => {
     expect(() => mapLaunchCatalog(missingAuditSource)).toThrow(/coverage|audit/i);
   });
 
+  it.each(['2026-02-31T00:00:00Z', '2026-01-01T24:00:00Z'])(
+    'rejects impossible Pocket official-demo datetime %s',
+    (reviewedAt) => {
+      const impossibleDatetime = structuredClone(launchJson);
+      impossibleDatetime.pocketCoverage.officialDemo.reviewedAt = reviewedAt;
+
+      expect(() => mapLaunchCatalog(impossibleDatetime)).toThrow(/official demo/i);
+    },
+  );
+
+  it('accepts the canonical Pocket official-demo datetime', () => {
+    const catalog = mapLaunchCatalog(launchJson);
+
+    expect(catalog.pocketCoverage?.officialDemo.reviewedAt).toBe('2026-07-16T00:00:00.000Z');
+  });
+
   it('rejects runtime closure records whose exact frozen identity drifts', () => {
     const wrongTarball = structuredClone(launchJson);
     wrongTarball.runtimeArtifacts[0]!.tarballUrl =

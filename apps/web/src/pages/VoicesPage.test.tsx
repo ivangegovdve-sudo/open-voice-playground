@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -30,6 +30,16 @@ describe('launch voice explorer page', () => {
     expect(services.catalog.voices.some(({ id }) => id === 'pocket:german.alba')).toBe(false);
   });
 
+  it('exposes the combined launch count exactly once to accessibility APIs', () => {
+    renderVoices();
+
+    const combinedCount = screen.getAllByText(
+      '426 runtime-declared presets + 312 catalog-only Pocket variants',
+    );
+    expect(combinedCount).toHaveLength(1);
+    expect(combinedCount[0]?.closest('[aria-hidden="true"]')).toBeNull();
+  });
+
   it('applies the existing mode query parameter to catalog-only entries', () => {
     renderVoices('/voices?mode=catalog-only&locale=de');
 
@@ -37,5 +47,25 @@ describe('launch voice explorer page', () => {
     expect(document.querySelector('#desktop-locale-de')).toBeChecked();
     expect(screen.getByText('52 catalog entries')).toBeInTheDocument();
     expect(screen.queryByText(/runnable voices/i)).not.toBeInTheDocument();
+  });
+
+  it('keeps a filtered catalog-only result out of internal runtime actions', () => {
+    renderVoices('/voices?mode=catalog-only&locale=de&q=german_24l%20alba');
+
+    expect(screen.getByText('1 catalog entry')).toBeInTheDocument();
+    const article = screen.getByRole('article', {
+      name: 'Catalog-only Pocket variant alba · German · german_24l',
+    });
+    expect(
+      within(article).getByRole('link', {
+        name: 'Open official Pocket TTS live demo for alba · german_24l',
+      }),
+    ).toHaveAttribute('href', 'https://kyutai.org/tts');
+    expect(within(article).queryByRole('button')).not.toBeInTheDocument();
+    expect(
+      within(article).queryByRole('link', {
+        name: /inspect preset|use voice|add to compare|play/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 });

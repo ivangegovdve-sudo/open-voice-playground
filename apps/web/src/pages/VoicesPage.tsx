@@ -66,7 +66,7 @@ export function VoicesPage() {
             stays visible.
           </p>
         </div>
-        <div className="atlas-coordinate" aria-hidden="true">
+        <div className="atlas-coordinate">
           {catalog.kind === 'launch'
             ? '426 runtime-declared presets + 312 catalog-only Pocket variants'
             : '05 PRESETS / FIXTURE V1'}

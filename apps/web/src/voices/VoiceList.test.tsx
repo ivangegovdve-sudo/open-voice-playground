@@ -1,15 +1,36 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import launchJson from '../../../../packages/catalog/data/launch-catalog.public.json';
 import { createDefaultServices } from '../app-services';
 import { seedCatalog } from '../catalog/catalog';
+import { buildExplorerEntries, type PocketCoverageExplorerEntry } from '../catalog/explorer';
 import type { CatalogVoice } from '../catalog/filters';
+import { mapLaunchCatalog } from '../catalog/launch-catalog';
 import { AppStateProvider } from '../state/AppState';
 import { createLocalDataStore } from '../state/local-store';
 import { VoiceList } from './VoiceList';
 
 afterEach(() => vi.restoreAllMocks());
+
+function launchCoverageFixture() {
+  const catalog = mapLaunchCatalog(launchJson);
+  const coverage = buildExplorerEntries(catalog).filter(
+    (entry): entry is PocketCoverageExplorerEntry =>
+      entry.entryKind === 'catalog-only-pocket-variant',
+  );
+  const candidate = coverage.find(
+    ({ label, selectorId }) => label === 'alba' && selectorId === 'german_24l',
+  )!;
+  const noncommercial = coverage.find(
+    ({ listingPolicy }) => listingPolicy === 'link-only-noncommercial',
+  )!;
+  const provenancePending = coverage.find(
+    ({ listingPolicy }) => listingPolicy === 'link-only-provenance-pending',
+  )!;
+  return { candidate, catalog, noncommercial, provenancePending };
+}
 
 describe('variable-height virtual voice list', () => {
   it('links runnable voice-level source and license evidence accessibly', () => {
@@ -92,6 +113,149 @@ describe('variable-height virtual voice list', () => {
     expect(screen.getAllByRole('link', { name: /inspect preset/i })).toHaveLength(2);
     expect(screen.getByText('Runtime verification pending')).toBeInTheDocument();
     expect(screen.getByText('Catalog unavailable')).toBeInTheDocument();
+  });
+
+  it('renders all Pocket coverage policies as evidence-only external-demo rows', () => {
+    const { candidate, catalog, noncommercial, provenancePending } = launchCoverageFixture();
+    const entries = [candidate, noncommercial, provenancePending];
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog,
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+
+    render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+
+    const policyCopy = new Map<PocketCoverageExplorerEntry['listingPolicy'], string>([
+      [
+        'catalog-only-runtime-candidate',
+        'Catalog candidate · embedding assets and companion runtime are not release-pinned.',
+      ],
+      ['link-only-noncommercial', 'Link only · source terms are noncommercial.'],
+      ['link-only-provenance-pending', 'Link only · per-clip provenance is unresolved.'],
+    ]);
+    for (const entry of entries) {
+      const article = screen.getByRole('article', {
+        name: `Catalog-only Pocket variant ${entry.label} · ${entry.language} · ${entry.selectorId}`,
+      });
+      expect(within(article).getByText('Catalog only · no generation')).toBeInTheDocument();
+      expect(
+        within(article).getByText('Country: Unspecified (not source-published)'),
+      ).toBeVisible();
+      expect(within(article).getByText('Gender: Unspecified (not source-published)')).toBeVisible();
+      expect(within(article).getByText(policyCopy.get(entry.listingPolicy)!)).toBeVisible();
+      expect(
+        within(article).getByText(
+          'No stable official generated Pocket TTS output clip was found. Conditioning/source audio is not a model sample.',
+        ),
+      ).toBeVisible();
+      expect(
+        within(article).getByText(
+          'Official live demo · internet required. The destination performs live generation and is not called, proxied, or cached by this app.',
+        ),
+      ).toBeVisible();
+      for (const licenseId of entry.licenseIds) {
+        expect(
+          within(article).getByRole('link', { name: `Voice license ${licenseId}` }),
+        ).toHaveAttribute('href', `/about/sources#${licenseId}`);
+      }
+      for (const sourceId of entry.sourceIds) {
+        expect(
+          within(article).getByRole('link', { name: `Voice source ${sourceId}` }),
+        ).toHaveAttribute('href', `/about/sources#${sourceId}`);
+      }
+      expect(within(article).queryByRole('button')).not.toBeInTheDocument();
+      expect(
+        within(article).queryByRole('link', {
+          name: /use voice|inspect preset|add to compare|play/i,
+        }),
+      ).not.toBeInTheDocument();
+      expect(article.querySelector('audio, input[type="file"]')).toBeNull();
+    }
+
+    const officialDemo = within(
+      screen.getByRole('article', {
+        name: 'Catalog-only Pocket variant alba · German · german_24l',
+      }),
+    ).getByRole('link', {
+      name: 'Open official Pocket TTS live demo for alba · german_24l',
+    });
+    expect(officialDemo).toHaveAttribute('href', 'https://kyutai.org/tts');
+    expect(officialDemo).toHaveAttribute('target', '_blank');
+    expect(officialDemo).toHaveAttribute('rel', 'noreferrer');
+  });
+
+  it('does not consult runtime state or cause effects while rendering Pocket coverage', () => {
+    const { candidate, catalog } = launchCoverageFixture();
+    const defaults = createDefaultServices();
+    const previewPlay = vi.spyOn(defaults.preview, 'play');
+    const runtimeGet = vi.fn(() => null);
+    const runtimeSummaryRead = vi.fn();
+    const createObjectUrl = vi.fn(() => 'blob:forbidden');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const store = createLocalDataStore({ indexedDB: null });
+    const favoriteSpy = vi.spyOn(store, 'toggleFavorite');
+    const services = {
+      ...defaults,
+      catalog,
+      createObjectUrl,
+      runtime: { get: runtimeGet },
+      store,
+    };
+    Object.defineProperty(services, 'runtimeSummary', {
+      configurable: true,
+      get: () => {
+        runtimeSummaryRead();
+        return defaults.runtimeSummary;
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={[candidate]} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+
+    expect(runtimeSummaryRead).not.toHaveBeenCalled();
+    expect(runtimeGet).not.toHaveBeenCalled();
+    expect(previewPlay).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(createObjectUrl).not.toHaveBeenCalled();
+    expect(favoriteSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses a catalog-only estimate for virtualized Pocket coverage rows', () => {
+    const { candidate, catalog } = launchCoverageFixture();
+    const entries = Array.from({ length: 35 }, (_, index) => ({
+      ...candidate,
+      id: `pocket:test-${index}.alba`,
+      name: `Alba catalog ${index}`,
+    }));
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog,
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+
+    const { container } = render(
+      <MemoryRouter>
+        <AppStateProvider services={services}>
+          <VoiceList voices={entries} />
+        </AppStateProvider>
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelector('li')).toHaveStyle({ minHeight: '440px' });
   });
 
   it('measures mixed rows and exposes the final item with its full-list position', async () => {
