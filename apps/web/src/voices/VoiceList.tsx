@@ -294,6 +294,18 @@ function PocketCoverageRow({ entry }: { entry: PocketCoverageExplorerEntry }) {
                 </Link>
               </span>
             ))}
+            {' · '}Official demo:{' '}
+            {entry.officialDemo.sourceIds.map((sourceId, index) => (
+              <span key={sourceId}>
+                {index > 0 ? ', ' : null}
+                <Link
+                  aria-label={`Official demo source ${sourceId}`}
+                  to={`/about/sources#${sourceId}`}
+                >
+                  {sourceId}
+                </Link>
+              </span>
+            ))}
           </p>
         </div>
 
@@ -393,8 +405,15 @@ export function VoiceList({ voices }: { voices: CatalogVoice[] }) {
     const viewport = viewportRef.current;
     if (viewport !== null) {
       viewport.scrollTop = 0;
-      if (hadFocusWithinRef.current && !viewport.contains(document.activeElement)) {
+      const activeElement = document.activeElement;
+      const focusWasLost =
+        activeElement === null ||
+        activeElement === document.body ||
+        activeElement === document.documentElement;
+      if (hadFocusWithinRef.current && focusWasLost) {
         viewport.focus({ preventScroll: true });
+      } else if (activeElement !== null && !viewport.contains(activeElement)) {
+        hadFocusWithinRef.current = false;
       }
     }
     setScrollTop(0);

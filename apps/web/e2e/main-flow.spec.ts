@@ -62,7 +62,7 @@ test('renders German Pocket coverage as link-only metadata without remote reques
 }) => {
   const remoteRequests: string[] = [];
   page.on('request', (request) => {
-    if (/^(?:kyutai\.org|huggingface\.co)$/i.test(new URL(request.url()).hostname)) {
+    if (/(?:^|\.)(?:kyutai\.org|huggingface\.co)$/i.test(new URL(request.url()).hostname)) {
       remoteRequests.push(request.url());
     }
   });
@@ -82,7 +82,38 @@ test('renders German Pocket coverage as link-only metadata without remote reques
   await expect(
     first.getByRole('link', { name: /Open official Pocket TTS live demo/i }),
   ).toHaveAttribute('href', 'https://kyutai.org/tts');
+  await expect(
+    first.getByRole('link', {
+      name: 'Official demo source pocket-official-live-demo-source',
+    }),
+  ).toHaveAttribute('href', '/about/sources#pocket-official-live-demo-source');
   expect(remoteRequests).toEqual([]);
+});
+
+test('keeps filter focus when a focused virtual Pocket row scrolls out of the DOM', async ({
+  page,
+}) => {
+  await page.goto('/voices?mode=catalog-only&engine=pocket');
+  await expect(page.getByText('312 catalog entries')).toBeVisible();
+
+  const firstDemoLink = page.getByRole('link', {
+    name: 'Open official Pocket TTS live demo for alba · english',
+    exact: true,
+  });
+  await firstDemoLink.focus();
+  await expect(firstDemoLink).toBeFocused();
+
+  const viewport = page.locator('.voice-list-viewport');
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event('scroll', { bubbles: true }));
+  });
+  await expect(firstDemoLink).toHaveCount(0);
+
+  const germanFilter = page.locator('#desktop-lang-German');
+  await germanFilter.click();
+  await expect(page.getByText('52 catalog entries')).toBeVisible();
+  await expect(germanFilter).toBeFocused();
 });
 
 test('keeps play and comparison locked until a concrete adapter is verified', async ({ page }) => {

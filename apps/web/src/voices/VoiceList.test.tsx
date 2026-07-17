@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -169,6 +170,11 @@ describe('variable-height virtual voice list', () => {
       for (const sourceId of entry.sourceIds) {
         expect(
           within(article).getByRole('link', { name: `Voice source ${sourceId}` }),
+        ).toHaveAttribute('href', `/about/sources#${sourceId}`);
+      }
+      for (const sourceId of entry.officialDemo.sourceIds) {
+        expect(
+          within(article).getByRole('link', { name: `Official demo source ${sourceId}` }),
         ).toHaveAttribute('href', `/about/sources#${sourceId}`);
       }
       expect(within(article).queryByRole('button')).not.toBeInTheDocument();
@@ -359,6 +365,62 @@ describe('variable-height virtual voice list', () => {
     const firstItem = (await screen.findAllByRole('article'))[0]!.closest('li');
     expect(firstItem).toHaveAttribute('aria-posinset', '1');
     expect(firstItem).toHaveAttribute('aria-setsize', '312');
+  });
+
+  it('does not steal focus from a filter after the focused virtual row is removed', async () => {
+    const catalog = mapLaunchCatalog(launchJson);
+    const entries = buildExplorerEntries(catalog).filter(
+      (entry): entry is PocketCoverageExplorerEntry =>
+        entry.entryKind === 'catalog-only-pocket-variant',
+    );
+    const germanEntries = entries.filter(({ language }) => language === 'German');
+    const defaults = createDefaultServices();
+    const services = {
+      ...defaults,
+      catalog,
+      store: createLocalDataStore({ indexedDB: null }),
+    };
+
+    function FilterHarness() {
+      const [germanOnly, setGermanOnly] = useState(false);
+      return (
+        <MemoryRouter>
+          <label>
+            <input
+              aria-label="German only"
+              checked={germanOnly}
+              onChange={(event) => setGermanOnly(event.currentTarget.checked)}
+              type="checkbox"
+            />
+            German only
+          </label>
+          <AppStateProvider services={services}>
+            <VoiceList voices={germanOnly ? germanEntries : entries} />
+          </AppStateProvider>
+        </MemoryRouter>
+      );
+    }
+
+    const { container } = render(<FilterHarness />);
+    const firstEntry = entries[0]!;
+    const firstLink = screen.getByRole('link', {
+      name: `Open official Pocket TTS live demo for ${firstEntry.label} · ${firstEntry.selectorId}`,
+    });
+    firstLink.focus();
+    expect(firstLink).toHaveFocus();
+
+    const viewport = container.querySelector<HTMLElement>('.voice-list-viewport')!;
+    fireEvent.scroll(viewport, { target: { scrollTop: 1_000_000 } });
+    await waitFor(() => expect(firstLink).not.toBeInTheDocument());
+    expect(document.body).toHaveFocus();
+
+    const filter = screen.getByRole('checkbox', { name: 'German only' });
+    filter.focus();
+    fireEvent.click(filter);
+
+    expect(filter).toBeChecked();
+    expect(filter).toHaveFocus();
+    expect(container.querySelector('li')).toHaveAttribute('aria-setsize', '52');
   });
 
   it('measures mixed rows and exposes the final item with its full-list position', async () => {
