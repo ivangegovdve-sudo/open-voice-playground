@@ -571,6 +571,14 @@ const ImmutableHttpsUrlSchema = SafeHttpsUrlSchema.refine(
   'Expected an immutable HTTPS URL containing a pinned revision',
 );
 
+const CanonicalImmutableAssetUrlSchema = ImmutableHttpsUrlSchema.refine((value) => {
+  const queryDelimiterIndex = value.indexOf('?');
+  return (
+    !value.includes('#') &&
+    (queryDelimiterIndex === -1 || value.slice(queryDelimiterIndex) === '?download=true')
+  );
+}, 'Expected no query or the exact reviewed ?download=true query and no fragment');
+
 const ExactHttpsOriginSchema = z
   .string()
   .url()
@@ -672,7 +680,7 @@ export const BrowserRuntimeSelectionsSchema = z
 export const ImmutableAssetSchema = z
   .object({
     id: RecordIdSchema,
-    url: ImmutableHttpsUrlSchema,
+    url: CanonicalImmutableAssetUrlSchema,
     approvedFinalOrigins: z
       .array(ExactHttpsOriginSchema)
       .min(1)
@@ -946,7 +954,7 @@ const BrowserRuntimeS0CacheHitEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase
 
 const BrowserRuntimeS0DownloadEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase.extend({
   disposition: z.literal('downloaded'),
-  requestUrl: SafeHttpsUrlSchema,
+  requestUrl: CanonicalImmutableAssetUrlSchema,
   finalUrlRedacted: BrowserRuntimeS0RedactedFinalUrlSchema,
   finalUrlSha256: Sha256Schema,
   finalOrigin: ExactHttpsOriginSchema,

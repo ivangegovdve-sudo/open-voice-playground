@@ -23,6 +23,32 @@ function sha256Text(value: string): string {
   return `sha256:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
 }
 
+function errorGraphText(value: unknown): string {
+  const seen = new Set<object>();
+  const pending: unknown[] = [value];
+  const text: string[] = [];
+  while (pending.length > 0) {
+    const current = pending.shift();
+    if (typeof current === 'string') {
+      text.push(current);
+      continue;
+    }
+    if (typeof current !== 'object' || current === null || seen.has(current)) continue;
+    seen.add(current);
+    for (const key of Object.getOwnPropertyNames(current)) {
+      let nested: unknown;
+      try {
+        nested = (current as Record<string, unknown>)[key];
+      } catch {
+        continue;
+      }
+      if (typeof nested === 'string') text.push(nested);
+      else pending.push(nested);
+    }
+  }
+  return text.join('\n');
+}
+
 function manifest(overrides: Partial<AssetSetManifest> = {}): AssetSetManifest {
   return {
     id: 'test-browser-assets',
@@ -794,6 +820,48 @@ describe('consent-gated immutable asset preparation', () => {
     expect(serialized).not.toContain('secret');
     expect(serialized).not.toContain('"finalUrl":');
   });
+
+  it.each(['fetch', 'stream'] as const)(
+    'never retains a signed final URL from an external %s failure',
+    async (phase) => {
+      const signedFinalUrl =
+        'https://cas-bridge.xethub.hf.co/private/model.onnx?X-Amz-Credential=credential&X-Amz-Signature=secret';
+      const external = new Error(`external failure at ${signedFinalUrl}`, {
+        cause: { redirect: signedFinalUrl },
+      });
+      const fetcher = vi.fn(async () => {
+        if (phase === 'fetch') throw external;
+        const body = new ReadableStream<Uint8Array<ArrayBuffer>>({
+          pull() {
+            throw external;
+          },
+        });
+        return withResponseMetadata(
+          new Response(body, {
+            headers: { 'content-length': String(BYTES.byteLength) },
+            status: 200,
+          }),
+        );
+      });
+      const set = manifest();
+      const ports = manager(new MemoryAssetStore(), fetcher);
+
+      let rejection: unknown;
+      try {
+        await ports.instance.prepare(set, createConsentReceipt(set, ['test-license']));
+      } catch (error) {
+        rejection = error;
+      }
+
+      expect(rejection).toMatchObject({ code: 'network-error' });
+      expect((rejection as Error).cause).toBeUndefined();
+      const graph = errorGraphText(rejection);
+      expect(graph).not.toContain('X-Amz-');
+      expect(graph).not.toContain('/private/');
+      expect(graph).not.toContain('credential');
+      expect(graph).not.toContain('secret');
+    },
+  );
 
   it('requires exact consent before reading fresh verified bytes for transfer to a Worker', async () => {
     const set = manifest();

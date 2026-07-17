@@ -78,11 +78,24 @@ describe('launch release and asset contracts', () => {
     const assetSchema = schema('ImmutableAssetSchema');
 
     expect(assetSchema.safeParse(immutableAsset).success).toBe(true);
+    expect(
+      assetSchema.safeParse({ ...immutableAsset, url: `${immutableAsset.url}?download=true` })
+        .success,
+    ).toBe(true);
     for (const unsafeUrl of [
       'http://huggingface.co/model.onnx',
       'https://token@example.com/model.onnx',
       'https://huggingface.co/model/resolve/main/model.onnx',
       'https://huggingface.co/model/resolve/refs%2Fheads%2Fmain/model.onnx',
+      `${immutableAsset.url}?download=false`,
+      `${immutableAsset.url}?source=browser`,
+      `${immutableAsset.url}?X-Amz-Credential=credential&X-Amz-Signature=secret`,
+      `${immutableAsset.url}?download=true&X-Amz-Expires=3600`,
+      `${immutableAsset.url}?download=true&download=true`,
+      `${immutableAsset.url}?download=true#signed-fragment`,
+      `${immutableAsset.url}?`,
+      `${immutableAsset.url}#`,
+      `${immutableAsset.url}?download=true#`,
     ]) {
       expect(assetSchema.safeParse({ ...immutableAsset, url: unsafeUrl }).success).toBe(false);
     }
@@ -304,6 +317,18 @@ describe('launch release and asset contracts', () => {
         assets: [
           {
             ...evidence.assets[0],
+            requestUrl:
+              'https://example.com/model/0123456789abcdef0123456789abcdef01234567/model.onnx?X-Amz-Signature=secret',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        assets: [
+          {
+            ...evidence.assets[0],
             finalUrl: 'https://assets.example.com/private/model.onnx?X-Amz-Signature=secret',
           },
         ],
@@ -456,7 +481,10 @@ describe('launch release and asset contracts', () => {
         {
           ...evidence,
           assets: [
-            { ...evidence.assets[0], requestUrl: 'https://mirror.example.com/model.onnx' },
+            {
+              ...evidence.assets[0],
+              requestUrl: `https://mirror.example.com/model/${revision}/model.onnx`,
+            },
             evidence.assets[1],
           ],
         },

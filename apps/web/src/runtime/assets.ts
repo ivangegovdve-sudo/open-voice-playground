@@ -650,13 +650,12 @@ function classifyStorageError(error: unknown): AssetPreparationError {
     return new AssetPreparationError(
       'quota-exceeded',
       'The browser storage quota is too small for this runtime asset.',
-      { cause: error },
     );
   }
-  if (error instanceof AssetPreparationError) return error;
-  return new AssetPreparationError('storage-error', 'The verified asset could not be stored.', {
-    cause: error,
-  });
+  if (error instanceof AssetPreparationError) {
+    return new AssetPreparationError(error.code, error.message);
+  }
+  return new AssetPreparationError('storage-error', 'The verified asset could not be stored.');
 }
 
 /**
@@ -864,9 +863,7 @@ export class AssetPreparationManager {
             ? controller.signal.reason
             : new DOMException('The asset preparation was aborted.', 'AbortError');
         }
-        throw new AssetPreparationError('network-error', `Could not download ${artifact.id}.`, {
-          cause: error,
-        });
+        throw new AssetPreparationError('network-error', `Could not download ${artifact.id}.`);
       }
       throwIfAborted(controller.signal);
       await validateRuntimeResponseMetadata(artifact, response);
@@ -1004,9 +1001,7 @@ export class AssetPreparationManager {
           ? signal.reason
           : new DOMException('The asset preparation was aborted.', 'AbortError');
       }
-      throw new AssetPreparationError('network-error', `Could not download ${asset.id}.`, {
-        cause: error,
-      });
+      throw new AssetPreparationError('network-error', `Could not download ${asset.id}.`);
     }
     throwIfAborted(signal);
     const responseMetadata = await validateResponseMetadata(asset, networkResponse);
@@ -1099,11 +1094,10 @@ export class AssetPreparationManager {
       throwIfAborted(signal);
       try {
         reader = body.getReader();
-      } catch (error) {
+      } catch {
         throw new AssetPreparationError(
           'unapproved-response',
           `${asset.id} did not expose a readable response stream.`,
-          { cause: error },
         );
       }
       signal.addEventListener('abort', cancelReader, { once: true });
@@ -1119,9 +1113,7 @@ export class AssetPreparationManager {
               ? signal.reason
               : new DOMException('The asset preparation was aborted.', 'AbortError');
           }
-          throw new AssetPreparationError('network-error', `The ${asset.id} stream failed.`, {
-            cause: error,
-          });
+          throw new AssetPreparationError('network-error', `The ${asset.id} stream failed.`);
         }
         throwIfAborted(signal);
         if (result.done) {
