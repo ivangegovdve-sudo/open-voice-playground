@@ -230,7 +230,7 @@ describe('launch release and asset contracts', () => {
   it('validates the structure of a deterministic machine-readable browser S0 evidence record', () => {
     const evidenceSchema = schema('BrowserRuntimeS0EvidenceStructureSchema');
     const evidence = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'open-voice-browser-runtime-s0',
       assetSetId: 'test-browser-assets',
       manifestDigest: 'sha256:24bb0a356819a69a58eb0ac658c840c17a55ad409ea666e8523e83123b26e8fc',
@@ -261,7 +261,8 @@ describe('launch release and asset contracts', () => {
           disposition: 'downloaded',
           requestUrl:
             'https://example.com/model/0123456789abcdef0123456789abcdef01234567/model.onnx',
-          finalUrl: 'https://assets.example.com/model.onnx',
+          finalUrlRedacted: 'https://assets.example.com/<redacted>',
+          finalUrlSha256: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
           finalOrigin: 'https://assets.example.com',
           responseType: 'cors',
           status: 200,
@@ -293,6 +294,28 @@ describe('launch release and asset contracts', () => {
           {
             ...evidence.assets[0],
             finalOrigin: 'https://unapproved.example',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        assets: [
+          {
+            ...evidence.assets[0],
+            finalUrl: 'https://assets.example.com/private/model.onnx?X-Amz-Signature=secret',
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      evidenceSchema.safeParse({
+        ...evidence,
+        assets: [
+          {
+            ...evidence.assets[0],
+            finalUrlRedacted: 'https://assets.example.com/private/model.onnx',
           },
         ],
       }).success,
@@ -348,7 +371,7 @@ describe('launch release and asset contracts', () => {
     };
     const margin = 8 * 1024 * 1024;
     const evidence = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'open-voice-browser-runtime-s0',
       assetSetId: assetSet.id,
       manifestDigest: assetSet.manifestDigest,
@@ -378,7 +401,8 @@ describe('launch release and asset contracts', () => {
           cacheKey: firstAsset.cacheKey,
           disposition: 'downloaded',
           requestUrl: firstAsset.url,
-          finalUrl: 'https://assets.example.com/model.onnx',
+          finalUrlRedacted: 'https://assets.example.com/<redacted>',
+          finalUrlSha256: 'sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
           finalOrigin: 'https://assets.example.com',
           responseType: 'cors',
           status: 200,
@@ -392,7 +416,8 @@ describe('launch release and asset contracts', () => {
           cacheKey: secondAsset.cacheKey,
           disposition: 'cache-hit',
           requestUrl: null,
-          finalUrl: null,
+          finalUrlRedacted: null,
+          finalUrlSha256: null,
           finalOrigin: null,
           responseType: null,
           status: null,
@@ -467,7 +492,7 @@ describe('launch release and asset contracts', () => {
           assets: [
             {
               ...evidence.assets[0],
-              finalUrl: 'https://evil.example/model.onnx',
+              finalUrlRedacted: 'https://evil.example/<redacted>',
               finalOrigin: 'https://evil.example',
             },
             evidence.assets[1],

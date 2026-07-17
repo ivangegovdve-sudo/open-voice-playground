@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AssetSetManifest } from '@open-voice/contracts';
@@ -15,6 +17,11 @@ import {
 
 const BYTES = new Uint8Array([1, 2, 3, 4]);
 const HASH = 'sha256:9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a';
+const FINAL_URL = 'https://assets.example.com/model.onnx';
+
+function sha256Text(value: string): string {
+  return `sha256:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
+}
 
 function manifest(overrides: Partial<AssetSetManifest> = {}): AssetSetManifest {
   return {
@@ -105,7 +112,7 @@ class MemoryAssetStore implements AssetStorePort {
 
 function withResponseMetadata(
   response: Response,
-  url = 'https://assets.example.com/model.onnx',
+  url = FINAL_URL,
   type: ResponseType = 'cors',
 ): Response {
   Object.defineProperties(response, {
@@ -620,7 +627,7 @@ describe('consent-gated immutable asset preparation', () => {
     const evidence = await instance.prepare(set, createConsentReceipt(set, ['test-license']));
     expect(storageEvents).toEqual(['persist', 'estimate', 'fetch']);
     expect(evidence).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       kind: 'open-voice-browser-runtime-s0',
       assetSetId: set.id,
       manifestDigest: set.manifestDigest,
@@ -720,7 +727,8 @@ describe('consent-gated immutable asset preparation', () => {
           cacheKey: 'test/model/0123456789ab',
           disposition: 'downloaded',
           requestUrl: set.assets[0]!.url,
-          finalUrl: 'https://assets.example.com/model.onnx',
+          finalUrlRedacted: 'https://assets.example.com/<redacted>',
+          finalUrlSha256: sha256Text(FINAL_URL),
           finalOrigin: 'https://assets.example.com',
           responseType: 'cors',
           status: 200,
@@ -745,7 +753,8 @@ describe('consent-gated immutable asset preparation', () => {
           assetId: 'test-model',
           disposition: 'cache-hit',
           requestUrl: null,
-          finalUrl: null,
+          finalUrlRedacted: null,
+          finalUrlSha256: null,
           finalOrigin: null,
           responseType: null,
           status: null,
@@ -754,6 +763,36 @@ describe('consent-gated immutable asset preparation', () => {
         },
       ],
     });
+  });
+
+  it('never retains a signed final URL in preparation evidence', async () => {
+    const signedFinalUrl =
+      'https://assets.example.com/private/model.onnx?X-Amz-Credential=credential&X-Amz-Signature=secret';
+    const set = manifest();
+    const receipt = createConsentReceipt(set, ['test-license']);
+    const store = new MemoryAssetStore();
+    const fetcher = vi.fn(async () => response(BYTES, BYTES.byteLength, { url: signedFinalUrl }));
+    const ports = manager(store, fetcher);
+
+    const evidence = await ports.instance.prepare(set, receipt);
+
+    expect(evidence).toMatchObject({
+      schemaVersion: 2,
+      assets: [
+        {
+          disposition: 'downloaded',
+          finalOrigin: 'https://assets.example.com',
+          finalUrlRedacted: 'https://assets.example.com/<redacted>',
+          finalUrlSha256: sha256Text(signedFinalUrl),
+        },
+      ],
+    });
+    const serialized = JSON.stringify(evidence);
+    expect(serialized).not.toContain('X-Amz-');
+    expect(serialized).not.toContain('/private/');
+    expect(serialized).not.toContain('credential');
+    expect(serialized).not.toContain('secret');
+    expect(serialized).not.toContain('"finalUrl":');
   });
 
   it('requires exact consent before reading fresh verified bytes for transfer to a Worker', async () => {

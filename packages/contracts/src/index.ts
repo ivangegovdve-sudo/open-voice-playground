@@ -913,10 +913,20 @@ const BrowserRuntimeS0AssetEvidenceBase = z.object({
   observedSha256: Sha256Schema,
 });
 
+const BrowserRuntimeS0RedactedFinalUrlSchema = SafeHttpsUrlSchema.refine((value) => {
+  try {
+    const url = new URL(value);
+    return value === `${url.origin}/<redacted>`;
+  } catch {
+    return false;
+  }
+}, 'Expected an HTTPS origin followed by the fixed /<redacted> path');
+
 const BrowserRuntimeS0CacheHitEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase.extend({
   disposition: z.literal('cache-hit'),
   requestUrl: z.null(),
-  finalUrl: z.null(),
+  finalUrlRedacted: z.null(),
+  finalUrlSha256: z.null(),
   finalOrigin: z.null(),
   responseType: z.null(),
   status: z.null(),
@@ -937,7 +947,8 @@ const BrowserRuntimeS0CacheHitEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase
 const BrowserRuntimeS0DownloadEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase.extend({
   disposition: z.literal('downloaded'),
   requestUrl: SafeHttpsUrlSchema,
-  finalUrl: SafeHttpsUrlSchema,
+  finalUrlRedacted: BrowserRuntimeS0RedactedFinalUrlSchema,
+  finalUrlSha256: Sha256Schema,
   finalOrigin: ExactHttpsOriginSchema,
   responseType: z.literal('cors'),
   status: z.literal(200),
@@ -947,18 +958,18 @@ const BrowserRuntimeS0DownloadEvidenceSchema = BrowserRuntimeS0AssetEvidenceBase
     if (
       asset.expectedBytes !== asset.observedBytes ||
       asset.expectedSha256 !== asset.observedSha256 ||
-      new URL(asset.finalUrl).origin !== asset.finalOrigin
+      asset.finalUrlRedacted !== `${asset.finalOrigin}/<redacted>`
     ) {
       context.addIssue({
         code: 'custom',
-        message: 'Downloaded evidence must preserve exact identity and final URL origin',
+        message: 'Downloaded evidence must preserve exact identity and a redacted final URL origin',
       });
     }
   });
 
 export const BrowserRuntimeS0EvidenceStructureSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     kind: z.literal('open-voice-browser-runtime-s0'),
     assetSetId: RecordIdSchema,
     manifestDigest: Sha256Schema,

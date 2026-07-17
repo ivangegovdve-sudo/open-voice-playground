@@ -444,7 +444,13 @@ async function bestEffortCleanup(action: () => unknown): Promise<void> {
 async function validateResponseMetadata(
   asset: ImmutableAsset,
   response: Response,
-): Promise<{ finalUrl: string; finalOrigin: string; responseType: 'cors'; status: 200 }> {
+): Promise<{
+  finalUrlRedacted: string;
+  finalUrlSha256: string;
+  finalOrigin: string;
+  responseType: 'cors';
+  status: 200;
+}> {
   let status: number;
   try {
     status = response.status;
@@ -488,9 +494,11 @@ async function validateResponseMetadata(
     );
   }
 
+  let finalUrlValue: string;
   let finalUrl: URL;
   try {
-    finalUrl = new URL(response.url);
+    finalUrlValue = response.url;
+    finalUrl = new URL(finalUrlValue);
   } catch {
     await rejectResponse(
       response,
@@ -514,8 +522,11 @@ async function validateResponseMetadata(
       ),
     );
   }
+  const finalUrlDigest = createSha256Digest();
+  finalUrlDigest.update(new TextEncoder().encode(finalUrlValue!));
   return {
-    finalUrl: finalUrl!.href,
+    finalUrlRedacted: `${finalUrl!.origin}/<redacted>`,
+    finalUrlSha256: await finalUrlDigest.digest(),
     finalOrigin: finalUrl!.origin,
     responseType: 'cors',
     status: 200,
@@ -734,7 +745,8 @@ export class AssetPreparationManager {
             cacheKey: asset.cacheKey,
             disposition: 'cache-hit',
             requestUrl: null,
-            finalUrl: null,
+            finalUrlRedacted: null,
+            finalUrlSha256: null,
             finalOrigin: null,
             responseType: null,
             status: null,
@@ -759,7 +771,7 @@ export class AssetPreparationManager {
       }
       throwIfAborted(controller.signal);
       const evidence: AssetPreparationEvidence = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: 'open-voice-browser-runtime-s0',
         assetSetId: assetSet.id,
         manifestDigest: assetSet.manifestDigest,
@@ -1012,7 +1024,8 @@ export class AssetPreparationManager {
       cacheKey: asset.cacheKey,
       disposition: 'downloaded',
       requestUrl: asset.url,
-      finalUrl: responseMetadata.finalUrl,
+      finalUrlRedacted: responseMetadata.finalUrlRedacted,
+      finalUrlSha256: responseMetadata.finalUrlSha256,
       finalOrigin: responseMetadata.finalOrigin,
       responseType: responseMetadata.responseType,
       status: responseMetadata.status,
