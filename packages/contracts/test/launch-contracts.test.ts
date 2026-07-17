@@ -1091,6 +1091,7 @@ describe('preset-only worker protocol', () => {
       responseSchema.safeParse({ type: 'error', operationId: 1, message: 'failed' }).success,
     ).toBe(true);
     expect(responseSchema.safeParse({ type: 'cancelled', operationId: 1 }).success).toBe(true);
+    expect(responseSchema.safeParse({ type: 'disposed', operationId: 1 }).success).toBe(true);
 
     for (const invalid of [
       { type: 'ready', operationId: 1, extra: true },
@@ -1100,6 +1101,7 @@ describe('preset-only worker protocol', () => {
       { type: 'result', operationId: 1, audio: new Uint8Array(4), mimeType: 'audio/wav' },
       { type: 'result', operationId: 1, audio, mimeType: 'audio/mpeg' },
       { type: 'error', operationId: 1, message: '' },
+      { type: 'disposed', operationId: 1, extra: true },
       { type: 'unknown', operationId: 1 },
     ]) {
       expect(responseSchema.safeParse(invalid).success).toBe(false);

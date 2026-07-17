@@ -60,6 +60,9 @@ export type WorkerRuntimeAdapterOptions = {
   }) => unknown;
   capabilityControls?: () => EngineControl[];
   cancellationPolicy?: 'delayed' | 'immediate';
+  disposePolicy?: 'immediate' | 'acknowledged';
+  disposeTimeoutMs?: number;
+  replacementPolicy?: 'reuse-generation' | 'fresh-generation';
 };
 
 type PendingWorkerOperationBase = {
@@ -90,6 +93,10 @@ type WorkerGeneration = {
   onMessage: EventListener;
   onError: EventListener;
   onMessageError: EventListener;
+  disposeAcknowledgement: {
+    operationId: number;
+    resolve: () => void;
+  } | null;
 };
 
 type ActivePreparation = {
@@ -203,6 +210,9 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   private readonly cancellationPolicy: NonNullable<
     WorkerRuntimeAdapterOptions['cancellationPolicy']
   >;
+  private readonly disposePolicy: NonNullable<WorkerRuntimeAdapterOptions['disposePolicy']>;
+  private readonly disposeTimeoutMs: number;
+  private readonly replacementPolicy: NonNullable<WorkerRuntimeAdapterOptions['replacementPolicy']>;
   private generation: WorkerGeneration | null = null;
   private nextGenerationId = 0;
   private nextOperationId = 0;
@@ -240,6 +250,9 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
         },
       ]);
     this.cancellationPolicy = options.cancellationPolicy ?? 'delayed';
+    this.disposePolicy = options.disposePolicy ?? 'immediate';
+    this.disposeTimeoutMs = options.disposeTimeoutMs ?? 500;
+    this.replacementPolicy = options.replacementPolicy ?? 'reuse-generation';
   }
 
   async listVoices(): Promise<string[]> {
@@ -306,6 +319,13 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
         throw abortError();
       }
       if (!capability.available) throw new Error(capability.reason ?? 'Runtime unavailable.');
+
+      if (this.replacementPolicy === 'fresh-generation' && this.generation !== null) {
+        this.hardRetireGeneration(
+          this.generation,
+          abortError('The runtime generation was replaced by a fresh selection.'),
+        );
+      }
 
       let operationId: number;
       let payload:
@@ -487,19 +507,10 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     }
     const failures: unknown[] = [];
     for (const generation of generations.values()) {
-      this.detachGeneration(generation);
-      this.rejectGeneration(generation, abortError('The runtime was disposed.'));
       try {
-        const command = WorkerCommandSchema.parse({
-          command: 'dispose',
-          operationId: ++this.nextOperationId,
-        });
-        generation.port.postMessage(command);
+        await this.disposeGeneration(generation);
       } catch (error) {
         failures.push(error);
-      } finally {
-        this.terminateGeneration(generation);
-        this.retiringGenerations.delete(generation.id);
       }
     }
     if (failures.length > 0) {
@@ -563,6 +574,7 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       onMessage: (() => undefined) as EventListener,
       onError: (() => undefined) as EventListener,
       onMessageError: (() => undefined) as EventListener,
+      disposeAcknowledgement: null,
     } satisfies WorkerGeneration;
     generation.onMessage = ((event: MessageEvent) => {
       this.handleWorkerMessage(generation, event.data);
@@ -596,10 +608,23 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     if (generation.detached) return;
     const parsed = WorkerResponseSchema.safeParse(value);
     if (!parsed.success) {
+      if (generation.disposeAcknowledgement !== null) return;
       this.failGeneration(generation, new Error('Malformed worker response.'));
       return;
     }
     const message: WorkerResponse = parsed.data;
+    if (message.type === 'disposed') {
+      const acknowledgement = generation.disposeAcknowledgement;
+      if (acknowledgement === null) {
+        this.failGeneration(
+          generation,
+          new Error('Worker returned an unexpected lifecycle response.'),
+        );
+      } else if (acknowledgement.operationId === message.operationId) {
+        acknowledgement.resolve();
+      }
+      return;
+    }
     const operation = this.pending.get(message.operationId);
     if (operation === undefined || operation.generationId !== generation.id) return;
 
@@ -666,6 +691,67 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     if (generation.terminated) return;
     generation.terminated = true;
     generation.port.terminate();
+  }
+
+  private hardRetireGeneration(generation: WorkerGeneration, reason: unknown): void {
+    this.detachGeneration(generation);
+    this.rejectGeneration(generation, reason);
+    this.terminateGeneration(generation);
+    this.retiringGenerations.delete(generation.id);
+  }
+
+  private async disposeGeneration(generation: WorkerGeneration): Promise<void> {
+    if (generation.terminated) {
+      this.retiringGenerations.delete(generation.id);
+      return;
+    }
+    this.rejectGeneration(generation, abortError('The runtime was disposed.'));
+    generation.preparedKey = null;
+    if (this.generation === generation) this.generation = null;
+    const command = WorkerCommandSchema.parse({
+      command: 'dispose',
+      operationId: ++this.nextOperationId,
+    });
+
+    if (this.disposePolicy === 'immediate') {
+      try {
+        generation.port.postMessage(command);
+      } finally {
+        this.detachGeneration(generation);
+        this.terminateGeneration(generation);
+        this.retiringGenerations.delete(generation.id);
+      }
+      return;
+    }
+
+    let resolveAcknowledgement!: () => void;
+    const acknowledged = new Promise<void>((resolve) => {
+      resolveAcknowledgement = resolve;
+    });
+    generation.disposeAcknowledgement = {
+      operationId: command.operationId,
+      resolve: resolveAcknowledgement,
+    };
+    let postError: unknown;
+    try {
+      generation.port.postMessage(command);
+    } catch (error) {
+      postError = error;
+    }
+    try {
+      if (postError === undefined) {
+        await Promise.race([
+          acknowledged,
+          new Promise<void>((resolve) => setTimeout(resolve, this.disposeTimeoutMs)),
+        ]);
+      }
+    } finally {
+      generation.disposeAcknowledgement = null;
+      this.detachGeneration(generation);
+      this.terminateGeneration(generation);
+      this.retiringGenerations.delete(generation.id);
+    }
+    if (postError !== undefined) throw postError;
   }
 
   private failGeneration(generation: WorkerGeneration, reason: unknown): void {

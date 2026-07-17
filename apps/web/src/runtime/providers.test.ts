@@ -78,6 +78,7 @@ class FakeWorker implements WorkerPort {
   readonly transfers: Transferable[][] = [];
   readonly listeners = new Map<string, Set<(event: Event) => void>>();
   terminated = false;
+  terminateCalls = 0;
 
   postMessage(message: unknown, transfer: Transferable[] = []) {
     this.messages.push(message);
@@ -98,6 +99,7 @@ class FakeWorker implements WorkerPort {
   }
 
   terminate() {
+    this.terminateCalls += 1;
     this.terminated = true;
   }
 
@@ -800,6 +802,46 @@ describe('lazy preset-only provider boundaries', () => {
     expect(worker.terminated).toBe(true);
   });
 
+  it.each(['prepare', 'synthesize'] as const)(
+    'fails closed when an unsolicited disposed response targets an ordinary %s operation',
+    async (phase) => {
+      const worker = new FakeWorker();
+      const preset = voice();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets: async () => {},
+        workerFactory: () => worker,
+        browserRuntimeEnabled: true,
+      });
+      const request = {
+        voice: preset,
+        mode: 'browser' as const,
+        text: 'Unsolicited disposal cannot strand an ordinary operation.',
+        controls: { speed: 1 },
+      };
+      const preparation = adapter.prepare(request);
+      await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+      let pending: Promise<unknown> = preparation;
+      let operationId = 1;
+      if (phase === 'synthesize') {
+        worker.emit({ type: 'ready', operationId: 1 });
+        await preparation;
+        pending = adapter.synthesize(request, {});
+        operationId = 2;
+        await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+      }
+
+      worker.emit({ type: 'disposed', operationId });
+
+      await expect(Promise.race([pending, stillPendingAfter()])).rejects.toThrow(
+        /unexpected lifecycle/i,
+      );
+      expect(worker.terminateCalls).toBe(1);
+    },
+  );
+
   it('ignores stale results after cancellation and terminates an unresponsive Worker', async () => {
     vi.useFakeTimers();
     const worker = new FakeWorker();
@@ -1168,6 +1210,256 @@ describe('lazy preset-only provider boundaries', () => {
     expect(secondWorker.messages[0]).toMatchObject({ operationId: 2 });
     secondWorker.emit({ type: 'ready', operationId: 2 });
     await freshPreparation;
+  });
+
+  it('installs acknowledged-dispose ownership before posting and terminates exactly once', async () => {
+    class SynchronousDisposeWorker extends FakeWorker {
+      listenerCountAtDispose = 0;
+
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        const command = message as { command?: string; operationId?: number };
+        if (command.command === 'dispose' && command.operationId !== undefined) {
+          this.listenerCountAtDispose = this.listeners.get('message')?.size ?? 0;
+          this.emit({ type: 'disposed', operationId: command.operationId });
+        }
+      }
+    }
+    const worker = new SynchronousDisposeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 500,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Dispose only after the acknowledgement listener owns the generation.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await preparation;
+
+    await adapter.dispose();
+
+    expect(worker.listenerCountAtDispose).toBeGreaterThan(0);
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('accepts only the matching strict disposed acknowledgement and retains the 500 ms fallback', async () => {
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 500,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Reject every acknowledgement that does not match exactly.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await preparation;
+
+    const disposing = adapter.dispose();
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+    const disposeCommand = worker.messages[1] as { command: string; operationId: number };
+    expect(disposeCommand.command).toBe('dispose');
+    expect(worker.terminated).toBe(false);
+
+    worker.emit({ type: 'disposed', operationId: disposeCommand.operationId + 1 });
+    worker.emit({ type: 'disposed', operationId: disposeCommand.operationId, extra: true });
+    worker.emit({ type: 'error', operationId: disposeCommand.operationId, message: 'not an ack' });
+    await expect(
+      Promise.race([disposing.then(() => 'disposed' as const), stillPendingAfter(10)]),
+    ).resolves.toBe('still-pending');
+    expect(worker.terminated).toBe(false);
+
+    worker.emit({ type: 'disposed', operationId: disposeCommand.operationId });
+    worker.emit({ type: 'disposed', operationId: disposeCommand.operationId });
+    await disposing;
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('terminates exactly once at the 500 ms disposal fallback when no acknowledgement arrives', async () => {
+    vi.useFakeTimers();
+    try {
+      const worker = new FakeWorker();
+      const preset = voice();
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'kokoro',
+        voices: [preset],
+        assetSets: [set()],
+        prepareAssets: async () => {},
+        workerFactory: () => worker,
+        browserRuntimeEnabled: true,
+        disposePolicy: 'acknowledged',
+        disposeTimeoutMs: 500,
+      });
+      const preparation = adapter.prepare({
+        voice: preset,
+        mode: 'browser',
+        text: 'Fall back when the Worker never acknowledges disposal.',
+        controls: { speed: 1 },
+      });
+      await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+      worker.emit({ type: 'ready', operationId: 1 });
+      await preparation;
+
+      let resolved = false;
+      const disposing = adapter.dispose().then(() => {
+        resolved = true;
+      });
+      expect(worker.messages).toHaveLength(2);
+      const disposeCommand = worker.messages[1] as { command: string; operationId: number };
+      expect(disposeCommand.command).toBe('dispose');
+
+      await vi.advanceTimersByTimeAsync(499);
+      expect(resolved).toBe(false);
+      expect(worker.terminateCalls).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(1);
+      await disposing;
+      expect(resolved).toBe(true);
+      expect(worker.terminateCalls).toBe(1);
+
+      worker.emit({ type: 'disposed', operationId: disposeCommand.operationId });
+      await vi.runAllTimersAsync();
+      expect(worker.terminateCalls).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the acknowledged disposal path for a posted prepare instead of immediate cancellation', async () => {
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 500,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Dispose while prepare is posted.',
+      controls: { speed: 1 },
+    });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    const disposing = adapter.dispose();
+    await expect(preparation).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+    expect(worker.messages[1]).toMatchObject({ command: 'dispose' });
+    expect(worker.terminated).toBe(false);
+    const operationId = (worker.messages[1] as { operationId: number }).operationId;
+    worker.emit({ type: 'disposed', operationId });
+    await disposing;
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('hard-retires a prepared Supertonic Worker before the next selection reads assets', async () => {
+    const firstWorker = new FakeWorker();
+    const secondWorker = new FakeWorker();
+    const workerFactory = vi
+      .fn<() => WorkerPort>()
+      .mockReturnValueOnce(firstWorker)
+      .mockReturnValueOnce(secondWorker);
+    const retiredBeforeAssetRead: boolean[] = [];
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async ({ operationId, request }) => {
+        if (operationId > 1) retiredBeforeAssetRead.push(firstWorker.terminated);
+        const backend = request.controls.backend === 'webgpu' ? 'webgpu' : 'wasm';
+        const payload = supertonicPreparePayload(backend);
+        return { ...payload, command: { ...payload.command, operationId } };
+      },
+      preparedKeyBuilder: ({ request }) => {
+        const backend = request.controls.backend === 'webgpu' ? 'webgpu' : 'wasm';
+        return supertonicPreparePayload(backend).preparedKey;
+      },
+      workerFactory,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 500,
+      replacementPolicy: 'fresh-generation',
+    });
+
+    const firstPreparation = adapter.prepare(supertonicRequest('wasm'));
+    await vi.waitFor(() => expect(firstWorker.messages).toHaveLength(1));
+    firstWorker.emit({ type: 'ready', operationId: 1 });
+    await firstPreparation;
+
+    const replacementPreparation = adapter.prepare(supertonicRequest('webgpu'));
+    await vi.waitFor(() =>
+      expect(firstWorker.messages.length + secondWorker.messages.length).toBe(2),
+    );
+    const replacementWorker = secondWorker.messages.length === 1 ? secondWorker : firstWorker;
+    replacementWorker.emit({ type: 'ready', operationId: 2 });
+    await replacementPreparation;
+
+    expect(retiredBeforeAssetRead).toEqual([true]);
+    expect(secondWorker.messages).toHaveLength(1);
+    expect(firstWorker.terminateCalls).toBe(1);
+    expect(workerFactory).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves generic Worker reuse across later preparations', async () => {
+    const worker = new FakeWorker();
+    const workerFactory = vi.fn(() => worker);
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory,
+      browserRuntimeEnabled: true,
+      disposePolicy: 'immediate',
+      replacementPolicy: 'reuse-generation',
+    });
+    const request = {
+      voice: preset,
+      mode: 'browser' as const,
+      text: 'Generic engines keep their existing generation.',
+      controls: { speed: 1 },
+    };
+    const first = adapter.prepare(request);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await first;
+    const second = adapter.prepare(request);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+    worker.emit({ type: 'ready', operationId: 2 });
+    await second;
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.terminated).toBe(false);
   });
 
   it('keeps Edge and future Azure hard-unavailable with zero network or Worker calls', async () => {

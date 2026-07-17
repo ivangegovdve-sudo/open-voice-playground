@@ -94,6 +94,9 @@ describe('honest launch runtime registry', () => {
     }) as {
       browserRuntimeEnabled: boolean;
       cancellationPolicy: string;
+      disposePolicy: string;
+      disposeTimeoutMs: number;
+      replacementPolicy: string;
       capabilityControls: () => unknown[];
       preparePayloadBuilder: (input: Record<string, unknown>) => Promise<unknown>;
       preparedKeyBuilder: (input: Record<string, unknown>) => string;
@@ -102,6 +105,9 @@ describe('honest launch runtime registry', () => {
 
     expect(options.browserRuntimeEnabled).toBe(false);
     expect(options.cancellationPolicy).toBe('immediate');
+    expect(options.disposePolicy).toBe('acknowledged');
+    expect(options.disposeTimeoutMs).toBe(500);
+    expect(options.replacementPolicy).toBe('fresh-generation');
     expect(options.capabilityControls()).toMatchObject([
       { id: 'backend', type: 'select', defaultValue: 'webgpu' },
       { id: 'language', type: 'select', defaultValue: 'en' },

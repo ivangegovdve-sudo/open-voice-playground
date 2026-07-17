@@ -1060,6 +1060,7 @@ function pwaE2eResponseFixtures(): Plugin {
 }
 
 export default defineConfig({
+  worker: { format: 'es' },
   plugins: [
     disableZodDynamicObjectCompilation(),
     react(),

@@ -7,8 +7,51 @@ import { gzipSync } from 'node:zlib';
 import { build } from 'vite';
 import { afterEach, expect, test } from 'vitest';
 
+import viteConfig from './vite.config';
+
 const APP_ROOT = dirname(fileURLToPath(import.meta.url));
+const ONNXRUNTIME_WEB_ROOT = resolve(APP_ROOT, '../../node_modules/onnxruntime-web');
 const temporaryRoots: string[] = [];
+
+test('emits every Worker as an ES module', () => {
+  expect(viteConfig.worker).toEqual({ format: 'es' });
+});
+
+test('uses the supported bundled ORT exports whose glue matches the frozen runtime tuples', async () => {
+  const packageMetadata = JSON.parse(
+    await readFile(join(ONNXRUNTIME_WEB_ROOT, 'package.json'), 'utf8'),
+  ) as {
+    exports: Record<string, { import: { default: string } }>;
+  };
+  expect(packageMetadata.exports['.']?.import.default).toBe('./dist/ort.bundle.min.mjs');
+  expect(packageMetadata.exports['./wasm']?.import.default).toBe('./dist/ort.wasm.bundle.min.mjs');
+
+  const [webgpuGlue, wasmGlue, webgpuSourceMap, wasmSourceMap] = await Promise.all([
+    readFile(join(ONNXRUNTIME_WEB_ROOT, 'dist', 'ort.bundle.min.mjs'), 'utf8'),
+    readFile(join(ONNXRUNTIME_WEB_ROOT, 'dist', 'ort.wasm.bundle.min.mjs'), 'utf8'),
+    readFile(join(ONNXRUNTIME_WEB_ROOT, 'dist', 'ort.bundle.min.mjs.map'), 'utf8').then(
+      (source) => JSON.parse(source) as { sources: string[] },
+    ),
+    readFile(join(ONNXRUNTIME_WEB_ROOT, 'dist', 'ort.wasm.bundle.min.mjs.map'), 'utf8').then(
+      (source) => JSON.parse(source) as { sources: string[] },
+    ),
+  ]);
+  expect(webgpuGlue).toMatch(/ort-wasm-simd-threaded\.jsep\.wasm/);
+  expect(webgpuGlue).not.toMatch(/ort-wasm-simd-threaded\.(?:asyncify|jspi)\.wasm/);
+  expect(wasmGlue).toMatch(/ort-wasm-simd-threaded\.wasm/);
+  expect(wasmGlue).not.toMatch(/ort-wasm-simd-threaded\.(?:jsep|asyncify|jspi)\.wasm/);
+  expect(webgpuSourceMap.sources).toEqual(
+    expect.arrayContaining([
+      'ort-wasm-simd-threaded.jsep.mjs',
+      expect.stringMatching(/jsep[\\/]backend-webgpu\.ts$/),
+    ]),
+  );
+  expect(wasmSourceMap.sources).toContain('ort-wasm-simd-threaded.mjs');
+  expect(wasmSourceMap.sources).not.toEqual(
+    expect.arrayContaining([expect.stringMatching(/jsep|backend-webgpu|asyncify|jspi/i)]),
+  );
+});
+
 const SERVICE_WORKER_TEMPLATE = [
   "const CACHE_VERSION = 'development'; // __VITE_CACHE_VERSION__",
   "const SHELL_DIGEST = 'development'; // __VITE_SHELL_DIGEST__",
@@ -1490,6 +1533,61 @@ test('the actual production entry graph stays small and excludes emitted inferen
   );
   const workerFiles = emitted.filter((file) => /worker.*\.js$/i.test(file));
   expect(workerFiles.length).toBeGreaterThan(0);
+  const supertonicWorkerFiles = workerFiles.filter((file) => /supertonic\.worker/i.test(file));
+  expect(supertonicWorkerFiles).toHaveLength(1);
+  const ortBackendFiles = emitted.filter((file) => /assets\/ort\..*\.js$/i.test(file));
+  expect(ortBackendFiles).toHaveLength(2);
+  expect(ortBackendFiles).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/ort\.wasm/i),
+      expect.stringMatching(/ort\.(?:webgpu|bundle)/i),
+    ]),
+  );
+  const emittedWasmFiles = emitted.filter((file) => file.endsWith('.wasm'));
+  expect(emittedWasmFiles).toHaveLength(2);
+  const emittedWasmIdentities = (
+    await Promise.all(
+      emittedWasmFiles.map(async (file) => {
+        const bytes = await readFile(join(outDir, file));
+        return {
+          bytes: bytes.byteLength,
+          sha256: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+        };
+      }),
+    )
+  ).sort((left, right) => left.bytes - right.bytes);
+  expect(emittedWasmIdentities).toEqual([
+    {
+      bytes: 13_479_978,
+      sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    },
+    {
+      bytes: 26_827_543,
+      sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    },
+  ]);
+  expect(emittedWasmFiles).not.toEqual(
+    expect.arrayContaining([expect.stringMatching(/asyncify|jspi/i)]),
+  );
+  const ortSourceMapSources = (
+    await Promise.all(
+      ortBackendFiles.map(async (file) => {
+        const sourceMap = JSON.parse(await readFile(join(outDir, `${file}.map`), 'utf8')) as {
+          sources: string[];
+        };
+        return sourceMap.sources;
+      }),
+    )
+  ).flat();
+  expect(ortSourceMapSources).toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(/onnxruntime-web.*ort\.bundle\.min\.mjs/i),
+      expect.stringMatching(/onnxruntime-web.*ort\.wasm\.bundle\.min\.mjs/i),
+    ]),
+  );
+  expect(ortSourceMapSources).not.toEqual(
+    expect.arrayContaining([expect.stringMatching(/ort\.(?:webgpu|all)|asyncify|jspi/i)]),
+  );
   const serviceWorker = await readFile(join(outDir, 'sw.js'), 'utf8');
   const buildAssets = JSON.parse(
     serviceWorker.match(/const BUILD_ASSETS = (\[[^;]*\]);/)?.[1] ?? 'null',
@@ -1502,11 +1600,24 @@ test('the actual production entry graph stays small and excludes emitted inferen
   );
   for (const workerFile of workerFiles) {
     expect(buildAssets).not.toContain(`/${workerFile}`);
+    expect(initialJavaScriptFiles).not.toContain(workerFile);
+  }
+  for (const runtimeFile of [...ortBackendFiles, ...emittedWasmFiles]) {
+    expect(buildAssets).not.toContain(`/${runtimeFile}`);
+    expect(initialJavaScriptFiles).not.toContain(runtimeFile);
   }
   for (const [, factory] of factoryEntries) {
     expect(buildAssets).not.toContain(`/${factory.file}`);
     expect(initialJavaScriptFiles).not.toContain(factory.file);
   }
+
+  const supertonicWorkerSource = await readFile(join(outDir, supertonicWorkerFiles[0]!), 'utf8');
+  expect(supertonicWorkerSource).toMatch(/import\([^)]*ort\.(?:webgpu|bundle)[^)]*\.js/);
+  expect(supertonicWorkerSource).toMatch(/import\([^)]*ort\.wasm[^)]*\.js/);
+  const ortBackendSource = (
+    await Promise.all(ortBackendFiles.map((file) => readFile(join(outDir, file), 'utf8')))
+  ).join('\n');
+  expect(ortBackendSource).not.toMatch(/onnxruntime-web-use-extern-wasm|asyncify|\.jspi/i);
 });
 
 test('rejects builds with zero emitted launch catalogs', async () => {

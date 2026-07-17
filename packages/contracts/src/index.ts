@@ -1627,6 +1627,9 @@ const ErrorWorkerResponseSchema = z
 const CancelledWorkerResponseSchema = z
   .object({ type: z.literal('cancelled'), operationId: OperationIdSchema })
   .strict();
+const DisposedWorkerResponseSchema = z
+  .object({ type: z.literal('disposed'), operationId: OperationIdSchema })
+  .strict();
 
 export const WorkerResponseSchema = z.discriminatedUnion('type', [
   ReadyWorkerResponseSchema,
@@ -1634,6 +1637,7 @@ export const WorkerResponseSchema = z.discriminatedUnion('type', [
   ResultWorkerResponseSchema,
   ErrorWorkerResponseSchema,
   CancelledWorkerResponseSchema,
+  DisposedWorkerResponseSchema,
 ]);
 
 const ProvenanceParametersSchema = z.record(z.string(), ScalarControlSchema);

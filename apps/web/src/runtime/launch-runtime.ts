@@ -88,6 +88,9 @@ export function createSupertonicWorkerRuntimeOptions({
     // Task 3 carries the closed seam but cannot make a production truth claim.
     browserRuntimeEnabled: false,
     cancellationPolicy: 'immediate',
+    disposePolicy: 'acknowledged',
+    disposeTimeoutMs: 500,
+    replacementPolicy: 'fresh-generation',
     capabilityControls: () => [
       {
         id: 'backend',
