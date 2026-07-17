@@ -1149,9 +1149,291 @@ export const FeatureFlagSchema = z
 
 const ScalarControlSchema = z.union([z.string().max(2_000), z.number().finite(), z.boolean()]);
 const OperationIdSchema = z.number().int().safe().nonnegative();
-const WORKER_ENGINE_IDS = ['kokoro', 'kitten', 'supertonic', 'piper'] as const;
-const WorkerEngineIdSchema = z.enum(WORKER_ENGINE_IDS);
+const GENERIC_WORKER_ENGINE_IDS = ['kokoro', 'kitten', 'piper'] as const;
 const WorkerVoiceIdSchema = StableIdSchema;
+
+function freezeTrustAnchor<T>(value: T): T {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
+  for (const nested of Object.values(value)) freezeTrustAnchor(nested);
+  Object.freeze(value);
+  return value;
+}
+
+export const SUPERTONIC_VOICE_IDS = freezeTrustAnchor([
+  'supertonic:F1',
+  'supertonic:F2',
+  'supertonic:F3',
+  'supertonic:F4',
+  'supertonic:F5',
+  'supertonic:M1',
+  'supertonic:M2',
+  'supertonic:M3',
+  'supertonic:M4',
+  'supertonic:M5',
+] as const);
+
+export const SUPERTONIC_LANGUAGES = freezeTrustAnchor([
+  'ar',
+  'bg',
+  'hr',
+  'cs',
+  'da',
+  'nl',
+  'en',
+  'et',
+  'fi',
+  'fr',
+  'de',
+  'el',
+  'hi',
+  'hu',
+  'id',
+  'it',
+  'ja',
+  'ko',
+  'lv',
+  'lt',
+  'pl',
+  'pt',
+  'ro',
+  'ru',
+  'sk',
+  'sl',
+  'es',
+  'sv',
+  'tr',
+  'uk',
+  'vi',
+] as const);
+
+export const SUPERTONIC_TRANSFERRED_ASSET_IDS = freezeTrustAnchor([
+  'onnx-duration-predictor-onnx',
+  'onnx-text-encoder-onnx',
+  'onnx-tts-json',
+  'onnx-unicode-indexer-json',
+  'onnx-vector-estimator-onnx',
+  'onnx-vocoder-onnx',
+  'voice-styles-f1-json',
+  'voice-styles-f2-json',
+  'voice-styles-f3-json',
+  'voice-styles-f4-json',
+  'voice-styles-f5-json',
+  'voice-styles-m1-json',
+  'voice-styles-m2-json',
+  'voice-styles-m3-json',
+  'voice-styles-m4-json',
+  'voice-styles-m5-json',
+] as const);
+
+export const SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES = freezeTrustAnchor([
+  {
+    assetId: 'onnx-duration-predictor-onnx',
+    sha256: 'sha256:c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db',
+    byteLength: 3_700_147,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-text-encoder-onnx',
+    sha256: 'sha256:c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff',
+    byteLength: 36_416_150,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-tts-json',
+    sha256: 'sha256:42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09',
+    byteLength: 8_253,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'onnx-unicode-indexer-json',
+    sha256: 'sha256:9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f',
+    byteLength: 277_676,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'onnx-vector-estimator-onnx',
+    sha256: 'sha256:883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c',
+    byteLength: 256_534_781,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-vocoder-onnx',
+    sha256: 'sha256:085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba',
+    byteLength: 101_424_195,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'voice-styles-f1-json',
+    sha256: 'sha256:bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2',
+    byteLength: 292_046,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f2-json',
+    sha256: 'sha256:7c722c6a72707b1a77f035d67f0d1351ba187738e06f7683e8c72b1df3477fc6',
+    byteLength: 292_423,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f3-json',
+    sha256: 'sha256:12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab',
+    byteLength: 290_794,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f4-json',
+    sha256: 'sha256:c2fa764c1225a76dfc3e2c73e8aa4f70d9ee48793860eb34c295fff01c2e032b',
+    byteLength: 291_808,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f5-json',
+    sha256: 'sha256:45966e73316415626cf41a7d1c6f3b4c70dbc1ba2bee5c1978ef0ce33244fc8d',
+    byteLength: 291_479,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m1-json',
+    sha256: 'sha256:e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b',
+    byteLength: 291_748,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m2-json',
+    sha256: 'sha256:b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50',
+    byteLength: 292_055,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m3-json',
+    sha256: 'sha256:ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b',
+    byteLength: 290_198,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m4-json',
+    sha256: 'sha256:ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303',
+    byteLength: 291_522,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m5-json',
+    sha256: 'sha256:dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2',
+    byteLength: 291_469,
+    mediaType: 'application/json',
+  },
+] as const);
+
+export const SUPERTONIC_ASSET_SET_ID = 'supertonic-browser-assets' as const;
+export const SUPERTONIC_MANIFEST_DIGEST =
+  'sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6' as const;
+
+const SupertonicVoiceIdSchema = z.enum(SUPERTONIC_VOICE_IDS);
+const SupertonicLanguageSchema = z.enum(SUPERTONIC_LANGUAGES);
+const SupertonicTransferredAssetIdSchema = z.enum(SUPERTONIC_TRANSFERRED_ASSET_IDS);
+
+function isOwnedArrayBuffer(value: unknown): value is ArrayBuffer {
+  if (!(value instanceof ArrayBuffer)) return false;
+  try {
+    ArrayBuffer.prototype.slice.call(value, 0, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const OwnedArrayBufferSchema = z.custom<ArrayBuffer>(isOwnedArrayBuffer, {
+  message: 'Expected an attached ArrayBuffer owned by the sender',
+});
+
+const supertonicAssetIdentityById = new Map(
+  SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES.map((identity) => [identity.assetId, identity]),
+);
+
+export const SupertonicTransferredAssetSchema = z
+  .object({
+    assetId: SupertonicTransferredAssetIdSchema,
+    sha256: Sha256Schema,
+    byteLength: z.number().int().positive().safe(),
+    mediaType: z.enum(['application/onnx', 'application/json']),
+    bytes: OwnedArrayBufferSchema,
+  })
+  .strict()
+  .superRefine((asset, context) => {
+    const expected = supertonicAssetIdentityById.get(asset.assetId)!;
+    for (const field of ['sha256', 'byteLength', 'mediaType'] as const) {
+      if (asset[field] !== expected[field]) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `Transferred Supertonic ${field} does not match the frozen asset`,
+        });
+      }
+    }
+    if (asset.bytes.byteLength !== expected.byteLength) {
+      context.addIssue({
+        code: 'custom',
+        path: ['bytes'],
+        message: 'Transferred Supertonic bytes do not match the frozen asset length',
+      });
+    }
+  });
+
+export const SUPERTONIC_RUNTIME_IDENTITIES = freezeTrustAnchor({
+  webgpu: {
+    selectionId: 'supertonic-webgpu',
+    selectionDigest: 'sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e',
+    artifactId: 'onnxruntime-web-webgpu-jsep-wasm',
+    sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    byteLength: 26_827_543,
+    mediaType: 'application/wasm',
+  },
+  wasm: {
+    selectionId: 'supertonic-wasm',
+    selectionDigest: 'sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9',
+    artifactId: 'onnxruntime-web-wasm-runtime',
+    sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    byteLength: 13_479_978,
+    mediaType: 'application/wasm',
+  },
+} as const);
+
+const SupertonicRuntimeArtifactIdSchema = z.enum([
+  SUPERTONIC_RUNTIME_IDENTITIES.webgpu.artifactId,
+  SUPERTONIC_RUNTIME_IDENTITIES.wasm.artifactId,
+]);
+
+export const SupertonicTransferredRuntimeArtifactSchema = z
+  .object({
+    artifactId: SupertonicRuntimeArtifactIdSchema,
+    sha256: Sha256Schema,
+    byteLength: z.number().int().positive().safe(),
+    mediaType: z.literal('application/wasm'),
+    bytes: OwnedArrayBufferSchema,
+  })
+  .strict()
+  .superRefine((artifact, context) => {
+    const expected =
+      artifact.artifactId === SUPERTONIC_RUNTIME_IDENTITIES.webgpu.artifactId
+        ? SUPERTONIC_RUNTIME_IDENTITIES.webgpu
+        : SUPERTONIC_RUNTIME_IDENTITIES.wasm;
+    for (const field of ['sha256', 'byteLength', 'mediaType'] as const) {
+      if (artifact[field] !== expected[field]) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `Transferred runtime ${field} does not match the frozen artifact`,
+        });
+      }
+    }
+    if (artifact.bytes.byteLength !== expected.byteLength) {
+      context.addIssue({
+        code: 'custom',
+        path: ['bytes'],
+        message: 'Transferred runtime bytes do not match the frozen artifact length',
+      });
+    }
+  });
 
 function addWorkerVoiceBindingIssue(
   value: { engineId: string; voiceId: string },
@@ -1170,11 +1452,70 @@ const PrepareWorkerCommandSchema = z
   .object({
     command: z.literal('prepare'),
     operationId: OperationIdSchema,
-    engineId: WorkerEngineIdSchema,
+    engineId: z.enum(GENERIC_WORKER_ENGINE_IDS),
     voiceId: WorkerVoiceIdSchema,
   })
   .strict()
   .superRefine(addWorkerVoiceBindingIssue);
+
+export const SupertonicPrepareWorkerCommandSchema = z
+  .object({
+    command: z.literal('prepare'),
+    operationId: OperationIdSchema,
+    engineId: z.literal('supertonic'),
+    voiceId: SupertonicVoiceIdSchema,
+    selectionId: z.enum([
+      SUPERTONIC_RUNTIME_IDENTITIES.webgpu.selectionId,
+      SUPERTONIC_RUNTIME_IDENTITIES.wasm.selectionId,
+    ]),
+    selectionDigest: Sha256Schema,
+    backend: BrowserRuntimeBackendSchema,
+    assetSetId: z.literal(SUPERTONIC_ASSET_SET_ID),
+    manifestDigest: z.literal(SUPERTONIC_MANIFEST_DIGEST),
+    runtimeArtifactId: SupertonicRuntimeArtifactIdSchema,
+    assets: z
+      .array(SupertonicTransferredAssetSchema)
+      .length(SUPERTONIC_TRANSFERRED_ASSET_IDS.length),
+    runtimeArtifact: SupertonicTransferredRuntimeArtifactSchema,
+  })
+  .strict()
+  .superRefine((command, context) => {
+    const expected = SUPERTONIC_RUNTIME_IDENTITIES[command.backend];
+    for (const field of ['selectionId', 'selectionDigest', 'runtimeArtifactId'] as const) {
+      const expectedValue = field === 'runtimeArtifactId' ? expected.artifactId : expected[field];
+      if (command[field] !== expectedValue) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: `Supertonic ${field} does not match the selected backend`,
+        });
+      }
+    }
+    if (command.runtimeArtifact.artifactId !== expected.artifactId) {
+      context.addIssue({
+        code: 'custom',
+        path: ['runtimeArtifact', 'artifactId'],
+        message: 'Transferred runtime artifact does not match the selected backend',
+      });
+    }
+    for (const [index, expectedAssetId] of SUPERTONIC_TRANSFERRED_ASSET_IDS.entries()) {
+      if (command.assets[index]?.assetId !== expectedAssetId) {
+        context.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'assetId'],
+          message: 'Transferred Supertonic assets must use canonical asset-set order',
+        });
+      }
+    }
+    const buffers = [...command.assets.map(({ bytes }) => bytes), command.runtimeArtifact.bytes];
+    if (new Set(buffers).size !== buffers.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['assets'],
+        message: 'Every transferred Supertonic buffer must have one unique owner',
+      });
+    }
+  });
 
 const SpeedWorkerControlsSchema = z
   .object({ speed: z.number().finite().min(0.75).max(1.25) })
@@ -1183,11 +1524,10 @@ const SpeedWorkerControlsSchema = z
 const WORKER_CONTROL_SCHEMAS = {
   kokoro: SpeedWorkerControlsSchema,
   kitten: SpeedWorkerControlsSchema,
-  supertonic: SpeedWorkerControlsSchema,
   piper: SpeedWorkerControlsSchema,
 } as const;
 
-function synthesizeWorkerCommandSchema<EngineId extends (typeof WORKER_ENGINE_IDS)[number]>(
+function synthesizeWorkerCommandSchema<EngineId extends (typeof GENERIC_WORKER_ENGINE_IDS)[number]>(
   engineId: EngineId,
 ) {
   return z
@@ -1207,14 +1547,40 @@ function synthesizeWorkerCommandSchema<EngineId extends (typeof WORKER_ENGINE_ID
     .superRefine(addWorkerVoiceBindingIssue);
 }
 
-const SynthesizeWorkerCommandSchemas = WORKER_ENGINE_IDS.map((engineId) =>
+const SynthesizeWorkerCommandSchemas = GENERIC_WORKER_ENGINE_IDS.map((engineId) =>
   synthesizeWorkerCommandSchema(engineId),
 ) as [
   ReturnType<typeof synthesizeWorkerCommandSchema>,
   ReturnType<typeof synthesizeWorkerCommandSchema>,
   ReturnType<typeof synthesizeWorkerCommandSchema>,
-  ReturnType<typeof synthesizeWorkerCommandSchema>,
 ];
+
+const SupertonicSpeedSchema = z
+  .number()
+  .finite()
+  .min(0.75)
+  .max(1.25)
+  .refine((value) => Number.isInteger(value * 20), 'Supertonic speed must use the exact 0.05 grid');
+
+export const SupertonicSynthesizeWorkerCommandSchema = z
+  .object({
+    command: z.literal('synthesize'),
+    operationId: OperationIdSchema,
+    engineId: z.literal('supertonic'),
+    voiceId: SupertonicVoiceIdSchema,
+    text: z
+      .string()
+      .min(1)
+      .max(2_000)
+      .refine((value) => value.trim().length > 0, 'Synthesis text cannot be blank'),
+    controls: z
+      .object({
+        language: SupertonicLanguageSchema,
+        speed: SupertonicSpeedSchema,
+      })
+      .strict(),
+  })
+  .strict();
 const LifecycleWorkerCommandSchema = z
   .object({
     command: z.enum(['cancel', 'dispose']),
@@ -1224,7 +1590,9 @@ const LifecycleWorkerCommandSchema = z
 
 export const WorkerCommandSchema = z.union([
   PrepareWorkerCommandSchema,
+  SupertonicPrepareWorkerCommandSchema,
   ...SynthesizeWorkerCommandSchemas,
+  SupertonicSynthesizeWorkerCommandSchema,
   LifecycleWorkerCommandSchema,
 ]);
 
@@ -1618,6 +1986,16 @@ export type AssetDeliveryEvidence = z.infer<typeof AssetDeliveryEvidenceSchema>;
 export type AssetSetManifest = z.infer<typeof AssetSetManifestSchema>;
 export type BrowserRuntimeS0Evidence = z.infer<typeof BrowserRuntimeS0EvidenceStructureSchema>;
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
+export type SupertonicVoiceId = (typeof SUPERTONIC_VOICE_IDS)[number];
+export type SupertonicLanguage = (typeof SUPERTONIC_LANGUAGES)[number];
+export type SupertonicTransferredAsset = z.infer<typeof SupertonicTransferredAssetSchema>;
+export type SupertonicTransferredRuntimeArtifact = z.infer<
+  typeof SupertonicTransferredRuntimeArtifactSchema
+>;
+export type SupertonicPrepareWorkerCommand = z.infer<typeof SupertonicPrepareWorkerCommandSchema>;
+export type SupertonicSynthesizeWorkerCommand = z.infer<
+  typeof SupertonicSynthesizeWorkerCommandSchema
+>;
 export type WorkerCommand = z.infer<typeof WorkerCommandSchema>;
 export type WorkerResponse = z.infer<typeof WorkerResponseSchema>;
 export type GalleryManifest = z.infer<typeof GalleryManifestSchema>;

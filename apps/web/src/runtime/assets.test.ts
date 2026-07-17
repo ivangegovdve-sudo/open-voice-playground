@@ -171,6 +171,29 @@ function manager(
   };
 }
 
+function runtimeArtifact(
+  overrides: Partial<{
+    id: string;
+    sha256: string;
+    bytes: number;
+    cacheKey: string;
+    mediaType: 'application/wasm';
+    url: string;
+    exactOrigin: string;
+  }> = {},
+) {
+  return {
+    id: 'test-runtime-wasm',
+    sha256: HASH,
+    bytes: BYTES.byteLength,
+    cacheKey: 'runtime/test/0123456789ab',
+    mediaType: 'application/wasm' as const,
+    url: 'https://app.example/assets/runtime.wasm',
+    exactOrigin: 'https://app.example',
+    ...overrides,
+  };
+}
+
 describe('consent-gated immutable asset preparation', () => {
   it('hashes arbitrarily split chunks without retaining a whole asset buffer', async () => {
     const digest = createSha256Digest();
@@ -986,5 +1009,158 @@ describe('consent-gated immutable asset preparation', () => {
 
   it('uses stable, typed preparation errors', () => {
     expect(new AssetPreparationError('hash-mismatch', 'bad').code).toBe('hash-mismatch');
+  });
+});
+
+describe('same-origin runtime artifact preparation', () => {
+  it('streams, promotes, and freshly rereads an exact same-origin artifact', async () => {
+    const store = new MemoryAssetStore();
+    const artifact = runtimeArtifact();
+    const fetcher = vi.fn(async () =>
+      response(BYTES, BYTES.byteLength, { url: artifact.url, type: 'basic' }),
+    );
+    const instance = new AssetPreparationManager({
+      store,
+      fetcher,
+      createDigest: fixedDigest(HASH),
+      temporaryNamespace: 'runtime-test',
+    });
+
+    await expect(instance.prepareRuntimeArtifact(artifact)).resolves.toBeUndefined();
+    expect(fetcher).toHaveBeenCalledWith(
+      artifact.url,
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'omit',
+        mode: 'same-origin',
+        redirect: 'follow',
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    const first = await instance.readPreparedRuntimeArtifact(artifact);
+    const second = await instance.readPreparedRuntimeArtifact(artifact);
+    expect(first).toMatchObject({
+      artifactId: artifact.id,
+      cacheKey: artifact.cacheKey,
+      sha256: artifact.sha256,
+      byteLength: artifact.bytes,
+      mediaType: 'application/wasm',
+    });
+    expect(new Uint8Array(first.bytes)).toEqual(BYTES);
+    expect(first.bytes).not.toBe(second.bytes);
+  });
+
+  it('uses an exact verified cache hit without touching the network', async () => {
+    const store = new MemoryAssetStore();
+    const artifact = runtimeArtifact();
+    store.final.set(artifact.cacheKey, BYTES.slice());
+    const fetcher = vi.fn<typeof fetch>();
+    const instance = new AssetPreparationManager({ store, fetcher });
+
+    await expect(instance.prepareRuntimeArtifact(artifact)).resolves.toBeUndefined();
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(instance.readPreparedRuntimeArtifact(artifact)).resolves.toMatchObject({
+      artifactId: artifact.id,
+      byteLength: BYTES.byteLength,
+    });
+  });
+
+  it('rejects malformed or cross-origin requested URLs before fetch or storage access', async () => {
+    for (const mutation of [
+      { url: 'https://cdn.example/runtime.wasm' },
+      { url: 'https://user:secret@app.example/runtime.wasm' },
+      { exactOrigin: 'https://app.example/path' },
+      { exactOrigin: 'https://user:secret@app.example' },
+    ]) {
+      const store = new MemoryAssetStore();
+      const fetcher = vi.fn<typeof fetch>();
+      const instance = new AssetPreparationManager({ store, fetcher });
+
+      await expect(
+        instance.prepareRuntimeArtifact(runtimeArtifact(mutation)),
+      ).rejects.toMatchObject({ code: 'unapproved-response' });
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(store.events).toEqual([]);
+    }
+  });
+
+  it('rejects non-200, unreadable, or cross-origin final responses before temporary storage', async () => {
+    const artifact = runtimeArtifact();
+    for (const metadata of [
+      { url: artifact.url, type: 'basic' as ResponseType, status: 206 },
+      { url: artifact.url, type: 'opaque' as ResponseType, status: 200 },
+      { url: 'https://cdn.example/runtime.wasm', type: 'basic' as ResponseType, status: 200 },
+    ]) {
+      const store = new MemoryAssetStore();
+      const fetcher = vi.fn(async () => response(BYTES, BYTES.byteLength, metadata));
+      const instance = new AssetPreparationManager({ store, fetcher });
+
+      await expect(instance.prepareRuntimeArtifact(artifact)).rejects.toMatchObject({
+        code: 'unapproved-response',
+      });
+      expect(store.events.some((event) => event.startsWith('create:'))).toBe(false);
+    }
+  });
+
+  it('rejects declared/streamed length and digest drift with temporary cleanup', async () => {
+    const artifact = runtimeArtifact();
+    const cases = [
+      {
+        fetcher: vi.fn(async () =>
+          response(BYTES, BYTES.byteLength + 1, { url: artifact.url, type: 'basic' }),
+        ),
+        digest: fixedDigest(HASH),
+        code: 'unexpected-size',
+      },
+      {
+        fetcher: vi.fn(async () =>
+          withResponseMetadata(
+            new Response(new Uint8Array([...BYTES, 5]), {
+              headers: { 'content-length': String(BYTES.byteLength) },
+            }),
+            artifact.url,
+            'basic',
+          ),
+        ),
+        digest: fixedDigest(HASH),
+        code: 'unexpected-size',
+      },
+      {
+        fetcher: vi.fn(async () =>
+          response(BYTES, BYTES.byteLength, { url: artifact.url, type: 'basic' }),
+        ),
+        digest: fixedDigest(`sha256:${'0'.repeat(64)}`),
+        code: 'hash-mismatch',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const store = new MemoryAssetStore();
+      const instance = new AssetPreparationManager({
+        store,
+        fetcher: testCase.fetcher,
+        createDigest: testCase.digest,
+        temporaryNamespace: 'runtime-failure',
+      });
+      await expect(instance.prepareRuntimeArtifact(artifact)).rejects.toMatchObject({
+        code: testCase.code,
+      });
+      expect(store.final.has(artifact.cacheKey)).toBe(false);
+      expect(store.temporary.size).toBe(0);
+    }
+  });
+
+  it('suppresses pre-aborted work before cache, network, or temporary storage access', async () => {
+    const store = new MemoryAssetStore();
+    const fetcher = vi.fn<typeof fetch>();
+    const instance = new AssetPreparationManager({ store, fetcher });
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      instance.prepareRuntimeArtifact(runtimeArtifact(), { signal: controller.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(store.events).toEqual([]);
   });
 });

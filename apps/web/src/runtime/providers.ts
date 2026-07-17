@@ -11,6 +11,7 @@ import {
   MAX_SYNTHESIS_CHARACTERS,
   UnavailableRuntimeAdapter,
   validateSynthesisText,
+  type EngineControl,
   type RuntimeAdapter,
   type RuntimeCapability,
   type RuntimeOperationContext,
@@ -25,7 +26,20 @@ export type WorkerPort = {
   terminate(): void;
 };
 
-type WorkerRuntimeAdapterOptions = {
+export type WorkerPreparePayload = {
+  command: unknown;
+  transferList: readonly Transferable[];
+  preparedKey: string;
+};
+
+export type WorkerPreparePayloadBuilder = (input: {
+  operationId: number;
+  voice: CatalogVoice;
+  request: SynthesisRequest;
+  context: RuntimeOperationContext;
+}) => WorkerPreparePayload | Promise<WorkerPreparePayload>;
+
+export type WorkerRuntimeAdapterOptions = {
   engineId: string;
   voices: readonly CatalogVoice[];
   assetSets: readonly AssetSetManifest[];
@@ -37,6 +51,15 @@ type WorkerRuntimeAdapterOptions = {
   workerFactory: () => WorkerPort | Promise<WorkerPort>;
   browserRuntimeEnabled: boolean;
   cancelTimeoutMs?: number;
+  preparePayloadBuilder?: WorkerPreparePayloadBuilder;
+  preparedKeyBuilder?: (input: { voice: CatalogVoice; request: SynthesisRequest }) => string;
+  synthesizeCommandBuilder?: (input: {
+    operationId: number;
+    voice: CatalogVoice;
+    request: SynthesisRequest;
+  }) => unknown;
+  capabilityControls?: () => EngineControl[];
+  cancellationPolicy?: 'delayed' | 'immediate';
 };
 
 type PendingWorkerOperationBase = {
@@ -49,6 +72,7 @@ type PendingWorkerOperationBase = {
 type PendingWorkerOperation =
   | (PendingWorkerOperationBase & {
       kind: 'prepare';
+      preparedKey: string;
       resolve: () => void;
     })
   | (PendingWorkerOperationBase & {
@@ -60,7 +84,7 @@ type WorkerGeneration = {
   id: number;
   port: WorkerPort;
   pendingIds: Set<number>;
-  preparedVoiceId: string | null;
+  preparedKey: string | null;
   detached: boolean;
   terminated: boolean;
   onMessage: EventListener;
@@ -95,6 +119,70 @@ function safeFilenamePart(value: string): string {
   return safe.length > 0 ? safe : 'voice';
 }
 
+function collectArrayBuffers(value: unknown, result: ArrayBuffer[] = []): ArrayBuffer[] {
+  if (value instanceof ArrayBuffer) {
+    result.push(value);
+    return result;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectArrayBuffers(item, result);
+    return result;
+  }
+  if (typeof value === 'object' && value !== null && !ArrayBuffer.isView(value)) {
+    for (const item of Object.values(value)) collectArrayBuffers(item, result);
+  }
+  return result;
+}
+
+function parsePreparePayload(
+  payload: WorkerPreparePayload,
+  expected: {
+    operationId: number;
+    engineId: string;
+    voiceId: string;
+    preparedKey: string;
+  },
+): { command: WorkerCommand; transferList: Transferable[]; preparedKey: string } {
+  const command = WorkerCommandSchema.parse(payload.command);
+  if (
+    command.command !== 'prepare' ||
+    command.operationId !== expected.operationId ||
+    command.engineId !== expected.engineId ||
+    command.voiceId !== expected.voiceId ||
+    payload.preparedKey !== expected.preparedKey ||
+    payload.preparedKey.length === 0
+  ) {
+    throw new Error('Engine-owned Worker prepare identity does not match the active request.');
+  }
+  const commandBuffers = collectArrayBuffers(command);
+  const transferList = [...payload.transferList];
+  if (
+    commandBuffers.length !== transferList.length ||
+    new Set(commandBuffers).size !== commandBuffers.length ||
+    new Set(transferList).size !== transferList.length ||
+    transferList.some((transfer, index) => transfer !== commandBuffers[index])
+  ) {
+    throw new Error('Worker transfer list must contain every parsed command buffer exactly once.');
+  }
+  return { command, transferList, preparedKey: payload.preparedKey };
+}
+
+function parseSynthesizeCommand(
+  value: unknown,
+  expected: { operationId: number; engineId: string; voiceId: string },
+): WorkerCommand {
+  const command = WorkerCommandSchema.parse(value);
+  if (
+    command.command !== 'synthesize' ||
+    command.operationId !== expected.operationId ||
+    command.engineId !== expected.engineId ||
+    command.voiceId !== expected.voiceId
+  ) {
+    throw new Error('Engine-owned Worker synthesize identity does not match the active request.');
+  }
+  return command;
+}
+
 class WorkerRuntimeAdapter implements RuntimeAdapter {
   readonly engineId: string;
   private readonly voices: readonly CatalogVoice[];
@@ -104,6 +192,17 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   private readonly workerFactory: WorkerRuntimeAdapterOptions['workerFactory'];
   private readonly browserRuntimeEnabled: boolean;
   private readonly cancelTimeoutMs: number;
+  private readonly preparePayloadBuilder: WorkerRuntimeAdapterOptions['preparePayloadBuilder'];
+  private readonly preparedKeyBuilder: NonNullable<
+    WorkerRuntimeAdapterOptions['preparedKeyBuilder']
+  >;
+  private readonly synthesizeCommandBuilder: WorkerRuntimeAdapterOptions['synthesizeCommandBuilder'];
+  private readonly capabilityControls: NonNullable<
+    WorkerRuntimeAdapterOptions['capabilityControls']
+  >;
+  private readonly cancellationPolicy: NonNullable<
+    WorkerRuntimeAdapterOptions['cancellationPolicy']
+  >;
   private generation: WorkerGeneration | null = null;
   private nextGenerationId = 0;
   private nextOperationId = 0;
@@ -123,6 +222,24 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     this.workerFactory = options.workerFactory;
     this.browserRuntimeEnabled = options.browserRuntimeEnabled;
     this.cancelTimeoutMs = options.cancelTimeoutMs ?? 2_000;
+    this.preparePayloadBuilder = options.preparePayloadBuilder;
+    this.preparedKeyBuilder =
+      options.preparedKeyBuilder ?? (({ voice }: { voice: CatalogVoice }) => voice.id);
+    this.synthesizeCommandBuilder = options.synthesizeCommandBuilder;
+    this.capabilityControls =
+      options.capabilityControls ??
+      (() => [
+        {
+          id: 'speed',
+          label: 'Speed',
+          type: 'range',
+          min: 0.75,
+          max: 1.25,
+          step: 0.05,
+          defaultValue: 1,
+        },
+      ]);
+    this.cancellationPolicy = options.cancellationPolicy ?? 'delayed';
   }
 
   async listVoices(): Promise<string[]> {
@@ -152,17 +269,7 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       available: true,
       mode,
       reason: null,
-      controls: [
-        {
-          id: 'speed',
-          label: 'Speed',
-          type: 'range',
-          min: 0.75,
-          max: 1.25,
-          step: 0.05,
-          defaultValue: 1,
-        },
-      ],
+      controls: this.capabilityControls(),
     };
   }
 
@@ -200,24 +307,51 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       }
       if (!capability.available) throw new Error(capability.reason ?? 'Runtime unavailable.');
 
-      const assetSetId = canonicalVoice.assetSetId;
-      const assetSet =
-        assetSetId === null || assetSetId === undefined
-          ? undefined
-          : this.assetSetsById.get(assetSetId);
-      if (assetSet === undefined || assetSet.engineId !== this.engineId) {
-        throw new Error(`No immutable asset set is registered for ${canonicalVoice.id}.`);
-      }
-
-      await Promise.race([
-        this.prepareAssets(assetSet, canonicalVoice, {
-          ...context,
-          signal: preparation.controller.signal,
-        }),
-        aborted,
-      ]);
-      if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
-        throw abortError();
+      let operationId: number;
+      let payload:
+        { command: WorkerCommand; transferList: Transferable[]; preparedKey: string } | undefined;
+      const preparedKey = this.preparedKeyBuilder({ voice: canonicalVoice, request });
+      if (this.preparePayloadBuilder !== undefined) {
+        operationId = ++this.nextOperationId;
+        const built = await Promise.race([
+          Promise.resolve(
+            this.preparePayloadBuilder({
+              operationId,
+              voice: canonicalVoice,
+              request,
+              context: { ...context, signal: preparation.controller.signal },
+            }),
+          ),
+          aborted,
+        ]);
+        if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
+          throw abortError();
+        }
+        payload = parsePreparePayload(built, {
+          operationId,
+          engineId: this.engineId,
+          voiceId: canonicalVoice.id,
+          preparedKey,
+        });
+      } else {
+        const assetSetId = canonicalVoice.assetSetId;
+        const assetSet =
+          assetSetId === null || assetSetId === undefined
+            ? undefined
+            : this.assetSetsById.get(assetSetId);
+        if (assetSet === undefined || assetSet.engineId !== this.engineId) {
+          throw new Error(`No immutable asset set is registered for ${canonicalVoice.id}.`);
+        }
+        await Promise.race([
+          this.prepareAssets(assetSet, canonicalVoice, {
+            ...context,
+            signal: preparation.controller.signal,
+          }),
+          aborted,
+        ]);
+        if (preparation.controller.signal.aborted || this.activePreparation !== preparation) {
+          throw abortError();
+        }
       }
 
       const generation = await this.ensureGeneration(preparation.controller.signal);
@@ -226,16 +360,31 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
         await this.cancelPreparation(preparation, abortError());
         throw abortError();
       }
-      const operationId = ++this.nextOperationId;
-      const command = WorkerCommandSchema.parse({
-        command: 'prepare',
-        operationId,
-        engineId: this.engineId,
-        voiceId: canonicalVoice.id,
-      });
+      if (payload === undefined) {
+        operationId = ++this.nextOperationId;
+        payload = parsePreparePayload(
+          {
+            command: {
+              command: 'prepare',
+              operationId,
+              engineId: this.engineId,
+              voiceId: canonicalVoice.id,
+            },
+            transferList: [],
+            preparedKey,
+          },
+          {
+            operationId,
+            engineId: this.engineId,
+            voiceId: canonicalVoice.id,
+            preparedKey,
+          },
+        );
+      }
       await new Promise<void>((resolve, reject) => {
         this.pending.set(operationId, {
           kind: 'prepare',
+          preparedKey: payload.preparedKey,
           resolve,
           reject,
           context,
@@ -243,7 +392,7 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
           voiceId: canonicalVoice.id,
         });
         generation.pendingIds.add(operationId);
-        this.postCommand(generation, command);
+        this.postCommand(generation, payload.command, payload.transferList);
       });
     } catch (error) {
       if (preparation.controller.signal.aborted) throw abortError();
@@ -264,20 +413,27 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     const canonicalVoice = this.resolveCanonicalVoice(request.voice.id);
     assertRequest(canonicalVoice, request);
     if (context.signal?.aborted) throw abortError();
+    if (this.activePreparation !== null) {
+      throw new Error('Preset preparation is in progress; wait before synthesis.');
+    }
     const generation = this.generation;
-    if (generation === null || generation.preparedVoiceId !== canonicalVoice.id) {
+    const preparedKey = this.preparedKeyBuilder({ voice: canonicalVoice, request });
+    if (generation === null || generation.preparedKey !== preparedKey) {
       throw new Error('Prepare the selected preset before synthesis.');
     }
 
     const operationId = ++this.nextOperationId;
-    const command = WorkerCommandSchema.parse({
-      command: 'synthesize',
-      operationId,
-      engineId: this.engineId,
-      voiceId: canonicalVoice.id,
-      text: request.text,
-      controls: { ...request.controls },
-    });
+    const command = parseSynthesizeCommand(
+      this.synthesizeCommandBuilder?.({ operationId, voice: canonicalVoice, request }) ?? {
+        command: 'synthesize',
+        operationId,
+        engineId: this.engineId,
+        voiceId: canonicalVoice.id,
+        text: request.text,
+        controls: { ...request.controls },
+      },
+      { operationId, engineId: this.engineId, voiceId: canonicalVoice.id },
+    );
     return await new Promise<SynthesisOutput>((resolve, reject) => {
       const abort = () => {
         void this.startGenerationCancellation(generation, abortError());
@@ -401,7 +557,7 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       id: ++this.nextGenerationId,
       port,
       pendingIds: new Set<number>(),
-      preparedVoiceId: null,
+      preparedKey: null,
       detached: false,
       terminated: false,
       onMessage: (() => undefined) as EventListener,
@@ -424,9 +580,13 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     return generation;
   }
 
-  private postCommand(generation: WorkerGeneration, command: WorkerCommand): void {
+  private postCommand(
+    generation: WorkerGeneration,
+    command: WorkerCommand,
+    transferList: readonly Transferable[] = [],
+  ): void {
     try {
-      generation.port.postMessage(WorkerCommandSchema.parse(command));
+      generation.port.postMessage(command, [...transferList]);
     } catch (error) {
       this.failGeneration(generation, error);
     }
@@ -450,19 +610,19 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
 
     if (message.type === 'error') {
       this.removePending(generation, message.operationId);
-      if (operation.kind === 'prepare') generation.preparedVoiceId = null;
+      if (operation.kind === 'prepare') generation.preparedKey = null;
       operation.reject(new Error(message.message));
       return;
     }
     if (message.type === 'cancelled') {
       this.removePending(generation, message.operationId);
-      generation.preparedVoiceId = null;
+      generation.preparedKey = null;
       operation.reject(abortError());
       return;
     }
     if (message.type === 'ready' && operation.kind === 'prepare') {
       this.removePending(generation, message.operationId);
-      generation.preparedVoiceId = operation.voiceId;
+      generation.preparedKey = operation.preparedKey;
       operation.resolve();
       return;
     }
@@ -495,7 +655,7 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   private detachGeneration(generation: WorkerGeneration): void {
     if (generation.detached) return;
     generation.detached = true;
-    generation.preparedVoiceId = null;
+    generation.preparedKey = null;
     generation.port.removeEventListener('message', generation.onMessage);
     generation.port.removeEventListener('error', generation.onError);
     generation.port.removeEventListener('messageerror', generation.onMessageError);
@@ -552,6 +712,10 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     const operationIds = [...generation.pendingIds];
     this.detachGeneration(generation);
     this.rejectGeneration(generation, reason);
+    if (this.cancellationPolicy === 'immediate') {
+      this.terminateGeneration(generation);
+      return;
+    }
     for (const operationId of operationIds) {
       try {
         generation.port.postMessage(WorkerCommandSchema.parse({ command: 'cancel', operationId }));

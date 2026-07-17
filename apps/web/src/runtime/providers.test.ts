@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { AssetSetManifest } from '@open-voice/contracts';
+import {
+  SUPERTONIC_MANIFEST_DIGEST,
+  SUPERTONIC_RUNTIME_IDENTITIES,
+  SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES,
+  type AssetSetManifest,
+} from '@open-voice/contracts';
 
 import type { CatalogVoice } from '../catalog/filters';
 import {
@@ -70,11 +75,13 @@ function set(engineId = 'kokoro'): AssetSetManifest {
 
 class FakeWorker implements WorkerPort {
   readonly messages: unknown[] = [];
+  readonly transfers: Transferable[][] = [];
   readonly listeners = new Map<string, Set<(event: Event) => void>>();
   terminated = false;
 
-  postMessage(message: unknown) {
+  postMessage(message: unknown, transfer: Transferable[] = []) {
     this.messages.push(message);
+    this.transfers.push([...transfer]);
   }
 
   addEventListener(type: 'message' | 'error' | 'messageerror', listener: (event: Event) => void) {
@@ -103,6 +110,73 @@ class FakeWorker implements WorkerPort {
   emitFailure(type: 'error' | 'messageerror') {
     for (const listener of this.listeners.get(type) ?? []) listener(new Event(type));
   }
+}
+
+function supertonicVoice(): CatalogVoice {
+  return {
+    ...voice('supertonic'),
+    id: 'supertonic:F1',
+    assetSetId: 'supertonic-browser-assets',
+    declaredDownloadBytes: 401_276_744,
+    backend: 'webgpu-wasm',
+  };
+}
+
+function supertonicRequest(backend: 'wasm' | 'webgpu' = 'wasm') {
+  return {
+    voice: supertonicVoice(),
+    mode: 'browser' as const,
+    text: 'A closed transferable selection.',
+    controls: { backend, language: 'en', speed: 1.05 },
+  };
+}
+
+const sharedSupertonicPayloads = new Map<'wasm' | 'webgpu', ReturnType<typeof createPayload>>();
+
+function createPayload(backend: 'wasm' | 'webgpu') {
+  const identity = SUPERTONIC_RUNTIME_IDENTITIES[backend];
+  const modelBuffers = SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES.map(
+    ({ byteLength }) => new ArrayBuffer(byteLength),
+  );
+  const runtimeBuffer = new ArrayBuffer(identity.byteLength);
+  const command = {
+    command: 'prepare',
+    operationId: 1,
+    engineId: 'supertonic',
+    voiceId: 'supertonic:F1',
+    selectionId: identity.selectionId,
+    selectionDigest: identity.selectionDigest,
+    backend,
+    assetSetId: 'supertonic-browser-assets',
+    manifestDigest: SUPERTONIC_MANIFEST_DIGEST,
+    runtimeArtifactId: identity.artifactId,
+    assets: SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES.map((asset, index) => ({
+      ...asset,
+      bytes: modelBuffers[index]!,
+    })),
+    runtimeArtifact: {
+      artifactId: identity.artifactId,
+      sha256: identity.sha256,
+      byteLength: identity.byteLength,
+      mediaType: identity.mediaType,
+      bytes: runtimeBuffer,
+    },
+  };
+  return {
+    command,
+    transferList: [...modelBuffers, runtimeBuffer],
+    preparedKey: `supertonic:F1:${identity.selectionId}:${backend}`,
+  };
+}
+
+function supertonicPreparePayload(backend: 'wasm' | 'webgpu' = 'wasm', fresh = false) {
+  if (!fresh) {
+    const shared = sharedSupertonicPayloads.get(backend);
+    if (shared !== undefined) return shared;
+  }
+  const payload = createPayload(backend);
+  if (!fresh) sharedSupertonicPayloads.set(backend, payload);
+  return payload;
 }
 
 function stillPendingAfter(delayMs = 20): Promise<'still-pending'> {
@@ -766,6 +840,334 @@ describe('lazy preset-only provider boundaries', () => {
     await rejectedSynthesis;
     expect(worker.terminated).toBe(true);
     vi.useRealTimers();
+  });
+
+  it('exposes stable engine-owned controls without building payloads or Workers', async () => {
+    const preset = supertonicVoice();
+    const preparePayloadBuilder = vi.fn(async () => supertonicPreparePayload());
+    const workerFactory = vi.fn(() => new FakeWorker());
+    const capabilityControls = vi.fn(() => [
+      {
+        id: 'backend',
+        label: 'Backend',
+        type: 'select' as const,
+        defaultValue: 'webgpu',
+        options: [
+          { label: 'WebGPU', value: 'webgpu' },
+          { label: 'WASM', value: 'wasm' },
+        ],
+      },
+      {
+        id: 'language',
+        label: 'Language',
+        type: 'select' as const,
+        defaultValue: 'en',
+        options: [{ label: 'English', value: 'en' }],
+      },
+      {
+        id: 'speed',
+        label: 'Speed',
+        type: 'range' as const,
+        min: 0.75,
+        max: 1.25,
+        step: 0.05,
+        defaultValue: 1.05,
+      },
+    ]);
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [preset],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder,
+      preparedKeyBuilder: ({ voice, request }) => `${voice.id}:${String(request.controls.backend)}`,
+      workerFactory,
+      browserRuntimeEnabled: true,
+      capabilityControls,
+      cancellationPolicy: 'immediate',
+    });
+
+    await expect(adapter.checkCapability(preset, 'browser')).resolves.toMatchObject({
+      available: true,
+      controls: [
+        { id: 'backend', type: 'select', defaultValue: 'webgpu' },
+        { id: 'language', type: 'select', defaultValue: 'en' },
+        { id: 'speed', type: 'range', defaultValue: 1.05 },
+      ],
+    });
+    expect(capabilityControls).toHaveBeenCalledOnce();
+    expect(preparePayloadBuilder).not.toHaveBeenCalled();
+    expect(workerFactory).not.toHaveBeenCalled();
+  });
+
+  it('constructs the Worker after the engine payload and posts exact parsed buffer owners once', async () => {
+    let resolvePayload!: (payload: ReturnType<typeof supertonicPreparePayload>) => void;
+    const payload = supertonicPreparePayload();
+    const worker = new FakeWorker();
+    const workerFactory = vi.fn(() => worker);
+    const preparePayloadBuilder = vi.fn(
+      () =>
+        new Promise<ReturnType<typeof supertonicPreparePayload>>((resolve) => {
+          resolvePayload = resolve;
+        }),
+    );
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder,
+      preparedKeyBuilder: ({ voice, request }) =>
+        `${voice.id}:${String(request.controls.backend) === 'wasm' ? 'supertonic-wasm:wasm' : 'supertonic-webgpu:webgpu'}`,
+      synthesizeCommandBuilder: ({ operationId, voice, request }) => ({
+        command: 'synthesize',
+        operationId,
+        engineId: 'supertonic',
+        voiceId: voice.id,
+        text: request.text,
+        controls: {
+          language: request.controls.language,
+          speed: request.controls.speed,
+        },
+      }),
+      workerFactory,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+    const request = supertonicRequest();
+    const prepared = adapter.prepare(request);
+    await vi.waitFor(() => expect(preparePayloadBuilder).toHaveBeenCalledOnce());
+    expect(workerFactory).not.toHaveBeenCalled();
+
+    resolvePayload(payload);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(worker.transfers[0]).toEqual(payload.transferList);
+    const posted = worker.messages[0] as typeof payload.command;
+    expect(posted.assets.map(({ bytes }) => bytes)).toEqual(payload.transferList.slice(0, 16));
+    expect(posted.runtimeArtifact.bytes).toBe(payload.transferList[16]);
+    worker.emit({ type: 'ready', operationId: 1 });
+    await prepared;
+
+    await expect(adapter.synthesize(supertonicRequest('webgpu'), {})).rejects.toThrow(
+      /prepare the selected preset/i,
+    );
+    const synthesis = adapter.synthesize(request, {});
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+    expect(worker.messages[1]).toMatchObject({
+      command: 'synthesize',
+      controls: { language: 'en', speed: 1.05 },
+    });
+    worker.emit({
+      type: 'result',
+      operationId: 2,
+      audio: new ArrayBuffer(4),
+      mimeType: 'audio/wav',
+    });
+    await expect(synthesis).resolves.toMatchObject({ mimeType: 'audio/wav' });
+  });
+
+  it('rejects an engine-owned synthesize command whose identity escapes the active request', async () => {
+    class AutoReplyWorker extends FakeWorker {
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        const command = message as { command?: string; operationId?: number };
+        if (command.command === 'synthesize' && command.operationId !== undefined) {
+          queueMicrotask(() =>
+            this.emit({
+              type: 'result',
+              operationId: command.operationId,
+              audio: new ArrayBuffer(4),
+              mimeType: 'audio/wav',
+            }),
+          );
+        }
+      }
+    }
+    const payload = supertonicPreparePayload();
+    const worker = new AutoReplyWorker();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async () => payload,
+      preparedKeyBuilder: () => payload.preparedKey,
+      synthesizeCommandBuilder: ({ operationId, request }) => ({
+        command: 'synthesize',
+        operationId,
+        engineId: 'kokoro',
+        voiceId: 'kokoro:af_heart',
+        text: request.text,
+        controls: { speed: 1 },
+      }),
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+
+    const preparation = adapter.prepare(supertonicRequest());
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await preparation;
+
+    await expect(adapter.synthesize(supertonicRequest(), {})).rejects.toThrow(/identity/i);
+    expect(worker.messages).toHaveLength(1);
+  });
+
+  it('does not authorize synthesis from an old selection while replacement preparation is active', async () => {
+    class AutoReplyWorker extends FakeWorker {
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        const command = message as { command?: string; operationId?: number };
+        if (command.command === 'synthesize' && command.operationId !== undefined) {
+          queueMicrotask(() =>
+            this.emit({
+              type: 'result',
+              operationId: command.operationId,
+              audio: new ArrayBuffer(4),
+              mimeType: 'audio/wav',
+            }),
+          );
+        }
+      }
+    }
+    const worker = new AutoReplyWorker();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async ({ operationId, request }) => {
+        const backend = request.controls.backend === 'webgpu' ? 'webgpu' : 'wasm';
+        const payload = supertonicPreparePayload(backend);
+        return { ...payload, command: { ...payload.command, operationId } };
+      },
+      preparedKeyBuilder: ({ voice, request }) =>
+        `${voice.id}:${String(request.controls.backend) === 'webgpu' ? 'supertonic-webgpu:webgpu' : 'supertonic-wasm:wasm'}`,
+      synthesizeCommandBuilder: ({ operationId, voice, request }) => ({
+        command: 'synthesize',
+        operationId,
+        engineId: 'supertonic',
+        voiceId: voice.id,
+        text: request.text,
+        controls: { language: request.controls.language, speed: request.controls.speed },
+      }),
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+
+    const firstPreparation = adapter.prepare(supertonicRequest('wasm'));
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await firstPreparation;
+
+    const replacementPreparation = adapter.prepare(supertonicRequest('webgpu'));
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+    await expect(adapter.synthesize(supertonicRequest('wasm'), {})).rejects.toThrow(
+      /preparation is in progress/i,
+    );
+    expect(worker.messages).toHaveLength(2);
+
+    worker.emit({ type: 'ready', operationId: 2 });
+    await replacementPreparation;
+  });
+
+  it('rejects missing, extra, duplicate, or reordered transfer owners before Worker construction', async () => {
+    const payload = supertonicPreparePayload();
+    const transferLists = [
+      payload.transferList.slice(0, -1),
+      [...payload.transferList, new ArrayBuffer(1)],
+      [...payload.transferList, payload.transferList[0]!],
+      [payload.transferList[1]!, payload.transferList[0]!, ...payload.transferList.slice(2)],
+    ];
+
+    for (const transferList of transferLists) {
+      const workerFactory = vi.fn(() => new FakeWorker());
+      const adapter = createWorkerRuntimeAdapter({
+        engineId: 'supertonic',
+        voices: [supertonicVoice()],
+        assetSets: [],
+        prepareAssets: vi.fn(async () => {}),
+        preparePayloadBuilder: async () => ({ ...payload, transferList }),
+        preparedKeyBuilder: () => payload.preparedKey,
+        workerFactory,
+        browserRuntimeEnabled: true,
+        cancellationPolicy: 'immediate',
+      });
+
+      await expect(adapter.prepare(supertonicRequest())).rejects.toThrow(/transfer/i);
+      expect(workerFactory).not.toHaveBeenCalled();
+    }
+  });
+
+  it('cannot post a transferred detached payload a second time', async () => {
+    class DetachingWorker extends FakeWorker {
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        if (transfer.length > 0) structuredClone(message, { transfer });
+      }
+    }
+    const payload = supertonicPreparePayload('wasm', true);
+    const worker = new DetachingWorker();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async () => payload,
+      preparedKeyBuilder: () => payload.preparedKey,
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+
+    const first = adapter.prepare(supertonicRequest());
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    expect(payload.transferList.every((buffer) => buffer.byteLength === 0)).toBe(true);
+    worker.emit({ type: 'ready', operationId: 1 });
+    await first;
+
+    await expect(adapter.prepare(supertonicRequest())).rejects.toThrow();
+    expect(worker.messages).toHaveLength(1);
+  });
+
+  it('terminates a posted Supertonic generation synchronously and permits a fresh generation', async () => {
+    const payload = supertonicPreparePayload();
+    const firstWorker = new FakeWorker();
+    const secondWorker = new FakeWorker();
+    const workerFactory = vi
+      .fn<() => WorkerPort>()
+      .mockReturnValueOnce(firstWorker)
+      .mockReturnValueOnce(secondWorker);
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async ({ operationId }) => ({
+        ...payload,
+        command: { ...payload.command, operationId },
+      }),
+      preparedKeyBuilder: () => payload.preparedKey,
+      workerFactory,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+
+    const cancelledPreparation = adapter.prepare(supertonicRequest());
+    await vi.waitFor(() => expect(firstWorker.messages).toHaveLength(1));
+    const cancelling = adapter.cancel();
+    expect(firstWorker.terminated).toBe(true);
+    await expect(cancelledPreparation).rejects.toMatchObject({ name: 'AbortError' });
+    await cancelling;
+
+    const freshPreparation = adapter.prepare(supertonicRequest());
+    await vi.waitFor(() => expect(secondWorker.messages).toHaveLength(1));
+    expect(secondWorker.messages[0]).toMatchObject({ operationId: 2 });
+    secondWorker.emit({ type: 'ready', operationId: 2 });
+    await freshPreparation;
   });
 
   it('keeps Edge and future Azure hard-unavailable with zero network or Worker calls', async () => {

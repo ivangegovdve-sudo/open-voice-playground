@@ -648,6 +648,382 @@ describe('browser runtime artifact contracts', () => {
   });
 });
 
+const supertonicTransferredAssetIdentities = [
+  {
+    assetId: 'onnx-duration-predictor-onnx',
+    sha256: 'sha256:c3eb91414d5ff8a7a239b7fe9e34e7e2bf8a8140d8375ffb14718b1c639325db',
+    byteLength: 3_700_147,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-text-encoder-onnx',
+    sha256: 'sha256:c7befd5ea8c3119769e8a6c1486c4edc6a3bc8365c67621c881bbb774b9902ff',
+    byteLength: 36_416_150,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-tts-json',
+    sha256: 'sha256:42078d3aef1cd43ab43021f3c54f47d2d75ceb4e75f627f118890128b06a0d09',
+    byteLength: 8_253,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'onnx-unicode-indexer-json',
+    sha256: 'sha256:9bf7346e43883a81f8645c81224f786d43c5b57f3641f6e7671a7d6c493cb24f',
+    byteLength: 277_676,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'onnx-vector-estimator-onnx',
+    sha256: 'sha256:883ac868ea0275ef0e991524dc64f16b3c0376efd7c320af6b53f5b780d7c61c',
+    byteLength: 256_534_781,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'onnx-vocoder-onnx',
+    sha256: 'sha256:085de76dd8e8d5836d6ca66826601f615939218f90e519f70ee8a36ed2a4c4ba',
+    byteLength: 101_424_195,
+    mediaType: 'application/onnx',
+  },
+  {
+    assetId: 'voice-styles-f1-json',
+    sha256: 'sha256:bbdec6ee00231c2c742ad05483df5334cab3b52fda3ba38e6a07059c4563dbc2',
+    byteLength: 292_046,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f2-json',
+    sha256: 'sha256:7c722c6a72707b1a77f035d67f0d1351ba187738e06f7683e8c72b1df3477fc6',
+    byteLength: 292_423,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f3-json',
+    sha256: 'sha256:12f6ef2573baa2defa1128069cb59f203e3ab67c92af77b42df8a0e3a2f7c6ab',
+    byteLength: 290_794,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f4-json',
+    sha256: 'sha256:c2fa764c1225a76dfc3e2c73e8aa4f70d9ee48793860eb34c295fff01c2e032b',
+    byteLength: 291_808,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-f5-json',
+    sha256: 'sha256:45966e73316415626cf41a7d1c6f3b4c70dbc1ba2bee5c1978ef0ce33244fc8d',
+    byteLength: 291_479,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m1-json',
+    sha256: 'sha256:e35604687f5d23694b8e91593a93eec0e4eca6c0b02bb8ed69139ab2ea6b0a5b',
+    byteLength: 291_748,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m2-json',
+    sha256: 'sha256:b76cbf62bac707c710cf0ae5aba5e31eea1a6339a9734bfae33ab98499534a50',
+    byteLength: 292_055,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m3-json',
+    sha256: 'sha256:ea1ac35ccb91b0d7ecad533a2fbd0eec10c91513d8951e3b25fbba99954e159b',
+    byteLength: 290_198,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m4-json',
+    sha256: 'sha256:ca8eefad4fcd989c9379032ff3e50738adc547eeb5e221b82593a6d7b3bac303',
+    byteLength: 291_522,
+    mediaType: 'application/json',
+  },
+  {
+    assetId: 'voice-styles-m5-json',
+    sha256: 'sha256:dd22b92740314321f8ae11c5e87f8dd60d060f15dd3a632b5adf77f471f77af2',
+    byteLength: 291_469,
+    mediaType: 'application/json',
+  },
+] as const;
+
+const supertonicModelBuffers = supertonicTransferredAssetIdentities.map(
+  ({ byteLength }) => new ArrayBuffer(byteLength),
+);
+
+function supertonicTransferredAssets() {
+  return supertonicTransferredAssetIdentities.map((identity, index) => ({
+    ...identity,
+    bytes: supertonicModelBuffers[index]!,
+  }));
+}
+
+const supertonicRuntimeIdentities = {
+  webgpu: {
+    artifactId: 'onnxruntime-web-webgpu-jsep-wasm',
+    sha256: 'sha256:78feeeb3d08f6bcee94d938ed322f69073bb8076b5f9d34697a574ffba8deb48',
+    byteLength: 26_827_543,
+    mediaType: 'application/wasm',
+    selectionId: 'supertonic-webgpu',
+    selectionDigest: 'sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e',
+  },
+  wasm: {
+    artifactId: 'onnxruntime-web-wasm-runtime',
+    sha256: 'sha256:d1ab1b94b16a65b29d710d0b587b29e7bed336827577623913479b8afe8113e6',
+    byteLength: 13_479_978,
+    mediaType: 'application/wasm',
+    selectionId: 'supertonic-wasm',
+    selectionDigest: 'sha256:8d6cd80556261b7d1dd56e2796b7113febee04037f97f5de298e5e7b5a35feb9',
+  },
+} as const;
+
+const supertonicRuntimeBuffers = {
+  webgpu: new ArrayBuffer(supertonicRuntimeIdentities.webgpu.byteLength),
+  wasm: new ArrayBuffer(supertonicRuntimeIdentities.wasm.byteLength),
+};
+
+function supertonicPrepare(backend: keyof typeof supertonicRuntimeIdentities = 'wasm') {
+  const runtime = supertonicRuntimeIdentities[backend];
+  return {
+    command: 'prepare',
+    operationId: 1,
+    engineId: 'supertonic',
+    voiceId: 'supertonic:F1',
+    selectionId: runtime.selectionId,
+    selectionDigest: runtime.selectionDigest,
+    backend,
+    assetSetId: 'supertonic-browser-assets',
+    manifestDigest: 'sha256:551c3d087981bdce978531d8b93610e295ca58bb28341d64ca7d61a58f4dd8b6',
+    runtimeArtifactId: runtime.artifactId,
+    assets: supertonicTransferredAssets(),
+    runtimeArtifact: {
+      artifactId: runtime.artifactId,
+      sha256: runtime.sha256,
+      byteLength: runtime.byteLength,
+      mediaType: runtime.mediaType,
+      bytes: supertonicRuntimeBuffers[backend],
+    },
+  };
+}
+
+describe('closed Supertonic Worker protocol', () => {
+  it('accepts only the exact 16+1 WASM and WebGPU prepare closures', () => {
+    const prepareSchema = schema('SupertonicPrepareWorkerCommandSchema');
+    const commandSchema = schema('WorkerCommandSchema');
+
+    expect(prepareSchema.safeParse(supertonicPrepare('wasm')).success).toBe(true);
+    expect(prepareSchema.safeParse(supertonicPrepare('webgpu')).success).toBe(true);
+    expect(commandSchema.safeParse(supertonicPrepare('wasm')).success).toBe(true);
+    expect(
+      commandSchema.safeParse({
+        command: 'prepare',
+        operationId: 1,
+        engineId: 'supertonic',
+        voiceId: 'supertonic:F1',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('runtime-freezes every exported Supertonic schema trust anchor', () => {
+    const runtimeIdentities = contracts.SUPERTONIC_RUNTIME_IDENTITIES;
+    const mutableWasm = runtimeIdentities.wasm as unknown as {
+      sha256: string;
+      byteLength: number;
+    };
+    const originalSha256 = mutableWasm.sha256;
+    const originalByteLength = mutableWasm.byteLength;
+    let mutationRejected = false;
+    try {
+      mutableWasm.sha256 = `sha256:${'0'.repeat(64)}`;
+      mutableWasm.byteLength = 1;
+    } catch {
+      mutationRejected = true;
+    } finally {
+      if (!mutationRejected) {
+        mutableWasm.sha256 = originalSha256;
+        mutableWasm.byteLength = originalByteLength;
+      }
+    }
+
+    expect(mutationRejected).toBe(true);
+    expect(Object.isFrozen(contracts.SUPERTONIC_VOICE_IDS)).toBe(true);
+    expect(Object.isFrozen(contracts.SUPERTONIC_LANGUAGES)).toBe(true);
+    expect(Object.isFrozen(contracts.SUPERTONIC_TRANSFERRED_ASSET_IDS)).toBe(true);
+    expect(Object.isFrozen(contracts.SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES)).toBe(true);
+    expect(contracts.SUPERTONIC_TRANSFERRED_ASSET_IDENTITIES.every(Object.isFrozen)).toBe(true);
+    expect(Object.isFrozen(runtimeIdentities)).toBe(true);
+    expect(Object.values(runtimeIdentities).every(Object.isFrozen)).toBe(true);
+    expect(
+      schema('SupertonicPrepareWorkerCommandSchema').safeParse(supertonicPrepare()).success,
+    ).toBe(true);
+  });
+
+  it('rejects missing, extra, duplicate, reordered, malformed, detached, or aliased assets', () => {
+    const commandSchema = schema('WorkerCommandSchema');
+    const valid = supertonicPrepare();
+    expect(commandSchema.safeParse(valid).success).toBe(true);
+    const detached = new ArrayBuffer(supertonicTransferredAssetIdentities[2].byteLength);
+    structuredClone(detached, { transfer: [detached] });
+    const invalidAssets = [
+      valid.assets.slice(0, -1),
+      [...valid.assets, valid.assets[0]],
+      [valid.assets[1], valid.assets[0], ...valid.assets.slice(2)],
+      valid.assets.map((asset, index) =>
+        index === 1 ? { ...asset, assetId: valid.assets[0]!.assetId } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, sha256: `sha256:${'0'.repeat(64)}` } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, byteLength: asset.byteLength + 1 } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, mediaType: 'application/json' } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, bytes: new ArrayBuffer(1) } : asset,
+      ),
+      valid.assets.map((asset, index) => (index === 2 ? { ...asset, bytes: detached } : asset)),
+      valid.assets.map((asset, index) =>
+        index === 1 ? { ...asset, bytes: valid.assets[0]!.bytes } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, bytes: new Uint8Array(asset.byteLength) } : asset,
+      ),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, bytes: new SharedArrayBuffer(asset.byteLength) } : asset,
+      ),
+      valid.assets.map((asset, index) => (index === 0 ? { ...asset, bytes: new Blob() } : asset)),
+      valid.assets.map((asset, index) =>
+        index === 0 ? { ...asset, url: 'https://example.invalid/model.onnx' } : asset,
+      ),
+    ];
+
+    for (const assets of invalidAssets) {
+      expect(commandSchema.safeParse({ ...valid, assets }).success).toBe(false);
+    }
+    for (const forbidden of [
+      { url: 'https://example.invalid/model.onnx' },
+      { path: 'C:\\models\\model.onnx' },
+      { cacheKey: 'runtime/model' },
+      { handle: { kind: 'file' } },
+      { registryName: 'onnxruntime-web' },
+      { modelUrl: '/assets/model.onnx' },
+      { upload: 'voice.wav' },
+      { microphone: true },
+      { referenceAudio: new ArrayBuffer(1) },
+      { cloneFrom: 'speaker' },
+    ]) {
+      expect(commandSchema.safeParse({ ...valid, ...forbidden }).success).toBe(false);
+    }
+  });
+
+  it('binds exact voices, selection digests, backend, asset set, manifest, and runtime artifact', () => {
+    const commandSchema = schema('WorkerCommandSchema');
+    const valid = supertonicPrepare('webgpu');
+    const voiceIds = ['F1', 'F2', 'F3', 'F4', 'F5', 'M1', 'M2', 'M3', 'M4', 'M5'].map(
+      (id) => `supertonic:${id}`,
+    );
+    for (const voiceId of voiceIds) {
+      expect(commandSchema.safeParse({ ...valid, voiceId }).success).toBe(true);
+    }
+    for (const mutation of [
+      { voiceId: 'supertonic:F6' },
+      { voiceId: 'kokoro:af_heart' },
+      { selectionId: 'supertonic-auto' },
+      { selectionDigest: `sha256:${'0'.repeat(64)}` },
+      { backend: 'wasm' },
+      { assetSetId: 'supertonic-other-assets' },
+      { manifestDigest: `sha256:${'0'.repeat(64)}` },
+      { runtimeArtifactId: 'onnxruntime-web-wasm-runtime' },
+      {
+        runtimeArtifact: {
+          ...valid.runtimeArtifact,
+          artifactId: 'onnxruntime-web-wasm-runtime',
+        },
+      },
+      { runtimeArtifact: { ...valid.runtimeArtifact, bytes: new ArrayBuffer(1) } },
+      { runtimeArtifact: { ...valid.runtimeArtifact, unexpected: true } },
+      { unexpected: true },
+    ]) {
+      expect(commandSchema.safeParse({ ...valid, ...mutation }).success).toBe(false);
+    }
+  });
+
+  it('accepts exactly 31 languages and finite on-grid speed controls', () => {
+    const synthesizeSchema = schema('SupertonicSynthesizeWorkerCommandSchema');
+    const commandSchema = schema('WorkerCommandSchema');
+    const languages = [
+      'ar',
+      'bg',
+      'hr',
+      'cs',
+      'da',
+      'nl',
+      'en',
+      'et',
+      'fi',
+      'fr',
+      'de',
+      'el',
+      'hi',
+      'hu',
+      'id',
+      'it',
+      'ja',
+      'ko',
+      'lv',
+      'lt',
+      'pl',
+      'pt',
+      'ro',
+      'ru',
+      'sk',
+      'sl',
+      'es',
+      'sv',
+      'tr',
+      'uk',
+      'vi',
+    ];
+    const base = {
+      command: 'synthesize',
+      operationId: 2,
+      engineId: 'supertonic',
+      voiceId: 'supertonic:M5',
+      text: 'A closed transferable selection.',
+      controls: { language: 'en', speed: 1.05 },
+    };
+
+    for (const language of languages) {
+      expect(
+        synthesizeSchema.safeParse({ ...base, controls: { language, speed: 1.05 } }).success,
+      ).toBe(true);
+    }
+    for (const speed of [0.75, 0.8, 0.95, 1, 1.05, 1.2, 1.25]) {
+      expect(
+        commandSchema.safeParse({ ...base, controls: { language: 'en', speed } }).success,
+      ).toBe(true);
+    }
+    for (const controls of [
+      { speed: 1.05 },
+      { language: 'na', speed: 1.05 },
+      { language: 'en-US', speed: 1.05 },
+      { language: 'EN', speed: 1.05 },
+      { language: 'en', speed: Number.NaN },
+      { language: 'en', speed: Number.POSITIVE_INFINITY },
+      { language: 'en', speed: 0.74 },
+      { language: 'en', speed: 1.26 },
+      { language: 'en', speed: 1.01 },
+      { language: 'en', speed: 1.05000000001 },
+      { language: 'en', speed: 1.05, extra: true },
+    ]) {
+      expect(commandSchema.safeParse({ ...base, controls }).success).toBe(false);
+    }
+    expect(commandSchema.safeParse({ ...base, unexpected: true }).success).toBe(false);
+  });
+});
+
 describe('preset-only worker protocol', () => {
   it('accepts only same-engine catalog IDs and the exact advertised speed control', () => {
     const commandSchema = schema('WorkerCommandSchema');

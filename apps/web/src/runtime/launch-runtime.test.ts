@@ -3,8 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AssetSetManifest } from '@open-voice/contracts';
 
 import type { CatalogVoice } from '../catalog/filters';
-import { createLaunchRuntimeRegistry, type LaunchWorkerFactories } from './launch-runtime';
+import * as launchRuntime from './launch-runtime';
+import type { LaunchWorkerFactories } from './launch-runtime';
 import type { WorkerPort } from './providers';
+
+const { createLaunchRuntimeRegistry } = launchRuntime;
 
 function voice(engineId: string, gate: CatalogVoice['releaseGate']): CatalogVoice {
   const mode = engineId === 'edge' ? 'online' : engineId === 'pocket' ? 'companion' : 'browser';
@@ -60,6 +63,95 @@ function assetSet(engineId: string): AssetSetManifest {
 }
 
 describe('honest launch runtime registry', () => {
+  it('creates a pure disabled Supertonic configuration with special controls and payload seams', async () => {
+    const coordinator = {
+      buildPreparePayload: vi.fn(async (input: unknown) => ({
+        command: { command: 'prepare' },
+        transferList: [],
+        preparedKey: 'prepared-key',
+        input,
+      })),
+      preparedKey: vi.fn(() => 'prepared-key'),
+      buildSynthesizeCommand: vi.fn((input: unknown) => ({ command: 'synthesize', input })),
+    };
+    const workerFactory = vi.fn(() => ({}) as WorkerPort);
+    const prepareAssets = vi.fn(async () => {});
+    const createOptions = (
+      launchRuntime as typeof launchRuntime & {
+        createSupertonicWorkerRuntimeOptions: (
+          input: Record<string, unknown>,
+        ) => Record<string, unknown>;
+      }
+    ).createSupertonicWorkerRuntimeOptions;
+
+    const options = createOptions({
+      voices: [voice('supertonic', { status: 'enabled', reason: null, detail: 'Reviewed.' })],
+      assetSets: [assetSet('supertonic')],
+      prepareAssets,
+      workerFactory,
+      coordinator,
+      hasWebGpu: () => true,
+    }) as {
+      browserRuntimeEnabled: boolean;
+      cancellationPolicy: string;
+      capabilityControls: () => unknown[];
+      preparePayloadBuilder: (input: Record<string, unknown>) => Promise<unknown>;
+      preparedKeyBuilder: (input: Record<string, unknown>) => string;
+      synthesizeCommandBuilder: (input: Record<string, unknown>) => unknown;
+    };
+
+    expect(options.browserRuntimeEnabled).toBe(false);
+    expect(options.cancellationPolicy).toBe('immediate');
+    expect(options.capabilityControls()).toMatchObject([
+      { id: 'backend', type: 'select', defaultValue: 'webgpu' },
+      { id: 'language', type: 'select', defaultValue: 'en' },
+      {
+        id: 'speed',
+        type: 'range',
+        min: 0.75,
+        max: 1.25,
+        step: 0.05,
+        defaultValue: 1.05,
+      },
+    ]);
+    expect(coordinator.buildPreparePayload).not.toHaveBeenCalled();
+    expect(coordinator.preparedKey).not.toHaveBeenCalled();
+    expect(coordinator.buildSynthesizeCommand).not.toHaveBeenCalled();
+    expect(prepareAssets).not.toHaveBeenCalled();
+    expect(workerFactory).not.toHaveBeenCalled();
+
+    const request = {
+      voice: voice('supertonic', { status: 'enabled', reason: null, detail: 'Reviewed.' }),
+      mode: 'browser',
+      text: 'Special selection.',
+      controls: { backend: 'wasm', language: 'bg', speed: 1.05 },
+    };
+    await options.preparePayloadBuilder({
+      operationId: 3,
+      voice: request.voice,
+      request,
+      context: {},
+    });
+    expect(coordinator.buildPreparePayload).toHaveBeenCalledWith({
+      operationId: 3,
+      voiceId: 'supertonic:preset',
+      backend: 'wasm',
+    });
+    expect(options.preparedKeyBuilder({ voice: request.voice, request })).toBe('prepared-key');
+    expect(
+      options.synthesizeCommandBuilder({ operationId: 4, voice: request.voice, request }),
+    ).toEqual(expect.objectContaining({ command: 'synthesize' }));
+    expect(coordinator.buildSynthesizeCommand).toHaveBeenCalledWith({
+      operationId: 4,
+      voiceId: 'supertonic:preset',
+      text: 'Special selection.',
+      language: 'bg',
+      speed: 1.05,
+    });
+    expect(prepareAssets).not.toHaveBeenCalled();
+    expect(workerFactory).not.toHaveBeenCalled();
+  });
+
   it('registers dedicated lazy boundaries without constructing Workers or preparing assets', async () => {
     const enabledGate = {
       status: 'enabled',
@@ -97,6 +189,12 @@ describe('honest launch runtime registry', () => {
       ],
       prepareAssets,
       workerFactories,
+      supertonicSelectionCoordinator: {
+        buildPreparePayload: vi.fn(),
+        preparedKey: vi.fn(),
+        buildSynthesizeCommand: vi.fn(),
+      } as never,
+      hasWebGpu: () => true,
     });
 
     for (const engineId of ['kokoro', 'kitten', 'supertonic']) {

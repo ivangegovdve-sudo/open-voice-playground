@@ -1,6 +1,7 @@
 import {
   parseBrowserRuntimeS0Evidence,
   type AssetSetManifest,
+  type BrowserRuntimeArtifact,
   type BrowserRuntimeS0Evidence,
   type ImmutableAsset,
 } from '@open-voice/contracts';
@@ -99,6 +100,23 @@ export type PreparedAssetBytes = {
   cacheKey: string;
   sha256: string;
   byteLength: number;
+  bytes: ArrayBuffer;
+};
+
+export type ResolvedStoredRuntimeArtifact = Pick<
+  BrowserRuntimeArtifact,
+  'id' | 'sha256' | 'bytes' | 'cacheKey' | 'mediaType'
+> & {
+  url: string;
+  exactOrigin: string;
+};
+
+export type PreparedRuntimeArtifactBytes = {
+  artifactId: string;
+  cacheKey: string;
+  sha256: string;
+  byteLength: number;
+  mediaType: 'application/wasm';
   bytes: ArrayBuffer;
 };
 
@@ -384,7 +402,7 @@ function validateConsent(assetSet: AssetSetManifest, receipt: ConsentReceipt | n
   }
 }
 
-async function contentLength(response: Response, asset: ImmutableAsset): Promise<number | null> {
+async function contentLength(response: Response, asset: { id: string }): Promise<number | null> {
   try {
     const raw = response.headers.get('content-length');
     if (raw === null) return null;
@@ -502,6 +520,118 @@ async function validateResponseMetadata(
     responseType: 'cors',
     status: 200,
   };
+}
+
+function validateRuntimeArtifactRequest(artifact: ResolvedStoredRuntimeArtifact): void {
+  let exactOrigin: URL;
+  let requestUrl: URL;
+  try {
+    exactOrigin = new URL(artifact.exactOrigin);
+    requestUrl = new URL(artifact.url);
+  } catch {
+    throw new AssetPreparationError(
+      'unapproved-response',
+      `${artifact.id} did not provide a valid same-origin runtime URL.`,
+    );
+  }
+  if (
+    exactOrigin!.origin !== artifact.exactOrigin ||
+    !['http:', 'https:'].includes(exactOrigin!.protocol) ||
+    exactOrigin!.username.length > 0 ||
+    exactOrigin!.password.length > 0 ||
+    requestUrl!.origin !== artifact.exactOrigin ||
+    requestUrl!.username.length > 0 ||
+    requestUrl!.password.length > 0
+  ) {
+    throw new AssetPreparationError(
+      'unapproved-response',
+      `${artifact.id} must use a credential-free URL on the exact application origin.`,
+    );
+  }
+  if (
+    artifact.mediaType !== 'application/wasm' ||
+    !Number.isSafeInteger(artifact.bytes) ||
+    artifact.bytes <= 0 ||
+    !/^sha256:[a-f0-9]{64}$/.test(artifact.sha256)
+  ) {
+    throw new AssetPreparationError(
+      'unapproved-response',
+      `${artifact.id} did not provide an exact runtime artifact identity.`,
+    );
+  }
+}
+
+async function validateRuntimeResponseMetadata(
+  artifact: ResolvedStoredRuntimeArtifact,
+  response: Response,
+): Promise<void> {
+  let status: number;
+  try {
+    status = response.status;
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} did not expose a readable final HTTP status.`,
+      ),
+    );
+  }
+  if (status! !== 200) {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} returned an unapproved final HTTP status ${status!}.`,
+      ),
+    );
+  }
+  let responseType: ResponseType;
+  try {
+    responseType = response.type;
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} did not expose a readable response type.`,
+      ),
+    );
+  }
+  if (responseType! !== 'basic') {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} did not return a readable same-origin response type.`,
+      ),
+    );
+  }
+  let finalUrl: URL;
+  try {
+    finalUrl = new URL(response.url);
+  } catch {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} did not expose a valid final response URL.`,
+      ),
+    );
+  }
+  if (
+    finalUrl!.origin !== artifact.exactOrigin ||
+    finalUrl!.username.length > 0 ||
+    finalUrl!.password.length > 0
+  ) {
+    await rejectResponse(
+      response,
+      new AssetPreparationError(
+        'unapproved-response',
+        `${artifact.id} resolved outside the exact application origin.`,
+      ),
+    );
+  }
 }
 
 function classifyStorageError(error: unknown): AssetPreparationError {
@@ -683,6 +813,96 @@ export class AssetPreparationManager {
     return result;
   }
 
+  async prepareRuntimeArtifact(
+    artifact: ResolvedStoredRuntimeArtifact,
+    options: AssetPreparationOptions = {},
+  ): Promise<void> {
+    validateRuntimeArtifactRequest(artifact);
+    const controller = new AbortController();
+    const abort = () => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
+    try {
+      throwIfAborted(controller.signal);
+      let cached: boolean;
+      try {
+        cached = await this.store.has(artifact.cacheKey, artifact.sha256, artifact.bytes);
+      } catch (error) {
+        throwIfAborted(controller.signal);
+        throw classifyStorageError(error);
+      }
+      throwIfAborted(controller.signal);
+      if (cached) return;
+
+      let response: Response;
+      try {
+        response = await this.fetcher(artifact.url, {
+          cache: 'no-store',
+          credentials: 'omit',
+          mode: 'same-origin',
+          redirect: 'follow',
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          (error instanceof DOMException && error.name === 'AbortError')
+        ) {
+          throw controller.signal.reason instanceof Error
+            ? controller.signal.reason
+            : new DOMException('The asset preparation was aborted.', 'AbortError');
+        }
+        throw new AssetPreparationError('network-error', `Could not download ${artifact.id}.`, {
+          cause: error,
+        });
+      }
+      throwIfAborted(controller.signal);
+      await validateRuntimeResponseMetadata(artifact, response);
+      throwIfAborted(controller.signal);
+      await this.streamAndStore(
+        artifact,
+        response,
+        controller.signal,
+        0,
+        artifact.bytes,
+        options.onProgress,
+      );
+      throwIfAborted(controller.signal);
+    } finally {
+      options.signal?.removeEventListener('abort', abort);
+    }
+  }
+
+  async readPreparedRuntimeArtifact(
+    artifact: ResolvedStoredRuntimeArtifact,
+    options: Pick<AssetPreparationOptions, 'signal'> = {},
+  ): Promise<PreparedRuntimeArtifactBytes> {
+    validateRuntimeArtifactRequest(artifact);
+    if (options.signal !== undefined) throwIfAborted(options.signal);
+    let bytes: ArrayBuffer | null;
+    try {
+      bytes = await this.store.readVerified(artifact.cacheKey, artifact.sha256, artifact.bytes);
+    } catch (error) {
+      if (options.signal !== undefined) throwIfAborted(options.signal);
+      throw classifyStorageError(error);
+    }
+    if (options.signal !== undefined) throwIfAborted(options.signal);
+    if (bytes === null || bytes.byteLength !== artifact.bytes) {
+      throw new AssetPreparationError(
+        'asset-unavailable',
+        `${artifact.id} is not present as verified content-addressed bytes. Prepare it again.`,
+      );
+    }
+    return {
+      artifactId: artifact.id,
+      cacheKey: artifact.cacheKey,
+      sha256: artifact.sha256,
+      byteLength: bytes.byteLength,
+      mediaType: artifact.mediaType,
+      bytes,
+    };
+  }
+
   private async prepareStorage(
     assetSet: AssetSetManifest,
     cached: readonly boolean[],
@@ -757,6 +977,60 @@ export class AssetPreparationManager {
     totalBytes: number,
     onProgress: AssetPreparationOptions['onProgress'],
   ): Promise<AssetPreparationAssetEvidence> {
+    let networkResponse: Response;
+    try {
+      networkResponse = await this.fetcher(asset.url, {
+        cache: 'no-store',
+        credentials: 'omit',
+        mode: 'cors',
+        redirect: 'follow',
+        signal,
+      });
+    } catch (error) {
+      if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+        throw signal.reason instanceof Error
+          ? signal.reason
+          : new DOMException('The asset preparation was aborted.', 'AbortError');
+      }
+      throw new AssetPreparationError('network-error', `Could not download ${asset.id}.`, {
+        cause: error,
+      });
+    }
+    throwIfAborted(signal);
+    const responseMetadata = await validateResponseMetadata(asset, networkResponse);
+    throwIfAborted(signal);
+    const { receivedBytes, actualHash } = await this.streamAndStore(
+      asset,
+      networkResponse,
+      signal,
+      completedBeforeAsset,
+      totalBytes,
+      onProgress,
+    );
+    return {
+      assetId: asset.id,
+      cacheKey: asset.cacheKey,
+      disposition: 'downloaded',
+      requestUrl: asset.url,
+      finalUrl: responseMetadata.finalUrl,
+      finalOrigin: responseMetadata.finalOrigin,
+      responseType: responseMetadata.responseType,
+      status: responseMetadata.status,
+      expectedBytes: asset.bytes,
+      observedBytes: receivedBytes,
+      expectedSha256: asset.sha256,
+      observedSha256: actualHash,
+    };
+  }
+
+  private async streamAndStore(
+    asset: Pick<ImmutableAsset, 'id' | 'sha256' | 'bytes' | 'cacheKey'>,
+    networkResponse: Response,
+    signal: AbortSignal,
+    completedBeforeAsset: number,
+    totalBytes: number,
+    onProgress: AssetPreparationOptions['onProgress'],
+  ): Promise<{ receivedBytes: number; actualHash: string }> {
     const operationId = ++this.operationSequence;
     const temporaryKey = `${asset.cacheKey}.partial-${this.temporaryNamespace}-${operationId}`;
     let temporaryCreated = false;
@@ -776,29 +1050,6 @@ export class AssetPreparationManager {
     };
 
     try {
-      let networkResponse: Response;
-      try {
-        networkResponse = await this.fetcher(asset.url, {
-          cache: 'no-store',
-          credentials: 'omit',
-          mode: 'cors',
-          redirect: 'follow',
-          signal,
-        });
-      } catch (error) {
-        if (signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
-          throw signal.reason instanceof Error
-            ? signal.reason
-            : new DOMException('The asset preparation was aborted.', 'AbortError');
-        }
-        throw new AssetPreparationError('network-error', `Could not download ${asset.id}.`, {
-          cause: error,
-        });
-      }
-      throwIfAborted(signal);
-
-      const responseMetadata = await validateResponseMetadata(asset, networkResponse);
-      throwIfAborted(signal);
       const declaredLength = await contentLength(networkResponse, asset);
       throwIfAborted(signal);
       if (declaredLength !== null && declaredLength !== asset.bytes) {
@@ -902,7 +1153,6 @@ export class AssetPreparationManager {
         throw classifyStorageError(error);
       }
       throwIfAborted(signal);
-
       const actualHash = await digest.digest();
       throwIfAborted(signal);
       if (actualHash !== asset.sha256) {
@@ -911,7 +1161,6 @@ export class AssetPreparationManager {
           `The downloaded ${asset.id} hash does not match the immutable manifest.`,
         );
       }
-
       try {
         await this.store.promote(temporaryKey, asset.cacheKey, {
           sha256: asset.sha256,
@@ -923,20 +1172,7 @@ export class AssetPreparationManager {
         throw classifyStorageError(error);
       }
       throwIfAborted(signal);
-      return {
-        assetId: asset.id,
-        cacheKey: asset.cacheKey,
-        disposition: 'downloaded',
-        requestUrl: asset.url,
-        finalUrl: responseMetadata.finalUrl,
-        finalOrigin: responseMetadata.finalOrigin,
-        responseType: responseMetadata.responseType,
-        status: responseMetadata.status,
-        expectedBytes: asset.bytes,
-        observedBytes: receivedBytes,
-        expectedSha256: asset.sha256,
-        observedSha256: actualHash,
-      };
+      return { receivedBytes, actualHash };
     } finally {
       signal.removeEventListener('abort', cancelReader);
       if (reader !== null) {
