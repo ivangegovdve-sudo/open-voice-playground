@@ -9,34 +9,104 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: JavaScript and Linux Rust
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22.13.0
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install repository npm version
-        run: npm install --global $(node --print "require('./package.json').packageManager")
+        run: |
+          npm install --global npm@11.16.0
+          test "$(node --version)" = "v22.13.0"
+          test "$(npm --version)" = "11.16.0"
+
+      - name: Install exact Rust toolchain
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+          rustup show active-toolchain
+          rustc --version --verbose
+          cargo --version --verbose
+          rustc --version --verbose | grep --fixed-strings 'release: 1.97.0'
+          cargo --version | grep --fixed-strings 'cargo 1.97.0 '
+
+      - name: Cache Cargo registry
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ runner.os }}-1.97.0-${{ hashFiles('apps/companion/src-tauri/Cargo.lock') }}
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Check dependency and lock policy
+        run: npm run dependency:check
+
+      - name: Check companion contract drift
+        run: npm run companion:contract:check
+
+      - name: Check formatting
+        run: |
+          npm run format:check
+          npm run rust:fmt:check
+
+      - name: Lint
+        run: |
+          npm run lint
+          npm run rust:clippy
+
+      - name: Check release panic policy
+        run: npm run rust:check:release
+
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
+      - name: Test all workspaces and Rust
         run: npm test
+
+      - name: Validate catalog
+        run: |
+          npm run catalog:check
+          npm run catalog:validate
+
+      - name: Audit production dependencies
+        run: npm run audit
 
       - name: Build
         run: npm run build
 
-      - name: Validate catalog
-        run: npm run catalog:validate
+  windows-native:
+    name: Native Windows companion
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Install exact Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy
+          rustup show active-toolchain
+
+      - name: Cache Cargo registry
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ runner.os }}-1.97.0-${{ hashFiles('apps/companion/src-tauri/Cargo.lock') }}
+
+      - name: Verify native Windows listener and lifecycle
+        shell: pwsh
+        run: ./apps/companion/scripts/verify-windows-native.ps1

@@ -2,8 +2,17 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 
 const root = resolve(import.meta.dirname, '../../..');
+const workflowPath = resolve(root, '.github/workflows/ci.yml');
+const workflow = parse(readFileSync(workflowPath, 'utf8')) as unknown;
+const gitignore = readFileSync(resolve(root, '.gitignore'), 'utf8');
+const gitignoreEntries = gitignore
+  .split(/\r?\n/)
+  .map((entry) => entry.trim())
+  .filter((entry) => entry.length > 0 && !entry.startsWith('#'));
+const companionMain = readFileSync(resolve(root, 'apps/companion/src-tauri/src/main.rs'), 'utf8');
 const windowsNativeScriptPath = resolve(root, 'apps/companion/scripts/verify-windows-native.ps1');
 const windowsNativeScript = existsSync(windowsNativeScriptPath)
   ? readFileSync(windowsNativeScriptPath, 'utf8')
@@ -105,6 +114,198 @@ function readManifest(path: string): { scripts: Record<string, string> } {
 }
 
 describe('root and companion policy', () => {
+  it('requires complete Linux and native Windows CI', () => {
+    expect(workflow).toEqual({
+      name: 'CI',
+      on: {
+        push: null,
+        pull_request: null,
+      },
+      permissions: {
+        contents: 'read',
+      },
+      jobs: {
+        verify: {
+          name: 'JavaScript and Linux Rust',
+          'runs-on': 'ubuntu-24.04',
+          'timeout-minutes': 60,
+          steps: [
+            {
+              name: 'Check out repository',
+              uses: 'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
+              with: {
+                'persist-credentials': false,
+              },
+            },
+            {
+              name: 'Set up Node.js',
+              uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
+              with: {
+                'node-version': '22.13.0',
+                cache: 'npm',
+                'cache-dependency-path': 'package-lock.json',
+              },
+            },
+            {
+              name: 'Install repository npm version',
+              run: [
+                'npm install --global npm@11.16.0',
+                'test "$(node --version)" = "v22.13.0"',
+                'test "$(npm --version)" = "11.16.0"',
+                '',
+              ].join('\n'),
+            },
+            {
+              name: 'Install exact Rust toolchain',
+              run: [
+                'rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy',
+                'rustup show active-toolchain',
+                'rustc --version --verbose',
+                'cargo --version --verbose',
+                "rustc --version --verbose | grep --fixed-strings 'release: 1.97.0'",
+                "cargo --version | grep --fixed-strings 'cargo 1.97.0 '",
+                '',
+              ].join('\n'),
+            },
+            {
+              name: 'Cache Cargo registry',
+              uses: 'actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830',
+              with: {
+                path: '~/.cargo/registry',
+                key: "cargo-registry-${{ runner.os }}-1.97.0-${{ hashFiles('apps/companion/src-tauri/Cargo.lock') }}",
+              },
+            },
+            {
+              name: 'Install dependencies',
+              run: 'npm ci',
+            },
+            {
+              name: 'Check dependency and lock policy',
+              run: 'npm run dependency:check',
+            },
+            {
+              name: 'Check companion contract drift',
+              run: 'npm run companion:contract:check',
+            },
+            {
+              name: 'Check formatting',
+              run: ['npm run format:check', 'npm run rust:fmt:check', ''].join('\n'),
+            },
+            {
+              name: 'Lint',
+              run: ['npm run lint', 'npm run rust:clippy', ''].join('\n'),
+            },
+            {
+              name: 'Check release panic policy',
+              run: 'npm run rust:check:release',
+            },
+            {
+              name: 'Typecheck',
+              run: 'npm run typecheck',
+            },
+            {
+              name: 'Test all workspaces and Rust',
+              run: 'npm test',
+            },
+            {
+              name: 'Validate catalog',
+              run: ['npm run catalog:check', 'npm run catalog:validate', ''].join('\n'),
+            },
+            {
+              name: 'Audit production dependencies',
+              run: 'npm run audit',
+            },
+            {
+              name: 'Build',
+              run: 'npm run build',
+            },
+          ],
+        },
+        'windows-native': {
+          name: 'Native Windows companion',
+          'runs-on': 'windows-2025',
+          'timeout-minutes': 90,
+          steps: [
+            {
+              name: 'Check out repository',
+              uses: 'actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5',
+              with: {
+                'persist-credentials': false,
+              },
+            },
+            {
+              name: 'Install exact Rust toolchain',
+              shell: 'pwsh',
+              run: [
+                'rustup toolchain install 1.97.0 --profile minimal --component rustfmt --component clippy',
+                'rustup show active-toolchain',
+                '',
+              ].join('\n'),
+            },
+            {
+              name: 'Cache Cargo registry',
+              uses: 'actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830',
+              with: {
+                path: '~/.cargo/registry',
+                key: "cargo-registry-${{ runner.os }}-1.97.0-${{ hashFiles('apps/companion/src-tauri/Cargo.lock') }}",
+              },
+            },
+            {
+              name: 'Verify native Windows listener and lifecycle',
+              shell: 'pwsh',
+              run: './apps/companion/scripts/verify-windows-native.ps1',
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it('keeps required build ignores without blanket binary or asset ignores', () => {
+    expect(gitignoreEntries).toEqual(
+      expect.arrayContaining([
+        'node_modules/',
+        'dist/',
+        'coverage/',
+        '.vercel/',
+        '.vite/',
+        'playwright-report/',
+        'test-results/',
+        'target/',
+        '.superpowers/',
+        '*.tsbuildinfo',
+        '*.log',
+        '*.tmp',
+      ]),
+    );
+
+    const blanketArtifactIgnore = /^\/?(?:\*\*\/)*\*\.(?:exe|dll|msi|bin|onnx|wav|mp3|zip)$/i;
+    expect(gitignoreEntries.filter((entry) => blanketArtifactIgnore.test(entry))).toEqual([]);
+  });
+
+  it('keeps the companion entry point byte-exact and non-operational', () => {
+    expect(companionMain).toBe(
+      '#![deny(unsafe_op_in_unsafe_fn)]\n\n' +
+        '#[cfg(target_os = "windows")]\n' +
+        'pub mod windows_listener;\n\n' +
+        'fn main() {}\n',
+    );
+
+    const forbiddenCalls = [
+      /\bWindowsExclusiveListenerPort\s*::\s*new\s*\(/,
+      /\bCompanionServer\s*::\s*start\s*\(/,
+      /\btauri\s*::\s*Builder\b/,
+      /\blisten\s*\(/,
+      /\bspawn\s*\(/,
+      /\b(?:std|tokio|async_std)\s*::\s*(?:process|net)\s*::/,
+      /\b(?:process|net|network)\s*::/,
+      /\b(?:TcpListener|TcpStream|UdpSocket|Command)\s*::/,
+    ];
+    for (const forbiddenCall of forbiddenCalls) {
+      expect(companionMain).not.toMatch(forbiddenCall);
+    }
+  });
+
   it('provides the native Windows evidence script', () => {
     expect(existsSync(windowsNativeScriptPath)).toBe(true);
   });
