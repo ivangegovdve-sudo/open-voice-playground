@@ -45,7 +45,9 @@ export type RuntimeAdapter = {
   checkCapability(voice: CatalogVoice, mode: RuntimeMode): Promise<RuntimeCapability>;
   prepare(request: SynthesisRequest, context?: RuntimeOperationContext): Promise<void>;
   synthesize(request: SynthesisRequest, context: RuntimeOperationContext): Promise<SynthesisOutput>;
+  /** Begin retiring every generation owned at call time before the returned promise yields. */
   cancel(): Promise<void>;
+  /** Snapshot owned generations synchronously so later consumers cannot be captured by teardown. */
   dispose(): Promise<void>;
 };
 
@@ -166,6 +168,7 @@ export async function runSequentialComparison(
       continue;
     }
 
+    let result: ComparisonResult;
     try {
       const capability = await adapter.checkCapability(voice, mode);
       if (capability.mode !== mode) {
@@ -174,34 +177,49 @@ export async function runSequentialComparison(
         );
       }
       if (!capability.available) {
-        results.push({
+        result = {
           key,
           voiceId: voice.id,
           mode,
           status: 'unavailable',
           output: null,
           message: capability.reason,
-        });
-        continue;
+        };
+      } else {
+        const controls = Object.fromEntries(
+          capability.controls.map((control) => [control.id, control.defaultValue]),
+        );
+        const request: SynthesisRequest = { voice, mode, text, controls };
+        await adapter.prepare(request);
+        const output = await adapter.synthesize(request, {});
+        result = { key, voiceId: voice.id, mode, status: 'complete', output, message: null };
       }
-
-      const controls = Object.fromEntries(
-        capability.controls.map((control) => [control.id, control.defaultValue]),
-      );
-      const request: SynthesisRequest = { voice, mode, text, controls };
-      await adapter.prepare(request);
-      const output = await adapter.synthesize(request, {});
-      results.push({ key, voiceId: voice.id, mode, status: 'complete', output, message: null });
     } catch (error) {
-      results.push({
+      result = {
         key,
         voiceId: voice.id,
         mode,
         status: 'error',
         output: null,
         message: error instanceof Error ? error.message : 'Generation failed.',
-      });
+      };
     }
+
+    try {
+      await adapter.dispose();
+    } catch (error) {
+      result = {
+        key,
+        voiceId: voice.id,
+        mode,
+        status: 'error',
+        output: null,
+        message: `Runtime disposal failed: ${
+          error instanceof Error ? error.message : 'Unknown disposal failure.'
+        }`,
+      };
+    }
+    results.push(result);
   }
   return results;
 }

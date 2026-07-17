@@ -22,7 +22,7 @@
     "catalog:generate": "npm run generate:launch --workspace @open-voice/catalog && npm run generate:supertonic-browser-evidence --workspace @open-voice/catalog",
     "catalog:review:edge-snapshot": "npm run review:edge-snapshot --workspace @open-voice/catalog --",
     "catalog:review:pocket-multilingual": "npm run review:pocket-multilingual --workspace @open-voice/catalog --",
-    "catalog:check": "npm run check:launch --workspace @open-voice/catalog && npm run check:supertonic-browser-evidence --workspace @open-voice/catalog",
+    "catalog:check": "npm run check:launch --workspace @open-voice/catalog && npm run check:supertonic-browser-evidence --workspace @open-voice/catalog && npm run check:supertonic-qualification-prompts --workspace @open-voice/catalog",
     "catalog:audit:import": "npm run audit:import --workspace @open-voice/catalog --",
     "companion:contract:check": "npm run openapi:check --workspace @open-voice/companion && npm run corpus:check --workspace @open-voice/companion",
     "dependency:check": "npm run dependency:check --workspace @open-voice/companion",

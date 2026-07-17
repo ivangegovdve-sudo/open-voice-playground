@@ -214,6 +214,52 @@ async function acceptCurrentSupertonicSelection(user: ReturnType<typeof userEven
 }
 
 describe('play workbench with an available adapter', () => {
+  it('disposes every acquired runtime adapter when the workbench unmounts', async () => {
+    const dispose = vi.fn(async () => {});
+    const view = renderPlay(servicesFor(runtimeAdapter({ dispose })));
+
+    expect(await screen.findByText('Runtime is ready.')).toBeInTheDocument();
+    view.unmount();
+
+    await waitFor(() => expect(dispose).toHaveBeenCalledOnce());
+  });
+
+  it('cancels the active operation before disposing its runtime on unmount', async () => {
+    const events: string[] = [];
+    const cancellation = deferred<void>();
+    const adapter = runtimeAdapter({
+      cancel() {
+        events.push('cancel');
+        return cancellation.promise;
+      },
+      async dispose() {
+        events.push('dispose');
+      },
+      synthesize(_request, context): Promise<SynthesisOutput> {
+        context.onProgress?.({ phase: 'Generating fixture audio\u2026', percent: 45 });
+        return new Promise((_resolve, reject) => {
+          context.signal?.addEventListener('abort', () => {
+            reject(new DOMException('Generation cancelled', 'AbortError'));
+          });
+        });
+      },
+    });
+    const user = userEvent.setup();
+    const view = renderPlay(servicesFor(adapter));
+
+    expect(await screen.findByText('Runtime is ready.')).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Text to synthesize' }), 'Release me.');
+    await user.click(screen.getByRole('button', { name: 'Generate speech' }));
+    expect(await screen.findByRole('status', { name: 'Generation status' })).toHaveTextContent(
+      'Generating fixture audio\u2026',
+    );
+
+    view.unmount();
+    expect(events).toEqual(['cancel', 'dispose']);
+    cancellation.resolve();
+    await cancellation.promise;
+  });
+
   it('records a preset as recent when Play opens it and when the selection changes', async () => {
     const user = userEvent.setup();
     const services = servicesFor(runtimeAdapter());

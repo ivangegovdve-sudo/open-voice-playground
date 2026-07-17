@@ -13,6 +13,10 @@
     "./supertonic-browser-evidence": {
       "types": "./src/supertonic-browser-evidence.ts",
       "import": "./dist/supertonic-browser-evidence.js"
+    },
+    "./supertonic-browser-evidence-v2": {
+      "types": "./src/supertonic-browser-evidence-v2.ts",
+      "import": "./dist/supertonic-browser-evidence-v2.js"
     }
   },
   "files": [

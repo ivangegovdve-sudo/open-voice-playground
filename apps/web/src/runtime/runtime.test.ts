@@ -52,7 +52,9 @@ function availableAdapter(engineId: string, events: string[]): RuntimeAdapter {
       };
     },
     async cancel() {},
-    async dispose() {},
+    async dispose() {
+      events.push(`dispose:${engineId}`);
+    },
   };
 }
 
@@ -103,12 +105,15 @@ describe('runtime boundary', () => {
       'prepare:a',
       'start:a',
       'end:a',
+      'dispose:engine-a',
       'prepare:b',
       'start:b',
       'end:b',
+      'dispose:engine-b',
       'prepare:c',
       'start:c',
       'end:c',
+      'dispose:engine-c',
     ]);
     expect(results.map((result) => result.status)).toEqual(['complete', 'complete', 'complete']);
   });
@@ -220,6 +225,91 @@ describe('runtime boundary', () => {
     expect(prepare).not.toHaveBeenCalled();
     expect(synthesize).not.toHaveBeenCalled();
   });
+
+  it('disposes an unavailable comparison adapter before returning its result', async () => {
+    const preset = voice('unavailable');
+    const dispose = vi.fn(async () => {});
+    const adapter: RuntimeAdapter = {
+      ...availableAdapter(preset.engineId, []),
+      async checkCapability(_voice, mode) {
+        return { available: false, mode, reason: 'Fixture unavailable.', controls: [] };
+      },
+      dispose,
+    };
+
+    const [result] = await runSequentialComparison(
+      [{ voice: preset, mode: 'browser' }],
+      'No synthesis.',
+      new StaticRuntimeRegistry([adapter]),
+    );
+
+    expect(result).toMatchObject({
+      status: 'unavailable',
+      output: null,
+      message: 'Fixture unavailable.',
+    });
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('fails closed when a comparison adapter cannot be disposed', async () => {
+    const preset = voice('disposal-failure');
+    const adapter: RuntimeAdapter = {
+      ...availableAdapter(preset.engineId, []),
+      async dispose() {
+        throw new Error('Fixture disposal failed.');
+      },
+    };
+
+    const [result] = await runSequentialComparison(
+      [{ voice: preset, mode: 'browser' }],
+      'Discard this output.',
+      new StaticRuntimeRegistry([adapter]),
+    );
+
+    expect(result).toEqual({
+      key: `${preset.id}:browser`,
+      voiceId: preset.id,
+      mode: 'browser',
+      status: 'error',
+      output: null,
+      message: 'Runtime disposal failed: Fixture disposal failed.',
+    });
+  });
+
+  it.each(['capability', 'prepare', 'synthesis'] as const)(
+    'disposes the adapter after a %s exception',
+    async (stage) => {
+      const preset = voice(`throws-${stage}`);
+      const dispose = vi.fn(async () => {});
+      const base = availableAdapter(preset.engineId, []);
+      const adapter: RuntimeAdapter = {
+        ...base,
+        async checkCapability(checkedVoice, mode) {
+          if (stage === 'capability') throw new Error('Capability failed.');
+          return await base.checkCapability(checkedVoice, mode);
+        },
+        async prepare(request, context) {
+          if (stage === 'prepare') throw new Error('Prepare failed.');
+          return await base.prepare(request, context);
+        },
+        async synthesize(request, context) {
+          if (stage === 'synthesis') throw new Error('Synthesis failed.');
+          return await base.synthesize(request, context);
+        },
+        dispose,
+      };
+
+      const [result] = await runSequentialComparison(
+        [{ voice: preset, mode: 'browser' }],
+        'Exercise cleanup.',
+        new StaticRuntimeRegistry([adapter]),
+      );
+
+      expect(result).toBeDefined();
+      expect(result!.status).toBe('error');
+      expect(dispose).toHaveBeenCalledOnce();
+    },
+  );
 
   it('rejects a comparison mode that the voice does not declare', async () => {
     const preset = voice('browser-only');

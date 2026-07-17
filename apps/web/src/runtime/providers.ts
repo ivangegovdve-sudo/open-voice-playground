@@ -7,6 +7,7 @@ import {
 } from '@open-voice/contracts';
 
 import type { CatalogVoice, RuntimeMode } from '../catalog/filters';
+import { assertSupertonicRuntimeWav } from '../evidence/supertonic/wav-evidence';
 import {
   MAX_SYNTHESIS_CHARACTERS,
   UnavailableRuntimeAdapter,
@@ -651,6 +652,17 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       return;
     }
     if (message.type === 'result' && operation.kind === 'synthesize') {
+      if (this.engineId === 'supertonic') {
+        try {
+          assertSupertonicRuntimeWav(message.audio);
+        } catch {
+          this.failGeneration(
+            generation,
+            new Error('Supertonic Worker returned invalid WAV audio.'),
+          );
+          return;
+        }
+      }
       this.removePending(generation, message.operationId);
       const blob = new Blob([message.audio], { type: message.mimeType });
       operation.resolve({

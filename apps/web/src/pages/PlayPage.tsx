@@ -111,6 +111,7 @@ export function PlayPage() {
   const [consentMessage, setConsentMessage] = useState<string | null>(null);
   const operationSequence = useRef(0);
   const inFlightOperation = useRef<InFlightOperation | null>(null);
+  const ownedAdapters = useRef(new Set<RuntimeAdapter>());
   const selectedVoiceId = selectedVoice?.id;
 
   useEffect(() => {
@@ -174,6 +175,7 @@ export function PlayPage() {
       setCapabilityMessage(`No runtime adapter is registered for ${selectedVoice.engineName}.`);
       return;
     }
+    ownedAdapters.current.add(adapter);
     let active = true;
     void (async () => {
       try {
@@ -226,11 +228,30 @@ export function PlayPage() {
   useEffect(
     () => () => {
       const operation = inFlightOperation.current;
+      const adapters = [...ownedAdapters.current];
+      ownedAdapters.current.clear();
       if (operation !== null) {
         operation.controller.abort();
-        void operation.adapter.cancel();
         inFlightOperation.current = null;
       }
+      const retirements: Promise<void>[] = [];
+      if (operation !== null) {
+        try {
+          retirements.push(operation.adapter.cancel());
+        } catch {
+          // Disposal still begins synchronously below after cancellation setup fails.
+        }
+      }
+      for (const adapter of adapters) {
+        try {
+          // Invoke every disposal before yielding so a successor route cannot create a generation
+          // that a late adapter-wide dispose would accidentally capture.
+          retirements.push(adapter.dispose());
+        } catch {
+          // React has already released this page; teardown remains best effort and non-throwing.
+        }
+      }
+      void Promise.allSettled(retirements);
     },
     [],
   );
@@ -302,6 +323,7 @@ export function PlayPage() {
       saveHistory('unavailable', { voiceId: operationVoice.id, text: operationText });
       return;
     }
+    ownedAdapters.current.add(adapter);
 
     const operationId = ++operationSequence.current;
     const controller = new AbortController();

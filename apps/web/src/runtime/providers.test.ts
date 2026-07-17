@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -185,6 +185,49 @@ function supertonicPreparePayload(backend: 'wasm' | 'webgpu' = 'wasm', fresh = f
 
 function stillPendingAfter(delayMs = 20): Promise<'still-pending'> {
   return new Promise((resolve) => setTimeout(() => resolve('still-pending'), delayMs));
+}
+
+async function readProductionTypeScriptTree(directory: string): Promise<string> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const sources: string[] = [];
+  for (const entry of entries) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== 'test') sources.push(await readProductionTypeScriptTree(path));
+      continue;
+    }
+    if (!/\.tsx?$/u.test(entry.name) || /\.test\.tsx?$/u.test(entry.name)) continue;
+    sources.push(await readFile(path, 'utf8'));
+  }
+  return sources.join('\n');
+}
+
+function validSupertonicWav(): ArrayBuffer {
+  const sampleFrames = 15_435;
+  const buffer = new ArrayBuffer(44 + sampleFrames * 2);
+  const view = new DataView(buffer);
+  const writeAscii = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  };
+  writeAscii(0, 'RIFF');
+  view.setUint32(4, buffer.byteLength - 8, true);
+  writeAscii(8, 'WAVE');
+  writeAscii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 44_100, true);
+  view.setUint32(28, 88_200, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeAscii(36, 'data');
+  view.setUint32(40, sampleFrames * 2, true);
+  for (let index = 0; index < sampleFrames; index += 1) {
+    view.setInt16(44 + index * 2, index % 2 === 0 ? 1_000 : -1_000, true);
+  }
+  return buffer;
 }
 
 describe('lazy preset-only provider boundaries', () => {
@@ -1005,10 +1048,51 @@ describe('lazy preset-only provider boundaries', () => {
     worker.emit({
       type: 'result',
       operationId: 2,
-      audio: new ArrayBuffer(4),
+      audio: validSupertonicWav(),
       mimeType: 'audio/wav',
     });
     await expect(synthesis).resolves.toMatchObject({ mimeType: 'audio/wav' });
+  });
+
+  it('rejects a malformed Supertonic WAV before it can become a player Blob', async () => {
+    const payload = supertonicPreparePayload();
+    const worker = new FakeWorker();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'supertonic',
+      voices: [supertonicVoice()],
+      assetSets: [],
+      prepareAssets: vi.fn(async () => {}),
+      preparePayloadBuilder: async () => payload,
+      preparedKeyBuilder: () => payload.preparedKey,
+      synthesizeCommandBuilder: ({ operationId, voice, request }) => ({
+        command: 'synthesize',
+        operationId,
+        engineId: 'supertonic',
+        voiceId: voice.id,
+        text: request.text,
+        controls: { language: request.controls.language, speed: request.controls.speed },
+      }),
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+    });
+    const request = supertonicRequest();
+    const preparation = adapter.prepare(request);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    worker.emit({ type: 'ready', operationId: 1 });
+    await preparation;
+    const synthesis = adapter.synthesize(request, {});
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(2));
+
+    worker.emit({
+      type: 'result',
+      operationId: 2,
+      audio: new Uint8Array([82, 73, 70, 70]).buffer,
+      mimeType: 'audio/wav',
+    });
+
+    await expect(synthesis).rejects.toThrow(/invalid WAV audio/i);
+    expect(worker.terminated).toBe(true);
   });
 
   it('rejects an engine-owned synthesize command whose identity escapes the active request', async () => {
@@ -1725,11 +1809,8 @@ describe('lazy preset-only provider boundaries', () => {
     expect(adapter.packManifest.id).toBe('pocket-assets');
   });
 
-  it('keeps generated fixture audio and test adapters out of production provider source', async () => {
-    const productionSource = await readFile(
-      resolve(process.cwd(), 'src/runtime/providers.ts'),
-      'utf8',
-    );
+  it('keeps generated fixture audio, oscillator paths, and test adapters out of all production source', async () => {
+    const productionSource = await readProductionTypeScriptTree(resolve(process.cwd(), 'src'));
 
     for (const forbidden of [
       'createTestToneWav',
@@ -1739,5 +1820,7 @@ describe('lazy preset-only provider boundaries', () => {
     ]) {
       expect(productionSource, forbidden).not.toContain(forbidden);
     }
+    expect(productionSource).not.toMatch(/(?:\*\s*440\b|\b440\s*\*)/u);
+    expect(productionSource).not.toMatch(/(?:createOscillator|OscillatorNode)/u);
   });
 });

@@ -24,9 +24,10 @@
     "review:pocket-multilingual": "tsx ./src/pocket-multilingual-cli.ts",
     "check:launch": "tsx ./src/generate-launch.ts --check",
     "check:supertonic-browser-evidence": "tsx ./src/supertonic-browser-evidence.ts --check",
+    "check:supertonic-qualification-prompts": "tsx ./src/supertonic-browser-qualification-prompts.ts --check",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json && tsx ./src/generate-launch.ts --check && tsx ./src/supertonic-browser-evidence.ts --check"
+    "validate": "tsx ./src/cli.ts ./fixtures/catalog.fixture.json && tsx ./src/generate-launch.ts --check && tsx ./src/supertonic-browser-evidence.ts --check && tsx ./src/supertonic-browser-qualification-prompts.ts --check"
   },
   "dependencies": {
     "@open-voice/contracts": "0.0.0",

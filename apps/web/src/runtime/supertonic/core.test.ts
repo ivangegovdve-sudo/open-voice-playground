@@ -1029,6 +1029,12 @@ describe('Supertonic PCM and WAV boundary', () => {
     expect(() => validateSupertonicPcm(pcm)).toThrow(/Supertonic PCM/);
   });
 
+  it('rejects finite float PCM whose entire PCM16 encoding quantizes to silence', () => {
+    expect(() => validateSupertonicPcm(new Float32Array(100).fill(0.000_012))).toThrow(
+      /quantizes to silence/i,
+    );
+  });
+
   it('writes exact explicit little-endian signed PCM16 values without mutating input', () => {
     const pcm = new Float32Array([-1, -0.5, 0, 0.5, 1]);
     const before = pcm.slice();

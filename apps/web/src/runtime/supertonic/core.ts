@@ -861,6 +861,7 @@ export function validateSupertonicPcm(pcm: Float32Array): Float32Array {
   let peak = 0;
   let sumSquares = 0;
   let clipped = 0;
+  let quantizedPeak = 0;
   for (let index = 0; index < pcm.length; index += 1) {
     const sample = pcm[index];
     if (sample === undefined || !Number.isFinite(sample)) {
@@ -871,12 +872,18 @@ export function validateSupertonicPcm(pcm: Float32Array): Float32Array {
     if (absolute > peak) peak = absolute;
     if (absolute >= 0.999) clipped += 1;
     sumSquares += sample * sample;
+    const clamped = Math.max(-1, Math.min(1, sample));
+    const quantized = clamped < 0 ? Math.round(clamped * 32_768) : Math.round(clamped * 32_767);
+    quantizedPeak = Math.max(quantizedPeak, Math.abs(quantized));
   }
   if (peak < 1e-5) throw new Error('Supertonic PCM peak is below the useful-signal floor.');
   const rms = Math.sqrt(sumSquares / pcm.length);
   if (rms < 1e-6) throw new Error('Supertonic PCM RMS is below the useful-signal floor.');
   if (clipped / pcm.length > 0.05) {
     throw new Error('Supertonic PCM clipping ratio exceeds five percent.');
+  }
+  if (quantizedPeak === 0) {
+    throw new Error('Supertonic PCM quantizes to silence at the PCM16 boundary.');
   }
   return pcm;
 }
