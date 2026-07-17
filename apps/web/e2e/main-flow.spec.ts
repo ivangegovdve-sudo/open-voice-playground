@@ -24,18 +24,18 @@ test('boots from the external reviewed launch catalog and reports honest counts'
   await expect(page.getByText(/synthetic fixture|not the final public launch/i)).toHaveCount(0);
 });
 
-test('filters all 426 launch presets without widening Edge or Piper availability', async ({
+test('filters runtime presets and catalog-only coverage without widening Edge or Piper availability', async ({
   page,
 }) => {
   await page.goto('/voices');
-  await expect(page.getByText('426 presets', { exact: true })).toBeVisible();
+  await expect(page.getByText('738 catalog entries', { exact: true })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Runs in browser' }).click();
   await expect(page).toHaveURL(/mode=browser/);
-  await expect(page.getByText('84 presets')).toBeVisible();
+  await expect(page.getByText('84 catalog entries')).toBeVisible();
 
   await page.goto('/voices?engine=piper');
   await expect(page.getByRole('checkbox', { name: 'Piper via sherpa-onnx' })).toBeChecked();
-  await expect(page.getByText('12 presets')).toBeVisible();
+  await expect(page.getByText('12 catalog entries')).toBeVisible();
   await expect(page.getByText('Catalog unavailable').first()).toBeVisible();
   await expect(page.getByText(/Unavailable.*asset unavailable/i).first()).toBeVisible();
   await expect(
@@ -59,7 +59,7 @@ test('filters all 426 launch presets without widening Edge or Piper availability
 
 test('keeps play and comparison locked until a concrete adapter is verified', async ({ page }) => {
   await page.goto('/voices?engine=kokoro&q=Heart');
-  await expect(page.getByText('1 preset')).toBeVisible();
+  await expect(page.getByText('1 catalog entry')).toBeVisible();
   await page.getByRole('link', { name: /Inspect preset/i }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Make a line speak' })).toBeVisible();

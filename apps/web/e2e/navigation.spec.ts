@@ -19,7 +19,7 @@ test('filter URL state survives a direct load and reload', async ({ page }) => {
   await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('heart');
   await expect(page.getByRole('checkbox', { name: 'Runs in browser' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'Kokoro 82M' })).toBeChecked();
-  await expect(page.getByText('1 preset')).toBeVisible();
+  await expect(page.getByText('1 catalog entry')).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole('searchbox', { name: 'Search voices' })).toHaveValue('heart');
