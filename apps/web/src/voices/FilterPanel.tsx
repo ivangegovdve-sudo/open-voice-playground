@@ -1,10 +1,11 @@
-import { RUNTIME_LABELS, type SeedCatalog } from '../catalog/catalog';
-import type { FilterState } from '../catalog/filters';
+import { RUNTIME_LABELS } from '../catalog/catalog';
+import type { VoiceExplorerEntry } from '../catalog/explorer';
+import type { ExplorerAvailability, FilterState } from '../catalog/filters';
 
 export type ArrayFilterKey = Exclude<keyof FilterState, 'q' | 'sort'>;
 
 type FilterPanelProps = {
-  catalog: SeedCatalog;
+  entries: readonly VoiceExplorerEntry[];
   filters: FilterState;
   idPrefix: string;
   onClear(): void;
@@ -65,18 +66,23 @@ function CheckboxGroup({
 }
 
 export function FilterPanel({
-  catalog,
+  entries,
   filters,
   idPrefix,
   onClear,
   onSort,
   onToggle,
 }: FilterPanelProps) {
-  const voices = catalog.voices;
-  const runtimeOptions = (Object.keys(RUNTIME_LABELS) as Array<keyof typeof RUNTIME_LABELS>).map(
-    (mode) => ({ value: mode, label: RUNTIME_LABELS[mode] }),
-  );
-  const engineOptions = catalog.engines.map((engine) => ({ value: engine.id, label: engine.name }));
+  const voices = entries;
+  const runtimeOptions: Array<{ label: string; value: ExplorerAvailability }> = (
+    Object.keys(RUNTIME_LABELS) as Array<keyof typeof RUNTIME_LABELS>
+  ).map((mode) => ({ value: mode, label: RUNTIME_LABELS[mode] }));
+  if (entries.some(({ entryKind }) => entryKind === 'catalog-only-pocket-variant')) {
+    runtimeOptions.push({ value: 'catalog-only', label: 'Catalog only · no generation' });
+  }
+  const engineOptions = [...new Map(voices.map((voice) => [voice.engineId, voice.engineName]))]
+    .map(([value, label]) => ({ value, label }))
+    .sort((left, right) => left.label.localeCompare(right.label));
   const languageOptions = unique(
     voices.flatMap((voice) => voice.languages ?? [voice.language]),
   ).map((value) => ({
@@ -92,12 +98,12 @@ export function FilterPanel({
   const regionOptions = unique(voices.flatMap((voice) => voice.regions ?? [voice.region])).map(
     (value) => ({
       value,
-      label: value,
+      label: value === 'Unspecified' ? 'Unspecified (not source-published)' : value,
     }),
   );
   const genderOptions = unique(voices.map((voice) => voice.gender)).map((value) => ({
     value,
-    label: titleCase(value),
+    label: value === 'unspecified' ? 'Unspecified (not source-published)' : titleCase(value),
   }));
   const styleOptions = unique(voices.flatMap((voice) => voice.styles)).map((value) => ({
     value,

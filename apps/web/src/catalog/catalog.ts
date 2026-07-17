@@ -11,6 +11,7 @@ import type {
   GenerationCandidate,
   OfficialSample,
   PinnedReleaseAssetEvidence,
+  PocketCoverageManifest,
 } from '@open-voice/contracts';
 
 export type CatalogEngine = {
@@ -74,6 +75,7 @@ export type SeedCatalog = {
   officialSamples: OfficialSample[];
   generationCandidates: GenerationCandidate[];
   generatedMedia: GeneratedMediaProvenance[];
+  pocketCoverage: PocketCoverageManifest | null;
 };
 
 const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
@@ -186,4 +188,5 @@ export const seedCatalog: SeedCatalog = {
   officialSamples: [],
   generationCandidates: [],
   generatedMedia: [],
+  pocketCoverage: null,
 };

@@ -9,6 +9,7 @@ import {
   serializeFilterSearch,
   type FilterState,
 } from '../catalog/filters';
+import { buildExplorerEntries } from '../catalog/explorer';
 import { CloseIcon, FilterIcon, SearchIcon } from '../components/Icons';
 import { useModalDrawer } from '../components/useModalDrawer';
 import { useAppServices } from '../state/AppState';
@@ -21,10 +22,11 @@ export function VoicesPage() {
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const filterDrawer = useModalDrawer(filterDrawerOpen, setFilterDrawerOpen);
   const filters = useMemo(() => parseFilterSearch(searchParameters.toString()), [searchParameters]);
+  const entries = useMemo(() => buildExplorerEntries(catalog), [catalog]);
   const deferredQuery = useDeferredValue(filters.q);
   const result = useMemo(
-    () => filterVoices(catalog.voices, { ...filters, q: deferredQuery }),
-    [catalog.voices, deferredQuery, filters],
+    () => filterVoices(entries, { ...filters, q: deferredQuery }),
+    [deferredQuery, entries, filters],
   );
   const activeCount = Object.entries(filters).reduce(
     (count, [key, value]) =>
@@ -66,7 +68,7 @@ export function VoicesPage() {
         </div>
         <div className="atlas-coordinate" aria-hidden="true">
           {catalog.kind === 'launch'
-            ? `${catalog.voices.length} PRESETS / LAUNCH V2`
+            ? '426 runtime-declared presets + 312 catalog-only Pocket variants'
             : '05 PRESETS / FIXTURE V1'}
         </div>
       </header>
@@ -94,14 +96,16 @@ export function VoicesPage() {
           {activeCount > 0 ? <span className="filter-count">{activeCount}</span> : null}
         </button>
         <span className="result-count" aria-live="polite">
-          {result.length} {result.length === 1 ? 'preset' : 'presets'}
+          {catalog.kind === 'launch'
+            ? `${result.length} ${result.length === 1 ? 'catalog entry' : 'catalog entries'}`
+            : `${result.length} ${result.length === 1 ? 'preset' : 'presets'}`}
         </span>
       </div>
 
       <div className="explorer-layout">
         <aside aria-label="Voice filters" className="filter-sidebar">
           <FilterPanel
-            catalog={catalog}
+            entries={entries}
             filters={filters}
             idPrefix="desktop"
             onClear={() => replaceFilters(EMPTY_FILTERS)}
@@ -139,7 +143,7 @@ export function VoicesPage() {
                 </button>
               </div>
               <FilterPanel
-                catalog={catalog}
+                entries={entries}
                 filters={filters}
                 idPrefix="mobile"
                 onClear={() => replaceFilters(EMPTY_FILTERS)}

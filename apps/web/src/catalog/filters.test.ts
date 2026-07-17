@@ -8,6 +8,9 @@ import {
   type CatalogVoice,
 } from './filters';
 import { seedCatalog } from './catalog';
+import launchJson from '../../../../packages/catalog/data/launch-catalog.public.json';
+import { buildExplorerEntries } from './explorer';
+import { mapLaunchCatalog } from './launch-catalog';
 
 const voices: CatalogVoice[] = [
   {
@@ -101,5 +104,43 @@ describe('catalog filters', () => {
     const result = filterVoices(seedCatalog.voices, { ...EMPTY_FILTERS, region: ['GB'] });
 
     expect(result.map((voice) => voice.id)).toEqual(['fixture-browser:voice-b']);
+  });
+
+  it.each([
+    ['mode=catalog-only&engine=pocket&lang=German', 52],
+    ['mode=catalog-only&locale=de', 52],
+    ['region=Unspecified&engine=pocket&mode=catalog-only', 312],
+    ['gender=unspecified&mode=catalog-only', 312],
+  ])('filters Pocket coverage with %s', (search, expected) => {
+    const entries = buildExplorerEntries(mapLaunchCatalog(launchJson));
+
+    expect(filterVoices(entries, parseFilterSearch(search))).toHaveLength(expected);
+  });
+
+  it.each(['GB', 'US', 'BR', 'PT'])('does not infer country %s for Pocket coverage', (region) => {
+    const entries = buildExplorerEntries(mapLaunchCatalog(launchJson));
+
+    expect(
+      filterVoices(entries, { ...EMPTY_FILTERS, mode: ['catalog-only'], region: [region] }),
+    ).toEqual([]);
+  });
+
+  it('keeps catalog-only availability separate from legacy Pocket runtime presets', () => {
+    const entries = buildExplorerEntries(mapLaunchCatalog(launchJson));
+    const result = filterVoices(entries, {
+      ...EMPTY_FILTERS,
+      engine: ['pocket'],
+      mode: ['catalog-only'],
+    });
+
+    expect(result).toHaveLength(312);
+    expect(result.every((entry) => entry.entryKind === 'catalog-only-pocket-variant')).toBe(true);
+  });
+
+  it('searches the raw selector and label in either display order', () => {
+    const entries = buildExplorerEntries(mapLaunchCatalog(launchJson));
+    const result = filterVoices(entries, { ...EMPTY_FILTERS, q: 'german_24l alba' });
+
+    expect(result.map(({ id }) => id)).toEqual(['pocket:german_24l.alba']);
   });
 });

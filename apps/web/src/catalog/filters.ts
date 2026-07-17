@@ -1,4 +1,5 @@
 export type RuntimeMode = 'browser' | 'online' | 'companion' | 'sample-only';
+export type ExplorerAvailability = RuntimeMode | 'catalog-only';
 
 export type CatalogSample = {
   id: string;
@@ -99,14 +100,35 @@ function matchesSingle(value: string, selected: readonly string[]): boolean {
   return selected.length === 0 || selected.includes(value);
 }
 
-export function filterVoices(
-  voices: readonly CatalogVoice[],
+function explorerAvailability(voice: CatalogVoice): ExplorerAvailability[] {
+  return 'entryKind' in voice && voice.entryKind === 'catalog-only-pocket-variant'
+    ? ['catalog-only']
+    : voice.runtimeModes;
+}
+
+function explorerSearchFields(voice: CatalogVoice): string[] {
+  if (
+    'entryKind' in voice &&
+    voice.entryKind === 'catalog-only-pocket-variant' &&
+    'selectorId' in voice &&
+    typeof voice.selectorId === 'string' &&
+    'label' in voice &&
+    typeof voice.label === 'string'
+  ) {
+    return [voice.selectorId, voice.label];
+  }
+  return [];
+}
+
+export function filterVoices<T extends CatalogVoice>(
+  voices: readonly T[],
   filters: FilterState,
-): CatalogVoice[] {
+): T[] {
   const query = normalizeSearchText(filters.q);
   const filtered = voices.filter((voice) => {
     const haystack = normalizeSearchText(
       [
+        ...explorerSearchFields(voice),
         voice.name,
         voice.engineName,
         voice.locale,
@@ -122,7 +144,7 @@ export function filterVoices(
 
     return (
       (query.length === 0 || haystack.includes(query)) &&
-      intersects(voice.runtimeModes, filters.mode) &&
+      intersects(explorerAvailability(voice), filters.mode) &&
       matchesSingle(voice.engineId, filters.engine) &&
       intersects(voice.languages ?? [voice.language], filters.lang) &&
       intersects(voice.languageTags ?? [voice.locale], filters.locale) &&

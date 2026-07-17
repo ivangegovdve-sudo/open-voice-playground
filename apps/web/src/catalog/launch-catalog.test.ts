@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import launchJson from '../../../../packages/catalog/data/launch-catalog.public.json';
 import launchIntegrity from '../../../../packages/catalog/data/launch-catalog.integrity.json';
 import launchRaw from '../../../../packages/catalog/data/launch-catalog.public.json?raw';
+import { seedCatalog } from './catalog';
 import { EMPTY_FILTERS, filterVoices } from './filters';
 import {
   createTestOnlyLaunchCatalogLoader,
@@ -83,11 +84,14 @@ describe('launch catalog web adapter', () => {
       assetSetId: 'supertonic-browser-assets',
       runtimeArtifactId: 'onnxruntime-web-webgpu-jsep-wasm',
     });
+    expect(catalog.pocketCoverage).toEqual(launchJson.pocketCoverage);
+    expect(catalog.pocketCoverage).not.toBe(launchJson.pocketCoverage);
+    expect(catalog.pocketCoverage?.variants).not.toBe(launchJson.pocketCoverage.variants);
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
 
-  it('requires schema v3 runtime arrays and rejects malformed or duplicate identities', () => {
+  it('requires schema v4 coverage and the accepted S1 runtime arrays', () => {
     const missingArtifacts = structuredClone(launchJson) as Record<string, unknown>;
     delete missingArtifacts.runtimeArtifacts;
     expect(() => mapLaunchCatalog(missingArtifacts)).toThrow(/required public fields/i);
@@ -96,10 +100,20 @@ describe('launch catalog web adapter', () => {
     delete missingSelections.runtimeSelections;
     expect(() => mapLaunchCatalog(missingSelections)).toThrow(/required public fields/i);
 
-    expect(() => mapLaunchCatalog({ ...launchJson, schemaVersion: 2 })).toThrow(
+    const missingCoverage = structuredClone(launchJson) as Record<string, unknown>;
+    delete missingCoverage.pocketCoverage;
+    expect(() => mapLaunchCatalog(missingCoverage)).toThrow(/required public fields/i);
+
+    expect(() => mapLaunchCatalog({ ...launchJson, schemaVersion: 3 })).toThrow(
       /required public fields/i,
     );
 
+    expect(() => mapLaunchCatalog({ ...launchJson, unexpected: true })).toThrow(
+      /required public fields/i,
+    );
+  });
+
+  it('retains strict S1 runtime artifact and selection identities', () => {
     const duplicateArtifacts = structuredClone(launchJson);
     duplicateArtifacts.runtimeArtifacts[1] = structuredClone(
       duplicateArtifacts.runtimeArtifacts[0]!,
@@ -109,6 +123,53 @@ describe('launch catalog web adapter', () => {
     const malformedSelection = structuredClone(launchJson);
     malformedSelection.runtimeSelections[0]!.runtimeArtifactId = '';
     expect(() => mapLaunchCatalog(malformedSelection)).toThrow(/malformed runtime selection/i);
+  });
+
+  it('rejects Pocket coverage count, summary, identity, and runtime collisions', () => {
+    const missingVariant = structuredClone(launchJson);
+    missingVariant.pocketCoverage.variants.pop();
+    expect(() => mapLaunchCatalog(missingVariant)).toThrow(/312|coverage/i);
+
+    const wrongLanguageSummary = structuredClone(launchJson);
+    wrongLanguageSummary.pocketCoverage.languageCounts.de = 51 as 52;
+    expect(() => mapLaunchCatalog(wrongLanguageSummary)).toThrow(/coverage|language/i);
+
+    const wrongRightsSummary = structuredClone(launchJson);
+    wrongRightsSummary.pocketCoverage.rightsCounts.catalogOnlyRuntimeCandidate = 239 as 240;
+    expect(() => mapLaunchCatalog(wrongRightsSummary)).toThrow(/coverage|rights/i);
+
+    const duplicateVariant = structuredClone(launchJson);
+    duplicateVariant.pocketCoverage.variants[1] = structuredClone(
+      duplicateVariant.pocketCoverage.variants[0]!,
+    );
+    expect(() => mapLaunchCatalog(duplicateVariant)).toThrow(/duplicate.*Pocket|coverage/i);
+
+    const runtimeCollision = structuredClone(launchJson);
+    runtimeCollision.voices.find(({ engineId }) => engineId === 'pocket')!.id =
+      runtimeCollision.pocketCoverage.variants[0]!.id;
+    expect(() => mapLaunchCatalog(runtimeCollision)).toThrow(
+      /Pocket coverage runtime ID collision/i,
+    );
+  });
+
+  it.each([
+    ['selectorCount', 11],
+    ['labelCount', 25],
+    ['totalEmbeddings', 311],
+    ['publishedOutputClipCount', 1],
+  ])('rejects a wrong Pocket %s summary', (field, value) => {
+    const wrongSummary = structuredClone(launchJson);
+    (wrongSummary.pocketCoverage as unknown as Record<string, unknown>)[field] = value;
+
+    expect(() => mapLaunchCatalog(wrongSummary)).toThrow(/coverage|summary/i);
+  });
+
+  it('keeps fixture carriage explicitly empty and rejects Pocket audit-source drift', () => {
+    expect(seedCatalog.pocketCoverage).toBeNull();
+
+    const missingAuditSource = structuredClone(launchJson);
+    missingAuditSource.pocketCoverage.auditSourceIds.pop();
+    expect(() => mapLaunchCatalog(missingAuditSource)).toThrow(/coverage|audit/i);
   });
 
   it('rejects runtime closure records whose exact frozen identity drifts', () => {
@@ -374,14 +435,11 @@ describe('launch catalog web adapter', () => {
   });
 
   it('rejects an incomplete or unexpected public payload', () => {
-    expect(() => mapLaunchCatalog({ schemaVersion: 3, catalogId: 'open-voice-launch' })).toThrow(
+    expect(() => mapLaunchCatalog({ schemaVersion: 4, catalogId: 'open-voice-launch' })).toThrow(
       /invalid launch catalog/i,
     );
     expect(() => mapLaunchCatalog({ ...launchJson, voices: launchJson.voices.slice(1) })).toThrow(
       /426/i,
-    );
-    expect(() => mapLaunchCatalog({ ...launchJson, unexpected: true })).toThrow(
-      /invalid launch catalog/i,
     );
     const countDrift = structuredClone(launchJson);
     countDrift.voices.find(({ engineId }) => engineId === 'edge')!.engineId = 'kokoro';

@@ -12,6 +12,7 @@ import type {
   LicenseRecord,
   OfficialSample,
   PinnedReleaseAssetEvidence,
+  PocketCoverageManifest,
   SourceRecord,
 } from '@open-voice/contracts';
 
@@ -21,7 +22,7 @@ import { deriveLanguageName, deriveRegionFromLocale, type SeedCatalog } from './
 import type { CatalogVoice, RuntimeMode } from './filters';
 
 type LaunchCatalogData = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   catalogId: 'open-voice-launch';
   generatedAt: string;
   engines: LaunchEngineManifest[];
@@ -38,6 +39,7 @@ type LaunchCatalogData = {
   galleries: GalleryManifest[];
   generationCandidates: GenerationCandidate[];
   generatedMedia: GeneratedMediaProvenance[];
+  pocketCoverage: PocketCoverageManifest;
 };
 
 const ARRAY_FIELDS = [
@@ -57,7 +59,13 @@ const ARRAY_FIELDS = [
   'generatedMedia',
 ] as const;
 
-const TOP_LEVEL_FIELDS = [...ARRAY_FIELDS, 'catalogId', 'generatedAt', 'schemaVersion'].sort();
+const TOP_LEVEL_FIELDS = [
+  ...ARRAY_FIELDS,
+  'catalogId',
+  'generatedAt',
+  'pocketCoverage',
+  'schemaVersion',
+].sort();
 const EXPECTED_ENGINE_COUNTS: Readonly<Record<string, number>> = {
   edge: 322,
   kitten: 8,
@@ -151,6 +159,153 @@ const EXPECTED_RUNTIME_SELECTIONS: Readonly<Record<string, BrowserRuntimeSelecti
     selectionDigest: 'sha256:7190a762b081736eed0573efb7cd4ba7ebbeea9ebfc3afbc0ccf546331ce380e',
   },
 };
+const POCKET_COVERAGE_FIELDS = [
+  'auditSourceIds',
+  'engineId',
+  'id',
+  'inventorySha256',
+  'labelCount',
+  'languageCounts',
+  'officialDemo',
+  'publishedOutputClipCount',
+  'revisionPins',
+  'rightsCounts',
+  'selectorCount',
+  'totalEmbeddings',
+  'variants',
+].sort();
+const POCKET_REVISION_PIN_FIELDS = [
+  'currentCodeAudit',
+  'fullModel',
+  'historicalPromptSnapshot',
+  'noCloningModel',
+  'stableCode',
+  'voiceRepository',
+].sort();
+const POCKET_LANGUAGE_COUNT_FIELDS = ['de', 'en', 'es', 'fr', 'it', 'pt'].sort();
+const POCKET_RIGHTS_COUNT_FIELDS = [
+  'catalogOnlyRuntimeCandidate',
+  'linkOnlyNonCommercial',
+  'linkOnlyProvenancePending',
+].sort();
+const POCKET_VARIANT_FIELDS = [
+  'countryCode',
+  'engineId',
+  'gender',
+  'id',
+  'label',
+  'languageTag',
+  'licenseIds',
+  'listingPolicy',
+  'officialDemoId',
+  'rightsFamily',
+  'selectorId',
+  'sourceIds',
+  'runtimeExclusionReason',
+  'upstreamId',
+  'upstreamPath',
+].sort();
+const POCKET_OFFICIAL_DEMO_FIELDS = [
+  'audioPublished',
+  'engineId',
+  'id',
+  'offlineAvailable',
+  'outputClipStatus',
+  'pageUrl',
+  'reviewedAt',
+  'rightsBasis',
+  'sourceIds',
+].sort();
+const POCKET_SELECTOR_LANGUAGES = {
+  english: 'en',
+  'english_2026-01': 'en',
+  'english_2026-04': 'en',
+  french_24l: 'fr',
+  german: 'de',
+  german_24l: 'de',
+  italian: 'it',
+  italian_24l: 'it',
+  portuguese: 'pt',
+  portuguese_24l: 'pt',
+  spanish: 'es',
+  spanish_24l: 'es',
+} as const;
+const POCKET_LABELS = new Set([
+  'alba',
+  'anna',
+  'azelma',
+  'bill_boerst',
+  'caro_davy',
+  'charles',
+  'cosette',
+  'eponine',
+  'estelle',
+  'eve',
+  'fantine',
+  'george',
+  'giovanni',
+  'jane',
+  'javert',
+  'jean',
+  'juergen',
+  'lola',
+  'marius',
+  'mary',
+  'michael',
+  'paul',
+  'peter_yearsley',
+  'rafael',
+  'stuart_bell',
+  'vera',
+]);
+const POCKET_RIGHTS_FAMILIES = new Set([
+  'alba-mackenna',
+  'unmute-estelle',
+  'vctk',
+  'voice-zero',
+  'voice-donation',
+  'expresso',
+  'ears',
+  'repository-level-unclear',
+]);
+const POCKET_POLICY_REASONS = {
+  'catalog-only-runtime-candidate': 'assets-not-release-pinned',
+  'link-only-noncommercial': 'noncommercial-source-terms',
+  'link-only-provenance-pending': 'per-clip-provenance-unresolved',
+} as const;
+const EXPECTED_POCKET_REVISIONS = {
+  stableCode: '058886528d0b6f2f2d4022de2e244a5260729e6e',
+  currentCodeAudit: 'd108410d23eef7e01db282f9442891162dbc3db6',
+  fullModel: '4c8ad48f8a003909bc4f1122cbe88a4252124621',
+  noCloningModel: 'e041936c75475d350b405bc870bcf7c22da4e9e6',
+  voiceRepository: '323332d33f997de8394f24a193e1a76df720e01a',
+  historicalPromptSnapshot: '64ab7d24c479d736a83b8cc666c4a776fca30fda',
+} as const;
+const EXPECTED_POCKET_LANGUAGE_COUNTS = {
+  en: 78,
+  fr: 26,
+  de: 52,
+  it: 52,
+  pt: 52,
+  es: 52,
+} as const;
+const EXPECTED_POCKET_RIGHTS_COUNTS = {
+  catalogOnlyRuntimeCandidate: 240,
+  linkOnlyNonCommercial: 24,
+  linkOnlyProvenancePending: 48,
+} as const;
+const EXPECTED_POCKET_AUDIT_SOURCE_IDS = [
+  'pocket-code-source',
+  'pocket-current-code-audit-source',
+  'pocket-full-model-source',
+  'pocket-weights-source',
+  'pocket-voice-source',
+  'pocket-historical-prompt-source',
+  'pocket-multilingual-announcement-source',
+  'pocket-official-live-demo-source',
+] as const;
+const POCKET_OFFICIAL_DEMO_RIGHTS_BASIS =
+  'External live-generation page only; no conditioning audio or output is copied, proxied, cached, or redistributed.';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -183,13 +338,165 @@ function isUniqueNonEmptyStringArray(value: unknown): value is string[] {
   );
 }
 
+function hasExactFields(value: Record<string, unknown>, fields: readonly string[]): boolean {
+  return JSON.stringify(Object.keys(value).sort()) === JSON.stringify(fields);
+}
+
+function isUniqueRecordIdArray(value: unknown): value is string[] {
+  return (
+    isUniqueNonEmptyStringArray(value) &&
+    value.every((entry) => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(entry))
+  );
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+function parsePocketCoverage(
+  value: unknown,
+  runtimeVoiceIds: ReadonlySet<string>,
+): PocketCoverageManifest {
+  if (
+    !isRecord(value) ||
+    !hasExactFields(value, POCKET_COVERAGE_FIELDS) ||
+    value.id !== 'pocket-multilingual-coverage' ||
+    value.engineId !== 'pocket' ||
+    typeof value.inventorySha256 !== 'string' ||
+    !/^sha256:[a-f0-9]{64}$/.test(value.inventorySha256) ||
+    value.selectorCount !== 12 ||
+    value.labelCount !== 26 ||
+    value.totalEmbeddings !== 312 ||
+    value.publishedOutputClipCount !== 0 ||
+    !isRecord(value.revisionPins) ||
+    !hasExactFields(value.revisionPins, POCKET_REVISION_PIN_FIELDS) ||
+    !hasSameClosedRecord(value.revisionPins, EXPECTED_POCKET_REVISIONS) ||
+    !isRecord(value.languageCounts) ||
+    !hasExactFields(value.languageCounts, POCKET_LANGUAGE_COUNT_FIELDS) ||
+    !hasSameClosedRecord(value.languageCounts, EXPECTED_POCKET_LANGUAGE_COUNTS) ||
+    !isRecord(value.rightsCounts) ||
+    !hasExactFields(value.rightsCounts, POCKET_RIGHTS_COUNT_FIELDS) ||
+    !hasSameClosedRecord(value.rightsCounts, EXPECTED_POCKET_RIGHTS_COUNTS) ||
+    JSON.stringify(value.auditSourceIds) !== JSON.stringify(EXPECTED_POCKET_AUDIT_SOURCE_IDS) ||
+    !Array.isArray(value.variants) ||
+    value.variants.length !== 312 ||
+    !isRecord(value.officialDemo)
+  ) {
+    throw new Error('Invalid launch catalog payload: malformed Pocket coverage summary.');
+  }
+
+  const officialDemo = value.officialDemo;
+  if (
+    !hasExactFields(officialDemo, POCKET_OFFICIAL_DEMO_FIELDS) ||
+    officialDemo.id !== 'pocket-official-live-demo' ||
+    officialDemo.engineId !== 'pocket' ||
+    officialDemo.pageUrl !== 'https://kyutai.org/tts' ||
+    JSON.stringify(officialDemo.sourceIds) !==
+      JSON.stringify(['pocket-official-live-demo-source']) ||
+    officialDemo.outputClipStatus !== 'no-stable-official-generated-output-found' ||
+    officialDemo.audioPublished !== false ||
+    officialDemo.offlineAvailable !== false ||
+    officialDemo.rightsBasis !== POCKET_OFFICIAL_DEMO_RIGHTS_BASIS ||
+    !isIsoDateTime(officialDemo.reviewedAt)
+  ) {
+    throw new Error('Invalid launch catalog payload: malformed Pocket official demo.');
+  }
+
+  const variantIds = new Set<string>();
+  const upstreamPaths = new Set<string>();
+  const selectorIds = new Set<string>();
+  const labels = new Set<string>();
+  const languageCounts: Record<string, number> = { en: 0, fr: 0, de: 0, it: 0, pt: 0, es: 0 };
+  const policyCounts: Record<string, number> = {
+    'catalog-only-runtime-candidate': 0,
+    'link-only-noncommercial': 0,
+    'link-only-provenance-pending': 0,
+  };
+
+  for (const variant of value.variants) {
+    if (!isRecord(variant) || !hasExactFields(variant, POCKET_VARIANT_FIELDS)) {
+      throw new Error('Invalid launch catalog payload: malformed Pocket coverage variant.');
+    }
+    const selectorId = variant.selectorId;
+    const label = variant.label;
+    const listingPolicy = variant.listingPolicy;
+    const expectedLanguage =
+      typeof selectorId === 'string'
+        ? POCKET_SELECTOR_LANGUAGES[selectorId as keyof typeof POCKET_SELECTOR_LANGUAGES]
+        : undefined;
+    const expectedReason =
+      typeof listingPolicy === 'string'
+        ? POCKET_POLICY_REASONS[listingPolicy as keyof typeof POCKET_POLICY_REASONS]
+        : undefined;
+    if (
+      typeof variant.id !== 'string' ||
+      variant.engineId !== 'pocket' ||
+      typeof selectorId !== 'string' ||
+      expectedLanguage === undefined ||
+      typeof label !== 'string' ||
+      !POCKET_LABELS.has(label) ||
+      variant.id !== `pocket:${selectorId}.${label}` ||
+      variant.upstreamId !== `${selectorId}.${label}` ||
+      variant.upstreamPath !== `languages/${selectorId}/embeddings/${label}.safetensors` ||
+      variant.languageTag !== expectedLanguage ||
+      variant.countryCode !== null ||
+      variant.gender !== 'unspecified' ||
+      typeof variant.rightsFamily !== 'string' ||
+      !POCKET_RIGHTS_FAMILIES.has(variant.rightsFamily) ||
+      typeof listingPolicy !== 'string' ||
+      expectedReason === undefined ||
+      variant.runtimeExclusionReason !== expectedReason ||
+      !isUniqueRecordIdArray(variant.licenseIds) ||
+      !isUniqueRecordIdArray(variant.sourceIds) ||
+      variant.officialDemoId !== officialDemo.id
+    ) {
+      throw new Error('Invalid launch catalog payload: malformed Pocket coverage variant.');
+    }
+    if (runtimeVoiceIds.has(variant.id)) {
+      throw new Error('Invalid launch catalog payload: Pocket coverage runtime ID collision.');
+    }
+    if (variantIds.has(variant.id) || upstreamPaths.has(variant.upstreamPath as string)) {
+      throw new Error('Invalid launch catalog payload: duplicate Pocket coverage identity.');
+    }
+    variantIds.add(variant.id);
+    upstreamPaths.add(variant.upstreamPath as string);
+    selectorIds.add(selectorId);
+    labels.add(label);
+    languageCounts[expectedLanguage] = (languageCounts[expectedLanguage] ?? 0) + 1;
+    policyCounts[listingPolicy] = (policyCounts[listingPolicy] ?? 0) + 1;
+  }
+
+  if (
+    selectorIds.size !== 12 ||
+    labels.size !== 26 ||
+    Object.entries(EXPECTED_POCKET_LANGUAGE_COUNTS).some(
+      ([language, expected]) => languageCounts[language] !== expected,
+    ) ||
+    policyCounts['catalog-only-runtime-candidate'] !==
+      EXPECTED_POCKET_RIGHTS_COUNTS.catalogOnlyRuntimeCandidate ||
+    policyCounts['link-only-noncommercial'] !==
+      EXPECTED_POCKET_RIGHTS_COUNTS.linkOnlyNonCommercial ||
+    policyCounts['link-only-provenance-pending'] !==
+      EXPECTED_POCKET_RIGHTS_COUNTS.linkOnlyProvenancePending
+  ) {
+    throw new Error('Invalid launch catalog payload: Pocket coverage closure drift.');
+  }
+
+  return value as unknown as PocketCoverageManifest;
+}
+
 function parseLaunchCatalog(value: unknown): LaunchCatalogData {
   if (
     !isRecord(value) ||
     JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(TOP_LEVEL_FIELDS) ||
-    value.schemaVersion !== 3 ||
+    value.schemaVersion !== 4 ||
     value.catalogId !== 'open-voice-launch' ||
     typeof value.generatedAt !== 'string' ||
+    !isRecord(value.pocketCoverage) ||
     ARRAY_FIELDS.some((field) => !Array.isArray(value[field]))
   ) {
     throw new Error('Invalid launch catalog payload: required public fields are missing.');
@@ -200,7 +507,8 @@ function parseLaunchCatalog(value: unknown): LaunchCatalogData {
       `Invalid launch catalog payload: expected 426 presets, got ${candidate.voices.length}.`,
     );
   }
-  if (new Set(candidate.voices.map(({ id }) => id)).size !== candidate.voices.length) {
+  const runtimeVoiceIds = new Set(candidate.voices.map(({ id }) => id));
+  if (runtimeVoiceIds.size !== candidate.voices.length) {
     throw new Error('Invalid launch catalog payload: duplicate preset IDs.');
   }
   if (candidate.engines.length !== 6 || candidate.galleries.length !== 12) {
@@ -354,7 +662,8 @@ function parseLaunchCatalog(value: unknown): LaunchCatalogData {
   ) {
     throw new Error('Invalid launch catalog payload: per-engine preset count drift.');
   }
-  return candidate;
+  const pocketCoverage = parsePocketCoverage(candidate.pocketCoverage, runtimeVoiceIds);
+  return { ...candidate, pocketCoverage };
 }
 
 function unique(values: readonly string[]): string[] {
@@ -454,6 +763,7 @@ export function mapLaunchCatalog(value: unknown): SeedCatalog {
     officialSamples: launch.samples.map((record) => structuredClone(record)),
     generationCandidates: launch.generationCandidates.map((record) => structuredClone(record)),
     generatedMedia: launch.generatedMedia.map((record) => structuredClone(record)),
+    pocketCoverage: structuredClone(launch.pocketCoverage),
   };
 }
 
