@@ -47,6 +47,19 @@ class FakeWorkerScope implements SupertonicWorkerScope {
   }
 }
 
+class ThrowingResponseWorkerScope extends FakeWorkerScope {
+  constructor(private readonly responseType: 'ready' | 'result') {
+    super();
+  }
+
+  override postMessage(message: unknown, transfer: Transferable[] = []): void {
+    if ((message as { type?: unknown }).type === this.responseType) {
+      throw new Error(`fixture ${this.responseType} post failure`);
+    }
+    super.postMessage(message, transfer);
+  }
+}
+
 async function flushRuntime(): Promise<void> {
   await Promise.resolve();
   await Promise.resolve();
@@ -743,6 +756,107 @@ describe('Supertonic Worker runtime', () => {
       scope.transfers[resultIndex]?.[0],
     );
     expect(ort.releaseOrder).toEqual([]);
+  });
+
+  it('fails closed and releases prepared sessions when posting ready throws', async () => {
+    const scope = new ThrowingResponseWorkerScope('ready');
+    const fixture = makeTinyPrepare();
+    const ort = makeOrtState();
+    installSupertonicWorkerRuntime(scope, {
+      loadOrt: async () => ort.module,
+      dependencies: baseDependencies(),
+    });
+
+    scope.emit(fixture.command);
+    await vi.waitFor(() =>
+      expect(ort.releaseOrder).toEqual(['vocoder', 'vector', 'text', 'duration']),
+    );
+
+    expect(scope.messages).toEqual([
+      { type: 'error', operationId: 1, message: 'Supertonic Worker operation failed.' },
+    ]);
+    expect(fixture.buffers.every((buffer) => buffer.byteLength === 0)).toBe(true);
+    scope.emit(synthesizeCommand(2));
+    await vi.waitFor(() => expect(scope.messages).toHaveLength(2));
+    expect(scope.messages[1]).toEqual({
+      type: 'error',
+      operationId: 2,
+      message: 'Supertonic Worker is not prepared.',
+    });
+  });
+
+  it('fails closed and releases prepared sessions when posting a synthesis result throws', async () => {
+    const scope = new ThrowingResponseWorkerScope('result');
+    const fixture = makeTinyPrepare();
+    const ort = makeOrtState();
+    installSupertonicWorkerRuntime(scope, {
+      loadOrt: async () => ort.module,
+      dependencies: baseDependencies(),
+    });
+    scope.emit(fixture.command);
+    await vi.waitFor(() =>
+      expect(scope.messages).toContainEqual({ type: 'ready', operationId: 1 }),
+    );
+
+    scope.emit(synthesizeCommand(2));
+    await vi.waitFor(() =>
+      expect(ort.releaseOrder).toEqual(['vocoder', 'vector', 'text', 'duration']),
+    );
+
+    expect(scope.messages.slice(1)).toEqual([
+      { type: 'progress', operationId: 2, phase: 'synthesis', percent: 100 },
+      { type: 'error', operationId: 2, message: 'Supertonic Worker operation failed.' },
+    ]);
+    scope.emit(synthesizeCommand(3));
+    await vi.waitFor(() => expect(scope.messages).toHaveLength(4));
+    expect(scope.messages[3]).toEqual({
+      type: 'error',
+      operationId: 3,
+      message: 'Supertonic Worker is not prepared.',
+    });
+  });
+
+  it('keeps disposal as terminal owner when result-post cleanup is stalled', async () => {
+    const scope = new ThrowingResponseWorkerScope('result');
+    const fixture = makeTinyPrepare();
+    const ort = makeOrtState();
+    const releaseStarted = deferred<void>();
+    const releaseGate = deferred<void>();
+    const vocoder = ort.sessions[3]!;
+    (vocoder as { release: () => Promise<void> }).release = vi.fn(async () => {
+      releaseStarted.resolve(undefined);
+      await releaseGate.promise;
+      ort.releaseOrder.push('vocoder');
+    });
+    installSupertonicWorkerRuntime(scope, {
+      loadOrt: async () => ort.module,
+      dependencies: baseDependencies(),
+    });
+    scope.emit(fixture.command);
+    await vi.waitFor(() =>
+      expect(scope.messages).toContainEqual({ type: 'ready', operationId: 1 }),
+    );
+
+    scope.emit(synthesizeCommand(2));
+    await releaseStarted.promise;
+    scope.emit({ command: 'dispose', operationId: 3 });
+    await flushRuntime();
+
+    expect(scope.closed).toBe(false);
+    expect(scope.closeCalls).toBe(0);
+    expect(scope.messages.slice(1)).toEqual([
+      { type: 'progress', operationId: 2, phase: 'synthesis', percent: 100 },
+    ]);
+
+    releaseGate.resolve(undefined);
+    await vi.waitFor(() => expect(scope.closed).toBe(true));
+    expect(scope.closeCalls).toBe(1);
+    expect(scope.messages.slice(1)).toEqual([
+      { type: 'progress', operationId: 2, phase: 'synthesis', percent: 100 },
+      { type: 'disposed', operationId: 3 },
+    ]);
+    expect(ort.releaseOrder).toEqual(['vocoder', 'vector', 'text', 'duration']);
+    for (const session of ort.sessions) expect(session.release).toHaveBeenCalledOnce();
   });
 
   it('adapts real ORT tensors with getData(true) and idempotent disposal', async () => {

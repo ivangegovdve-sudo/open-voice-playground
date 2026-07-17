@@ -496,7 +496,6 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
 
   async dispose(): Promise<void> {
     const preparation = this.activePreparation;
-    preparation?.controller.abort();
     const generations = new Map<number, WorkerGeneration>();
     if (this.generation !== null) generations.set(this.generation.id, this.generation);
     if (preparation?.generation !== null && preparation?.generation !== undefined) {
@@ -505,14 +504,14 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     for (const retirement of this.retiringGenerations.values()) {
       generations.set(retirement.generation.id, retirement.generation);
     }
-    const failures: unknown[] = [];
-    for (const generation of generations.values()) {
-      try {
-        await this.disposeGeneration(generation);
-      } catch (error) {
-        failures.push(error);
-      }
-    }
+    const disposals = [...generations.values()].map((generation) =>
+      this.startGenerationDisposal(generation),
+    );
+    preparation?.controller.abort();
+    const results = await Promise.allSettled(disposals);
+    const failures = results
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map((result) => result.reason as unknown);
     if (failures.length > 0) {
       throw new AggregateError(failures, 'One or more Worker generations could not be disposed.', {
         cause: failures[0],
@@ -697,14 +696,14 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     this.detachGeneration(generation);
     this.rejectGeneration(generation, reason);
     this.terminateGeneration(generation);
-    this.retiringGenerations.delete(generation.id);
+  }
+
+  private startGenerationDisposal(generation: WorkerGeneration): Promise<void> {
+    return this.startGenerationRetirement(generation, () => this.disposeGeneration(generation));
   }
 
   private async disposeGeneration(generation: WorkerGeneration): Promise<void> {
-    if (generation.terminated) {
-      this.retiringGenerations.delete(generation.id);
-      return;
-    }
+    if (generation.terminated) return;
     this.rejectGeneration(generation, abortError('The runtime was disposed.'));
     generation.preparedKey = null;
     if (this.generation === generation) this.generation = null;
@@ -719,7 +718,6 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       } finally {
         this.detachGeneration(generation);
         this.terminateGeneration(generation);
-        this.retiringGenerations.delete(generation.id);
       }
       return;
     }
@@ -749,7 +747,6 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
       generation.disposeAcknowledgement = null;
       this.detachGeneration(generation);
       this.terminateGeneration(generation);
-      this.retiringGenerations.delete(generation.id);
     }
     if (postError !== undefined) throw postError;
   }
@@ -761,11 +758,17 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
   }
 
   private cancelPreparation(preparation: ActivePreparation, reason: unknown): Promise<void> {
-    preparation.controller.abort();
-    if (preparation.cancellation !== null) return preparation.cancellation;
-    if (preparation.generation === null) return Promise.resolve();
+    if (preparation.cancellation !== null) {
+      preparation.controller.abort();
+      return preparation.cancellation;
+    }
+    if (preparation.generation === null) {
+      preparation.controller.abort();
+      return Promise.resolve();
+    }
     const cancellation = this.startGenerationCancellation(preparation.generation, reason);
     preparation.cancellation = cancellation;
+    preparation.controller.abort();
     return cancellation;
   }
 
@@ -773,23 +776,39 @@ class WorkerRuntimeAdapter implements RuntimeAdapter {
     generation: WorkerGeneration,
     reason: unknown,
   ): Promise<void> {
+    return this.startGenerationRetirement(generation, () =>
+      this.cancelGeneration(generation, reason),
+    );
+  }
+
+  private startGenerationRetirement(
+    generation: WorkerGeneration,
+    retire: () => Promise<void>,
+  ): Promise<void> {
     const active = this.retiringGenerations.get(generation.id);
     if (active !== undefined) return active.completion;
-    const completion = this.cancelGeneration(generation, reason);
+
+    let resolveCompletion!: () => void;
+    let rejectCompletion!: (reason: unknown) => void;
+    const completion = new Promise<void>((resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectCompletion = reject;
+    });
     const retirement = { generation, completion };
     this.retiringGenerations.set(generation.id, retirement);
-    void completion.then(
-      () => {
-        if (this.retiringGenerations.get(generation.id) === retirement) {
-          this.retiringGenerations.delete(generation.id);
-        }
-      },
-      () => {
-        if (this.retiringGenerations.get(generation.id) === retirement) {
-          this.retiringGenerations.delete(generation.id);
-        }
-      },
-    );
+
+    const removeRetirement = () => {
+      if (this.retiringGenerations.get(generation.id) === retirement) {
+        this.retiringGenerations.delete(generation.id);
+      }
+    };
+    void completion.then(removeRetirement, removeRetirement);
+
+    try {
+      void retire().then(resolveCompletion, rejectCompletion);
+    } catch (error) {
+      rejectCompletion(error);
+    }
     return completion;
   }
 

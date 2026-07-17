@@ -413,7 +413,7 @@ export function installSupertonicWorkerRuntime(
         return;
       }
       discardAll();
-      prepared = {
+      const nextPrepared = {
         voiceId: command.voiceId,
         backend: command.backend,
         selectionId: command.selectionId,
@@ -423,10 +423,11 @@ export function installSupertonicWorkerRuntime(
         styles,
         ort: ortPort,
         sessions,
-      };
+      } satisfies PreparedState;
+      scope.postMessage({ type: 'ready', operationId: command.operationId });
+      prepared = nextPrepared;
       if (activePrepareCleanup === cleanup) activePrepareCleanup = null;
       phase = 'prepared';
-      scope.postMessage({ type: 'ready', operationId: command.operationId });
     } catch {
       await cleanup();
       if (activePrepareCleanup === cleanup) activePrepareCleanup = null;
@@ -511,7 +512,6 @@ export function installSupertonicWorkerRuntime(
       const wav = dependencies.encodeWav(validated);
       emitProgress(1, 1);
       if (operationEpoch !== epoch || phase !== 'synthesizing' || prepared !== state) return;
-      phase = 'prepared';
       scope.postMessage(
         {
           type: 'result',
@@ -521,9 +521,11 @@ export function installSupertonicWorkerRuntime(
         },
         [wav],
       );
+      phase = 'prepared';
     } catch {
       if (operationEpoch !== epoch || phase !== 'synthesizing' || prepared !== state) return;
       await releaseSessionsReverse(state.sessions);
+      if (operationEpoch !== epoch || phase !== 'synthesizing' || prepared !== state) return;
       prepared = null;
       phase = 'failed';
       postError(command.operationId, OPERATION_ERROR);

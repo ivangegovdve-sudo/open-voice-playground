@@ -1379,6 +1379,210 @@ describe('lazy preset-only provider boundaries', () => {
     expect(worker.terminateCalls).toBe(1);
   });
 
+  it('registers acknowledged disposal before posting so a synchronous external abort joins it', async () => {
+    const controller = new AbortController();
+    class AbortOnDisposeWorker extends FakeWorker {
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        if ((message as { command?: unknown }).command === 'dispose') controller.abort();
+      }
+    }
+    const worker = new AbortOnDisposeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 30,
+    });
+    const preparation = adapter.prepare(
+      {
+        voice: preset,
+        mode: 'browser',
+        text: 'External abort must join the acknowledged disposal owner.',
+        controls: { speed: 1 },
+      },
+      { signal: controller.signal },
+    );
+    const preparationOutcome = preparation.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    const disposing = adapter.dispose();
+    controller.abort();
+    await expect(preparationOutcome).resolves.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() =>
+      expect(
+        worker.messages.filter(
+          (message) => (message as { command?: unknown }).command === 'dispose',
+        ),
+      ).toHaveLength(1),
+    );
+    const disposeCommand = worker.messages.find(
+      (message) => (message as { command?: unknown }).command === 'dispose',
+    ) as { operationId: number };
+    const terminatedBeforeAcknowledgement = worker.terminated;
+
+    worker.emit({ type: 'disposed', operationId: disposeCommand.operationId });
+    await disposing;
+
+    expect(terminatedBeforeAcknowledgement).toBe(false);
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('registers disposal before aborting preparation so synchronous cancellation joins it', async () => {
+    let preparationSignal: AbortSignal | null = null;
+    let reentrantCancellation: Promise<void> | null = null;
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async (_assetSet, _voice, context) => {
+        preparationSignal = context.signal ?? null;
+      },
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 30,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Disposal ownership must precede the internal abort signal.',
+      controls: { speed: 1 },
+    });
+    const preparationOutcome = preparation.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    expect(preparationSignal).not.toBeNull();
+    preparationSignal!.addEventListener(
+      'abort',
+      () => {
+        reentrantCancellation = adapter.cancel();
+      },
+      { once: true },
+    );
+
+    const disposing = adapter.dispose();
+    await expect(preparationOutcome).resolves.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(reentrantCancellation).not.toBeNull());
+    const disposeCommands = worker.messages.filter(
+      (message) => (message as { command?: unknown }).command === 'dispose',
+    ) as { operationId: number }[];
+
+    expect(disposeCommands).toHaveLength(1);
+    expect(worker.terminated).toBe(false);
+    worker.emit({ type: 'disposed', operationId: disposeCommands[0]!.operationId });
+    await Promise.all([disposing, reentrantCancellation!]);
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('registers cancellation before aborting preparation so synchronous disposal joins it', async () => {
+    let preparationSignal: AbortSignal | null = null;
+    let reentrantDisposal: Promise<void> | null = null;
+    const worker = new FakeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async (_assetSet, _voice, context) => {
+        preparationSignal = context.signal ?? null;
+      },
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 30,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Cancellation ownership must precede the internal abort signal.',
+      controls: { speed: 1 },
+    });
+    const preparationOutcome = preparation.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+    expect(preparationSignal).not.toBeNull();
+    preparationSignal!.addEventListener(
+      'abort',
+      () => {
+        reentrantDisposal = adapter.dispose();
+      },
+      { once: true },
+    );
+
+    const cancelling = adapter.cancel();
+    await expect(preparationOutcome).resolves.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(reentrantDisposal).not.toBeNull());
+    await Promise.all([cancelling, reentrantDisposal!]);
+
+    expect(
+      worker.messages.filter((message) => (message as { command?: unknown }).command === 'dispose'),
+    ).toHaveLength(0);
+    expect(worker.terminateCalls).toBe(1);
+  });
+
+  it('coalesces a synchronous reentrant dispose into one command, acknowledgement, and retirement', async () => {
+    let reentrantDispose: Promise<void> | null = null;
+    let requestedReentrantDispose = false;
+    class ReentrantDisposeWorker extends FakeWorker {
+      override postMessage(message: unknown, transfer: Transferable[] = []) {
+        super.postMessage(message, transfer);
+        if (
+          (message as { command?: unknown }).command === 'dispose' &&
+          !requestedReentrantDispose
+        ) {
+          requestedReentrantDispose = true;
+          reentrantDispose = adapter.dispose();
+        }
+      }
+    }
+    const worker = new ReentrantDisposeWorker();
+    const preset = voice();
+    const adapter = createWorkerRuntimeAdapter({
+      engineId: 'kokoro',
+      voices: [preset],
+      assetSets: [set()],
+      prepareAssets: async () => {},
+      workerFactory: () => worker,
+      browserRuntimeEnabled: true,
+      cancellationPolicy: 'immediate',
+      disposePolicy: 'acknowledged',
+      disposeTimeoutMs: 30,
+    });
+    const preparation = adapter.prepare({
+      voice: preset,
+      mode: 'browser',
+      text: 'Every concurrent disposer must share one generation retirement.',
+      controls: { speed: 1 },
+    });
+    const preparationOutcome = preparation.catch((error: unknown) => error);
+    await vi.waitFor(() => expect(worker.messages).toHaveLength(1));
+
+    const firstDispose = adapter.dispose();
+    const secondDispose = adapter.dispose();
+    await expect(preparationOutcome).resolves.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(requestedReentrantDispose).toBe(true));
+    expect(reentrantDispose).not.toBeNull();
+    const disposeCommands = worker.messages.filter(
+      (message) => (message as { command?: unknown }).command === 'dispose',
+    ) as { operationId: number }[];
+    for (const command of disposeCommands) {
+      worker.emit({ type: 'disposed', operationId: command.operationId });
+    }
+    await Promise.all([firstDispose, secondDispose, reentrantDispose!]);
+
+    expect(disposeCommands).toHaveLength(1);
+    expect(worker.terminateCalls).toBe(1);
+  });
+
   it('hard-retires a prepared Supertonic Worker before the next selection reads assets', async () => {
     const firstWorker = new FakeWorker();
     const secondWorker = new FakeWorker();
