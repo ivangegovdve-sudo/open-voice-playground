@@ -12,6 +12,8 @@ import viteConfig from './vite.config';
 const APP_ROOT = dirname(fileURLToPath(import.meta.url));
 const ONNXRUNTIME_WEB_ROOT = resolve(APP_ROOT, '../../node_modules/onnxruntime-web');
 const temporaryRoots: string[] = [];
+const AUDIO_FILE_PATTERN =
+  /\.(?:aac|aif|aiff|amr|caf|flac|m4a|mp3|oga|ogg|opus|wav|wave|webm|wma)(?:$|[?#])/i;
 
 test('emits every Worker as an ES module', () => {
   expect(viteConfig.worker).toEqual({ format: 'es' });
@@ -1452,7 +1454,7 @@ test('rejects an initial production JavaScript graph at or above 250 KiB gzip', 
   await expect(buildMetadata(root)).rejects.toThrow(/250.*gzip|gzip.*250/i);
 });
 
-test('the actual production entry graph stays small and excludes emitted inference workers', async () => {
+test('the actual production build keeps Supertonic selection and inference assets lazy', async () => {
   const outDir = await mkdtemp(join(tmpdir(), 'open-voice-production-boundary-'));
   temporaryRoots.push(outDir);
   await build({
@@ -1480,6 +1482,8 @@ test('the actual production entry graph stays small and excludes emitted inferen
   ) as Record<
     string,
     {
+      assets?: string[];
+      css?: string[];
       file: string;
       imports?: string[];
       isDynamicEntry?: boolean;
@@ -1500,6 +1504,18 @@ test('the actual production entry graph stays small and excludes emitted inferen
   const initialJavaScriptFiles = [...initialKeys]
     .map((key) => manifest[key]!.file)
     .filter((file) => /\.(?:js|mjs)$/.test(file));
+  const initialReferencedFiles = [...initialKeys].flatMap((key) => [
+    ...(manifest[key]?.assets ?? []),
+    ...(manifest[key]?.css ?? []),
+  ]);
+  expect(initialReferencedFiles).not.toEqual(
+    expect.arrayContaining([
+      expect.stringMatching(
+        /worker|inference|model|tokenizer|onnxruntime|\.(?:bin|onnx|npz|safetensors|wasm)(?:$|[?#])/i,
+      ),
+    ]),
+  );
+  expect(initialReferencedFiles.some((file) => AUDIO_FILE_PATTERN.test(file))).toBe(false);
   const initialGzipBytes = (
     await Promise.all(
       initialJavaScriptFiles.map(
@@ -1519,18 +1535,39 @@ test('the actual production entry graph stays small and excludes emitted inferen
   expect(new Set(factoryEntries.map(([, record]) => record.file)).size).toBe(4);
   for (const [key] of factoryEntries) expect(initialKeys).not.toContain(key);
 
+  const selectionEntries = Object.entries(manifest).filter(([key, record]) =>
+    /runtime[\\/]supertonic[\\/]selection\.ts$/.test(record.src ?? key),
+  );
+  expect(selectionEntries).toHaveLength(1);
+  const [selectionKey, selectionEntry] = selectionEntries[0]!;
+  expect(selectionEntry.isDynamicEntry).toBe(true);
+  expect(initialKeys).not.toContain(selectionKey);
+  expect(initialJavaScriptFiles).not.toContain(selectionEntry.file);
+
   for (const file of initialJavaScriptFiles) {
     const sourceMap = JSON.parse(await readFile(join(outDir, `${file}.map`), 'utf8')) as {
       sources: string[];
     };
     expect(sourceMap.sources).not.toEqual(
-      expect.arrayContaining([expect.stringMatching(/runtime[\\/]workers|inference/i)]),
+      expect.arrayContaining([
+        expect.stringMatching(
+          /runtime[\\/](?:workers|supertonic)|inference|onnxruntime|\.onnx(?:$|[?#])/i,
+        ),
+      ]),
     );
   }
 
   const emitted = (await readdir(outDir, { recursive: true })).map((file) =>
     file.replaceAll('\\', '/'),
   );
+  const emittedAudioFiles = emitted.filter((file) => AUDIO_FILE_PATTERN.test(file));
+  expect(emittedAudioFiles).toEqual([]);
+  const emittedCssFiles = emitted.filter((file) => file.endsWith('.css'));
+  expect(emittedCssFiles.length).toBeGreaterThan(0);
+  const emittedCss = (
+    await Promise.all(emittedCssFiles.map((file) => readFile(join(outDir, file), 'utf8')))
+  ).join('\n');
+  expect(emittedCss).not.toMatch(/(?:^|[^a-z\d_-])url\s*\(|@import(?:$|[^a-z\d_-])/i);
   const workerFiles = emitted.filter((file) => /worker.*\.js$/i.test(file));
   expect(workerFiles.length).toBeGreaterThan(0);
   const supertonicWorkerFiles = workerFiles.filter((file) => /supertonic\.worker/i.test(file));
@@ -1589,22 +1626,36 @@ test('the actual production entry graph stays small and excludes emitted inferen
     expect.arrayContaining([expect.stringMatching(/ort\.(?:webgpu|all)|asyncify|jspi/i)]),
   );
   const serviceWorker = await readFile(join(outDir, 'sw.js'), 'utf8');
+  const indexHtml = await readFile(join(outDir, 'index.html'), 'utf8');
   const buildAssets = JSON.parse(
     serviceWorker.match(/const BUILD_ASSETS = (\[[^;]*\]);/)?.[1] ?? 'null',
   ) as string[] | null;
   expect(buildAssets).not.toBeNull();
   expect(buildAssets).not.toEqual(
     expect.arrayContaining([
-      expect.stringMatching(/worker|inference|\.wasm$|\.onnx$|\.bin$|\.safetensors$|\.npz$/i),
+      expect.stringMatching(
+        /worker|inference|model|tokenizer|onnxruntime|\.(?:bin|npz|onnx|safetensors|wasm)(?:$|[?#])/i,
+      ),
     ]),
+  );
+  expect(buildAssets.some((file) => AUDIO_FILE_PATTERN.test(file))).toBe(false);
+  expect(buildAssets).not.toContain(`/${selectionEntry.file}`);
+  expect(indexHtml).not.toContain(selectionEntry.file);
+  expect(indexHtml).not.toMatch(
+    /<link\b[^>]*\brel=["'](?:modulepreload|prefetch)["'][^>]*supertonic[^>]*>/i,
   );
   for (const workerFile of workerFiles) {
     expect(buildAssets).not.toContain(`/${workerFile}`);
     expect(initialJavaScriptFiles).not.toContain(workerFile);
+    expect(initialReferencedFiles).not.toContain(workerFile);
   }
-  for (const runtimeFile of [...ortBackendFiles, ...emittedWasmFiles]) {
+  for (const runtimeFile of ortBackendFiles) {
     expect(buildAssets).not.toContain(`/${runtimeFile}`);
     expect(initialJavaScriptFiles).not.toContain(runtimeFile);
+  }
+  for (const runtimeFile of emittedWasmFiles) {
+    expect(buildAssets).not.toContain(`/${runtimeFile}`);
+    expect(initialReferencedFiles).not.toContain(runtimeFile);
   }
   for (const [, factory] of factoryEntries) {
     expect(buildAssets).not.toContain(`/${factory.file}`);

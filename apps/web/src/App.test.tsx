@@ -296,7 +296,8 @@ describe('creator workflows', () => {
       await screen.findByText('Browser runtime is not installed in this build.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate speech' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Download WAV' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Download WAV' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download WAV' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel generation' })).toBeDisabled();
   });
 

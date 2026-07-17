@@ -126,7 +126,8 @@ test('keeps play and comparison locked until a concrete adapter is verified', as
   await expect(
     page.getByText('Runtime verification is pending; no model download or Worker was started.'),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Download WAV' })).toBeDisabled();
+  await expect(page.getByRole('link', { name: 'Download WAV' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Download WAV' })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Compare' }).click();
   await expect(page.getByText(/No launch adapter is operational yet/i)).toBeVisible();

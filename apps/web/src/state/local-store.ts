@@ -4,8 +4,11 @@ const DEFAULT_DATABASE_NAME = 'open-voice-playground';
 const STATE_STORE = 'state';
 const SNAPSHOT_KEY = 'snapshot';
 const QUARANTINE_KEY = 'snapshot:quarantine';
+const SUPERTONIC_CONSENT_KEY = 'consent:supertonic';
+const SUPERTONIC_CONSENT_QUARANTINE_KEY = 'consent:supertonic:quarantine';
 const RECENT_LIMIT = 12;
 const HISTORY_LIMIT = 50;
+const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
 
 export type ModelCacheStatus = 'not-cached' | 'checking' | 'cached';
 export type HistoryOutcome = 'complete' | 'cancelled' | 'unavailable' | 'error';
@@ -27,8 +30,19 @@ export type LocalSnapshot = {
   modelCache: Record<string, ModelCacheStatus>;
 };
 
+export type PersistedSupertonicConsent = {
+  schemaVersion: 1;
+  selectionId: string;
+  selectionDigest: string;
+  acceptedLicenseIds: string[];
+  acceptedTermsHashes: string[];
+  acceptedAt: string;
+};
+
 export type LocalDataStore = {
   getSnapshot(): Promise<LocalSnapshot>;
+  getSupertonicConsent(): Promise<PersistedSupertonicConsent | null>;
+  setSupertonicConsent(value: PersistedSupertonicConsent | null): Promise<void>;
   toggleFavorite(voiceId: string): Promise<void>;
   recordRecent(voiceId: string): Promise<void>;
   recordHistory(entry: HistoryEntry): Promise<void>;
@@ -90,6 +104,56 @@ function isModelCache(value: unknown): value is Record<string, ModelCacheStatus>
       (status) => status === 'not-cached' || status === 'checking' || status === 'cached',
     )
   );
+}
+
+function isNonEmptyUniqueStrings(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === 'string' && item.trim().length > 0) &&
+    new Set(value).size === value.length
+  );
+}
+
+function isStrictIsoTimestamp(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    return new Date(value).toISOString() === value;
+  } catch {
+    return false;
+  }
+}
+
+function isPersistedSupertonicConsent(value: unknown): value is PersistedSupertonicConsent {
+  if (!isRecord(value)) return false;
+  const keys = Object.keys(value).sort();
+  const expectedKeys = [
+    'acceptedAt',
+    'acceptedLicenseIds',
+    'acceptedTermsHashes',
+    'schemaVersion',
+    'selectionDigest',
+    'selectionId',
+  ];
+  return (
+    keys.length === expectedKeys.length &&
+    keys.every((key, index) => key === expectedKeys[index]) &&
+    value.schemaVersion === 1 &&
+    typeof value.selectionId === 'string' &&
+    value.selectionId.trim().length > 0 &&
+    typeof value.selectionDigest === 'string' &&
+    SHA256_PATTERN.test(value.selectionDigest) &&
+    isNonEmptyUniqueStrings(value.acceptedLicenseIds) &&
+    isNonEmptyUniqueStrings(value.acceptedTermsHashes) &&
+    value.acceptedTermsHashes.every((hash) => SHA256_PATTERN.test(hash)) &&
+    isStrictIsoTimestamp(value.acceptedAt)
+  );
+}
+
+function cloneSupertonicConsent(
+  value: PersistedSupertonicConsent | null,
+): PersistedSupertonicConsent | null {
+  return value === null ? null : structuredClone(value);
 }
 
 export function migrateLocalSnapshot(
@@ -215,15 +279,77 @@ async function writeIndexedDb(
   }
 }
 
+async function readSupertonicConsentIndexedDb(
+  factory: IDBFactory,
+  name: string,
+): Promise<PersistedSupertonicConsent | null> {
+  const database = await openDatabase(factory, name);
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = database.transaction(STATE_STORE, 'readwrite');
+      const objectStore = transaction.objectStore(STATE_STORE);
+      const request = objectStore.get(SUPERTONIC_CONSENT_KEY);
+      let consent: PersistedSupertonicConsent | null = null;
+      request.onsuccess = () => {
+        const value: unknown = request.result;
+        if (value === undefined) return;
+        if (!isPersistedSupertonicConsent(value)) {
+          objectStore.put(
+            { reason: 'invalid-supertonic-consent' },
+            SUPERTONIC_CONSENT_QUARANTINE_KEY,
+          );
+          objectStore.delete(SUPERTONIC_CONSENT_KEY);
+          return;
+        }
+        consent = cloneSupertonicConsent(value);
+      };
+      request.onerror = () =>
+        reject(request.error ?? new Error('Supertonic consent could not be read'));
+      transaction.oncomplete = () => resolve(consent);
+      transaction.onerror = () =>
+        reject(transaction.error ?? new Error('Supertonic consent could not be read'));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error('Supertonic consent read was aborted'));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function writeSupertonicConsentIndexedDb(
+  factory: IDBFactory,
+  name: string,
+  value: PersistedSupertonicConsent | null,
+): Promise<void> {
+  const database = await openDatabase(factory, name);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STATE_STORE, 'readwrite');
+      const objectStore = transaction.objectStore(STATE_STORE);
+      if (value === null) objectStore.delete(SUPERTONIC_CONSENT_KEY);
+      else objectStore.put(value, SUPERTONIC_CONSENT_KEY);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () =>
+        reject(transaction.error ?? new Error('Supertonic consent could not be saved'));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error('Supertonic consent save was aborted'));
+    });
+  } finally {
+    database.close();
+  }
+}
+
 export function createLocalDataStore(options: StoreOptions = {}): LocalDataStore {
   const factory = options.indexedDB === undefined ? globalThis.indexedDB : options.indexedDB;
   const databaseName = options.dbName ?? DEFAULT_DATABASE_NAME;
   let memorySnapshot = emptySnapshot('memory');
-  let useMemory = factory === null || factory === undefined;
+  let memorySupertonicConsent: PersistedSupertonicConsent | null = null;
+  let useMemorySnapshot = factory === null || factory === undefined;
+  let useMemorySupertonicConsent = factory === null || factory === undefined;
   let mutationQueue = Promise.resolve();
 
   async function read(): Promise<LocalSnapshot> {
-    if (useMemory || factory === null || factory === undefined) {
+    if (useMemorySnapshot || factory === null || factory === undefined) {
       return cloneSnapshot(memorySnapshot);
     }
     try {
@@ -231,7 +357,7 @@ export function createLocalDataStore(options: StoreOptions = {}): LocalDataStore
       memorySnapshot = { ...snapshot, storage: 'indexeddb' };
       return cloneSnapshot(memorySnapshot);
     } catch {
-      useMemory = true;
+      useMemorySnapshot = true;
       memorySnapshot.storage = 'memory';
       return cloneSnapshot(memorySnapshot);
     }
@@ -239,7 +365,7 @@ export function createLocalDataStore(options: StoreOptions = {}): LocalDataStore
 
   async function persist(snapshot: LocalSnapshot): Promise<void> {
     memorySnapshot = cloneSnapshot(snapshot);
-    if (useMemory || factory === null || factory === undefined) {
+    if (useMemorySnapshot || factory === null || factory === undefined) {
       memorySnapshot.storage = 'memory';
       return;
     }
@@ -248,8 +374,31 @@ export function createLocalDataStore(options: StoreOptions = {}): LocalDataStore
       await writeIndexedDb(factory, databaseName, persisted);
       memorySnapshot = persisted;
     } catch {
-      useMemory = true;
+      useMemorySnapshot = true;
       memorySnapshot.storage = 'memory';
+    }
+  }
+
+  async function readSupertonicConsent(): Promise<PersistedSupertonicConsent | null> {
+    if (useMemorySupertonicConsent || factory === null || factory === undefined) {
+      return cloneSupertonicConsent(memorySupertonicConsent);
+    }
+    try {
+      memorySupertonicConsent = await readSupertonicConsentIndexedDb(factory, databaseName);
+      return cloneSupertonicConsent(memorySupertonicConsent);
+    } catch {
+      useMemorySupertonicConsent = true;
+      return cloneSupertonicConsent(memorySupertonicConsent);
+    }
+  }
+
+  async function persistSupertonicConsent(value: PersistedSupertonicConsent | null): Promise<void> {
+    memorySupertonicConsent = cloneSupertonicConsent(value);
+    if (useMemorySupertonicConsent || factory === null || factory === undefined) return;
+    try {
+      await writeSupertonicConsentIndexedDb(factory, databaseName, value);
+    } catch {
+      useMemorySupertonicConsent = true;
     }
   }
 
@@ -266,6 +415,18 @@ export function createLocalDataStore(options: StoreOptions = {}): LocalDataStore
     async getSnapshot() {
       await mutationQueue;
       return read();
+    },
+    async getSupertonicConsent() {
+      await mutationQueue;
+      return readSupertonicConsent();
+    },
+    setSupertonicConsent(value) {
+      if (value !== null && !isPersistedSupertonicConsent(value)) {
+        return Promise.reject(new TypeError('Supertonic consent is invalid.'));
+      }
+      const requested = cloneSupertonicConsent(value);
+      mutationQueue = mutationQueue.then(() => persistSupertonicConsent(requested));
+      return mutationQueue;
     },
     toggleFavorite(voiceId) {
       return mutate((snapshot) => {

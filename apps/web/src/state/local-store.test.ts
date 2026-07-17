@@ -2,12 +2,42 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { DB_VERSION, createLocalDataStore, migrateLocalSnapshot } from './local-store';
 
+const exactConsent = {
+  schemaVersion: 1 as const,
+  selectionId: 'supertonic-browser-wasm-v1',
+  selectionDigest: `sha256:${'a'.repeat(64)}`,
+  acceptedLicenseIds: ['supertone-weights-license'],
+  acceptedTermsHashes: ['sha256:0d944a9110fed9a9602d60e0423a272903e7bd21ab060490774efc77c2275e9f'],
+  acceptedAt: '2026-07-17T06:00:00.000Z',
+};
+
 const databases: string[] = [];
 
 function databaseName(): string {
   const name = `open-voice-test-${databases.length}`;
   databases.push(name);
   return name;
+}
+
+function failOneOpen(factory: IDBFactory, failedCall: number): IDBFactory {
+  let calls = 0;
+  return {
+    open(name: string, version?: number) {
+      calls += 1;
+      if (calls !== failedCall) {
+        return version === undefined ? factory.open(name) : factory.open(name, version);
+      }
+      const request = {
+        error: new DOMException('Fixture consent-only IndexedDB failure', 'UnknownError'),
+        onblocked: null,
+        onerror: null,
+        onsuccess: null,
+        onupgradeneeded: null,
+      } as unknown as IDBOpenDBRequest;
+      queueMicrotask(() => request.onerror?.(new Event('error')));
+      return request;
+    },
+  } as IDBFactory;
 }
 
 function openTestDatabase(name: string): Promise<IDBDatabase> {
@@ -169,5 +199,186 @@ describe('local data store', () => {
       storage: 'memory',
       favorites: ['fixture-online:voice-a'],
     });
+  });
+
+  it('persists and revokes the exact Supertonic receipt without changing the snapshot', async () => {
+    const dbName = databaseName();
+    const first = createLocalDataStore({ dbName });
+    await first.toggleFavorite('supertonic:F1');
+    const callerOwned = structuredClone(exactConsent);
+
+    await first.setSupertonicConsent(callerOwned);
+    callerOwned.selectionId = 'mutated-after-write';
+    callerOwned.acceptedLicenseIds.push('mutated-after-write');
+
+    await expect(createLocalDataStore({ dbName }).getSupertonicConsent()).resolves.toEqual(
+      exactConsent,
+    );
+    const callerRead = await first.getSupertonicConsent();
+    callerRead!.selectionId = 'mutated-after-read';
+    callerRead!.acceptedTermsHashes.push(`sha256:${'f'.repeat(64)}`);
+    await expect(first.getSupertonicConsent()).resolves.toEqual(exactConsent);
+    await expect(readRawState(dbName, 'consent:supertonic')).resolves.toEqual(exactConsent);
+    await expect(first.getSnapshot()).resolves.toMatchObject({ favorites: ['supertonic:F1'] });
+
+    await first.setSupertonicConsent(null);
+
+    await expect(createLocalDataStore({ dbName }).getSupertonicConsent()).resolves.toBeNull();
+    await expect(readRawState(dbName, 'consent:supertonic')).resolves.toBeUndefined();
+    await expect(first.getSnapshot()).resolves.toMatchObject({ favorites: ['supertonic:F1'] });
+  });
+
+  it('keeps the IndexedDB fallback receipt only in the current store session', async () => {
+    const session = createLocalDataStore({ indexedDB: null });
+
+    await session.setSupertonicConsent(exactConsent);
+
+    await expect(session.getSupertonicConsent()).resolves.toEqual(exactConsent);
+    await expect(
+      createLocalDataStore({ indexedDB: null }).getSupertonicConsent(),
+    ).resolves.toBeNull();
+  });
+
+  it('isolates consent I/O fallback so snapshot state remains IndexedDB-persistent', async () => {
+    const dbName = databaseName();
+    const store = createLocalDataStore({
+      dbName,
+      indexedDB: failOneOpen(indexedDB, 3),
+    });
+    await store.toggleFavorite('supertonic:F1');
+
+    await store.setSupertonicConsent(exactConsent);
+    await store.recordRecent('supertonic:F2');
+
+    await expect(store.getSupertonicConsent()).resolves.toEqual(exactConsent);
+    await expect(store.getSnapshot()).resolves.toMatchObject({
+      storage: 'indexeddb',
+      favorites: ['supertonic:F1'],
+      recent: ['supertonic:F2'],
+    });
+    const reopened = createLocalDataStore({ dbName });
+    await expect(reopened.getSnapshot()).resolves.toMatchObject({
+      storage: 'indexeddb',
+      favorites: ['supertonic:F1'],
+      recent: ['supertonic:F2'],
+    });
+    await expect(reopened.getSupertonicConsent()).resolves.toBeNull();
+  });
+
+  it('isolates a consent read-open failure from later IndexedDB snapshot mutations', async () => {
+    const dbName = databaseName();
+    const seeded = createLocalDataStore({ dbName });
+    await seeded.toggleFavorite('supertonic:F1');
+    await seeded.setSupertonicConsent(exactConsent);
+    const failedConsentReader = createLocalDataStore({
+      dbName,
+      indexedDB: failOneOpen(indexedDB, 1),
+    });
+
+    await expect(failedConsentReader.getSupertonicConsent()).resolves.toBeNull();
+    await failedConsentReader.recordRecent('supertonic:F2');
+
+    await expect(failedConsentReader.getSnapshot()).resolves.toMatchObject({
+      storage: 'indexeddb',
+      favorites: ['supertonic:F1'],
+      recent: ['supertonic:F2'],
+    });
+    const reopened = createLocalDataStore({ dbName });
+    await expect(reopened.getSnapshot()).resolves.toMatchObject({
+      storage: 'indexeddb',
+      favorites: ['supertonic:F1'],
+      recent: ['supertonic:F2'],
+    });
+    await expect(reopened.getSupertonicConsent()).resolves.toEqual(exactConsent);
+    await expect(failedConsentReader.getSupertonicConsent()).resolves.toBeNull();
+  });
+
+  it.each([
+    ['future schema', { ...exactConsent, schemaVersion: 2 }],
+    ['extra field', { ...exactConsent, script: 'must never persist' }],
+    ['text field', { ...exactConsent, text: 'must never persist' }],
+    ['audio field', { ...exactConsent, audio: new Blob(['RIFF']) }],
+    ['empty selection', { ...exactConsent, selectionId: '' }],
+    ['whitespace selection', { ...exactConsent, selectionId: '   ' }],
+    ['invalid digest', { ...exactConsent, selectionDigest: `sha256:${'A'.repeat(64)}` }],
+    ['invalid timestamp', { ...exactConsent, acceptedAt: '2026-07-17T06:00:00Z' }],
+    ['empty licenses', { ...exactConsent, acceptedLicenseIds: [] }],
+    ['whitespace license', { ...exactConsent, acceptedLicenseIds: ['   '] }],
+    [
+      'duplicate licenses',
+      {
+        ...exactConsent,
+        acceptedLicenseIds: ['supertone-weights-license', 'supertone-weights-license'],
+      },
+    ],
+    ['empty terms', { ...exactConsent, acceptedTermsHashes: [] }],
+    [
+      'uppercase terms hash',
+      { ...exactConsent, acceptedTermsHashes: [`sha256:${'A'.repeat(64)}`] },
+    ],
+    ['short terms hash', { ...exactConsent, acceptedTermsHashes: [`sha256:${'a'.repeat(63)}`] }],
+    [
+      'duplicate terms',
+      {
+        ...exactConsent,
+        acceptedTermsHashes: [
+          exactConsent.acceptedTermsHashes[0],
+          exactConsent.acceptedTermsHashes[0],
+        ],
+      },
+    ],
+  ])('quarantines only malformed Supertonic consent: %s', async (_label, malformed) => {
+    const dbName = databaseName();
+    const store = createLocalDataStore({ dbName });
+    await store.toggleFavorite('supertonic:F1');
+    await store.recordRecent('supertonic:F2');
+    await store.recordHistory({
+      id: 'consent-isolation',
+      voiceId: 'supertonic:F3',
+      text: 'This snapshot data must survive consent quarantine.',
+      createdAt: '2026-07-17T06:02:00.000Z',
+      outcome: 'complete',
+    });
+    await store.setModelCache('supertonic', 'cached');
+    const existingSnapshotQuarantine = { reason: 'existing-snapshot-quarantine' };
+    await writeRawState(dbName, 'snapshot:quarantine', existingSnapshotQuarantine);
+    await writeRawState(dbName, 'consent:supertonic', malformed);
+
+    await expect(store.getSupertonicConsent()).resolves.toBeNull();
+
+    await expect(readRawState(dbName, 'consent:supertonic')).resolves.toBeUndefined();
+    await expect(readRawState(dbName, 'consent:supertonic:quarantine')).resolves.toEqual({
+      reason: 'invalid-supertonic-consent',
+    });
+    await expect(readRawState(dbName, 'snapshot:quarantine')).resolves.toEqual(
+      existingSnapshotQuarantine,
+    );
+    await expect(store.getSnapshot()).resolves.toMatchObject({
+      favorites: ['supertonic:F1'],
+      recent: ['supertonic:F2'],
+      history: [{ id: 'consent-isolation', text: expect.any(String) }],
+      modelCache: { supertonic: 'cached' },
+    });
+  });
+
+  it('serializes concurrent consent writes so the last requested state wins', async () => {
+    const dbName = databaseName();
+    const store = createLocalDataStore({ dbName });
+    const replacement = {
+      ...exactConsent,
+      selectionId: 'supertonic-browser-webgpu-v1',
+      selectionDigest: `sha256:${'b'.repeat(64)}`,
+      acceptedAt: '2026-07-17T06:01:00.000Z',
+    };
+
+    const accepted = store.setSupertonicConsent(exactConsent);
+    const revoked = store.setSupertonicConsent(null);
+    const replaced = store.setSupertonicConsent(replacement);
+    await Promise.all([replaced, revoked, accepted]);
+
+    await expect(store.getSupertonicConsent()).resolves.toEqual(replacement);
+    await expect(createLocalDataStore({ dbName }).getSupertonicConsent()).resolves.toEqual(
+      replacement,
+    );
   });
 });

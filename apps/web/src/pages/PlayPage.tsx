@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import type { BrowserRuntimeBackend } from '@open-voice/contracts';
+
+import type { SupertonicWorkbenchSnapshot } from '../app-services';
 import { RUNTIME_LABELS } from '../catalog/catalog';
 import type { RuntimeMode } from '../catalog/filters';
 import { DownloadIcon } from '../components/Icons';
@@ -33,8 +36,55 @@ type InFlightOperation = {
   text: string;
 };
 
+type OwnedSynthesisOutput = {
+  result: SynthesisOutput;
+  voiceId: string;
+};
+
+type ManagedSynthesisOutput = {
+  source: OwnedSynthesisOutput;
+  url: string;
+  filename: string;
+};
+
+const INERT_SUPERTONIC_SNAPSHOT: SupertonicWorkbenchSnapshot = Object.freeze({
+  hydrated: true,
+  backend: 'wasm',
+  receipt: null,
+});
+const subscribeToNothing = () => () => {};
+const getInertSupertonicSnapshot = () => INERT_SUPERTONIC_SNAPSHOT;
+
+function safeGeneratedFilename(voiceId: string): string {
+  const voiceSlug =
+    voiceId
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 96) || 'voice';
+  return `ai-generated-${voiceSlug}.wav`;
+}
+
+function defaultControls(
+  controls: RuntimeCapability['controls'],
+  backend?: BrowserRuntimeBackend,
+): Record<string, string | number | boolean> {
+  return Object.fromEntries(
+    controls.map((control) => [
+      control.id,
+      control.id === 'backend' && backend !== undefined ? backend : control.defaultValue,
+    ]),
+  );
+}
+
 export function PlayPage() {
   const services = useAppServices();
+  const supertonicWorkbench = services.supertonicWorkbench;
+  const supertonicSnapshot = useSyncExternalStore(
+    supertonicWorkbench?.subscribe ?? subscribeToNothing,
+    supertonicWorkbench?.getSnapshot ?? getInertSupertonicSnapshot,
+    supertonicWorkbench?.getSnapshot ?? getInertSupertonicSnapshot,
+  );
   const { snapshot, recordHistory, recordRecent } = useLocalState();
   const [searchParameters, setSearchParameters] = useSearchParams();
   const runnableVoices = useMemo(
@@ -55,10 +105,43 @@ export function PlayPage() {
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
   const [statusMessage, setStatusMessage] = useState('Choose a preset and enter text to begin.');
   const [progress, setProgress] = useState(0);
-  const [output, setOutput] = useState<SynthesisOutput | null>(null);
+  const [output, setOutput] = useState<OwnedSynthesisOutput | null>(null);
+  const [managedOutput, setManagedOutput] = useState<ManagedSynthesisOutput | null>(null);
+  const [selectionReviewed, setSelectionReviewed] = useState(false);
+  const [consentMessage, setConsentMessage] = useState<string | null>(null);
   const operationSequence = useRef(0);
   const inFlightOperation = useRef<InFlightOperation | null>(null);
   const selectedVoiceId = selectedVoice?.id;
+
+  useEffect(() => {
+    if (supertonicWorkbench === undefined) return;
+    let active = true;
+    void supertonicWorkbench.hydrate().catch((error: unknown) => {
+      if (active) {
+        setConsentMessage(
+          error instanceof Error ? error.message : 'Supertonic acceptance could not be restored.',
+        );
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [supertonicWorkbench]);
+
+  useEffect(() => {
+    if (output === null) {
+      setManagedOutput(null);
+      return;
+    }
+    const url = services.createObjectUrl(output.result.blob);
+    const next: ManagedSynthesisOutput = {
+      source: output,
+      url,
+      filename: safeGeneratedFilename(output.voiceId),
+    };
+    setManagedOutput(next);
+    return () => services.revokeObjectUrl(url);
+  }, [output, services]);
 
   useEffect(() => {
     if (selectedVoiceId !== undefined) {
@@ -70,10 +153,15 @@ export function PlayPage() {
     if (selectedVoice === undefined) {
       return;
     }
+    const supertonicControls =
+      selectedVoice.engineId === 'supertonic' ? supertonicWorkbench?.controls : undefined;
+    const selectedBackend = supertonicWorkbench?.getSnapshot().backend;
     setCapability(null);
     setCapabilityStatus('checking');
     setCapabilityMessage('Checking runtime capability…');
-    setControls({});
+    setControls(
+      supertonicControls === undefined ? {} : defaultControls(supertonicControls, selectedBackend),
+    );
     const adapter = services.runtime.get(selectedVoice.engineId);
     if (adapter === null) {
       setCapability({
@@ -108,9 +196,11 @@ export function PlayPage() {
               : (next.reason ?? 'This runtime is unavailable.'),
         );
         setControls(
-          next.available
-            ? Object.fromEntries(next.controls.map((control) => [control.id, control.defaultValue]))
-            : {},
+          supertonicControls !== undefined
+            ? defaultControls(supertonicControls, selectedBackend)
+            : next.available
+              ? defaultControls(next.controls)
+              : {},
         );
       } catch (error) {
         if (!active) {
@@ -121,13 +211,17 @@ export function PlayPage() {
         setCapabilityMessage(
           error instanceof Error ? error.message : 'Runtime capability could not be checked.',
         );
-        setControls({});
+        setControls(
+          supertonicControls === undefined
+            ? {}
+            : defaultControls(supertonicControls, selectedBackend),
+        );
       }
     })();
     return () => {
       active = false;
     };
-  }, [mode, selectedVoice, services.runtime]);
+  }, [mode, selectedVoice, services.runtime, supertonicWorkbench]);
 
   useEffect(
     () => () => {
@@ -155,6 +249,22 @@ export function PlayPage() {
     generationStatus === 'generating' ||
     generationStatus === 'cancelling';
   const cacheStatus = snapshot.modelCache[selectedVoice.engineId] ?? 'not-cached';
+  const isSupertonic = selectedVoice.engineId === 'supertonic' && supertonicWorkbench !== undefined;
+  const supertonicAccepted =
+    isSupertonic && supertonicWorkbench?.isAccepted(supertonicSnapshot.backend) === true;
+  const supertonicDescription = isSupertonic
+    ? supertonicWorkbench!.describe(supertonicSnapshot.backend)
+    : null;
+  const supertonicLicense = isSupertonic
+    ? services.catalog.licenses.get('supertone-weights-license')
+    : undefined;
+  const exposedControls = isSupertonic
+    ? supertonicWorkbench!.controls
+    : capabilityStatus === 'ready' && capability !== null
+      ? capability.controls
+      : [];
+  const currentManagedOutput =
+    output !== null && managedOutput?.source === output ? managedOutput : null;
 
   const saveHistory = (
     outcome: 'complete' | 'cancelled' | 'unavailable' | 'error',
@@ -208,7 +318,12 @@ export function PlayPage() {
       voice: operationVoice,
       mode: operationMode,
       text: operationText,
-      controls: { ...controls },
+      controls: {
+        ...controls,
+        ...(operationVoice.engineId === 'supertonic' && supertonicWorkbench !== undefined
+          ? { backend: supertonicWorkbench.getSnapshot().backend }
+          : {}),
+      },
     };
     const isCurrent = () => inFlightOperation.current?.id === operationId;
     const context = {
@@ -261,7 +376,7 @@ export function PlayPage() {
       if (!isCurrent() || controller.signal.aborted) {
         throw new DOMException('Generation cancelled', 'AbortError');
       }
-      setOutput(nextOutput);
+      setOutput({ result: nextOutput, voiceId: operationVoice.id });
       setProgress(100);
       setGenerationStatus('complete');
       setStatusMessage('WAV is ready on this device.');
@@ -316,16 +431,27 @@ export function PlayPage() {
     setStatusMessage(message);
   };
 
-  const download = () => {
-    if (output === null) {
-      return;
-    }
-    const url = services.createObjectUrl(output.blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = output.filename;
-    anchor.click();
-    window.setTimeout(() => services.revokeObjectUrl(url), 0);
+  const selectSupertonicBackend = (backend: BrowserRuntimeBackend) => {
+    if (!isSupertonic) return;
+    setSelectionReviewed(false);
+    setConsentMessage(null);
+    invalidateOutput('Engine controls changed. Generate speech again.');
+    setControls((current) => ({ ...current, backend }));
+    void supertonicWorkbench!.selectBackend(backend).catch((error: unknown) => {
+      setConsentMessage(
+        error instanceof Error ? error.message : 'Supertonic acceptance could not be cleared.',
+      );
+    });
+  };
+
+  const acceptSupertonicSelection = () => {
+    if (!isSupertonic || !selectionReviewed) return;
+    setConsentMessage(null);
+    void supertonicWorkbench!.accept(supertonicSnapshot.backend).catch((error: unknown) => {
+      setConsentMessage(
+        error instanceof Error ? error.message : 'Supertonic acceptance could not be saved.',
+      );
+    });
   };
 
   return (
@@ -430,10 +556,8 @@ export function PlayPage() {
 
           <div className="engine-controls">
             <h3>Engine controls</h3>
-            {capabilityStatus === 'ready' &&
-            capability !== null &&
-            capability.controls.length > 0 ? (
-              capability.controls.map((control) =>
+            {exposedControls.length > 0 ? (
+              exposedControls.map((control) =>
                 control.type === 'range' ? (
                   <label className="range-field" htmlFor={`control-${control.id}`} key={control.id}>
                     <span>{control.label}</span>
@@ -443,10 +567,11 @@ export function PlayPage() {
                       max={control.max}
                       min={control.min}
                       onChange={(event) => {
+                        const value = event.currentTarget.valueAsNumber;
                         invalidateOutput('Engine controls changed. Generate speech again.');
                         setControls((current) => ({
                           ...current,
-                          [control.id]: event.currentTarget.valueAsNumber,
+                          [control.id]: value,
                         }));
                       }}
                       step={control.step}
@@ -465,13 +590,22 @@ export function PlayPage() {
                       disabled={busy}
                       id={`control-${control.id}`}
                       onChange={(event) => {
-                        invalidateOutput('Engine controls changed. Generate speech again.');
-                        setControls((current) => ({
-                          ...current,
-                          [control.id]: event.currentTarget.value,
-                        }));
+                        const value = event.currentTarget.value;
+                        if (control.id === 'backend' && (value === 'wasm' || value === 'webgpu')) {
+                          selectSupertonicBackend(value);
+                        } else {
+                          invalidateOutput('Engine controls changed. Generate speech again.');
+                          setControls((current) => ({
+                            ...current,
+                            [control.id]: value,
+                          }));
+                        }
                       }}
-                      value={String(controls[control.id] ?? control.defaultValue)}
+                      value={String(
+                        control.id === 'backend' && isSupertonic
+                          ? supertonicSnapshot.backend
+                          : (controls[control.id] ?? control.defaultValue),
+                      )}
                     >
                       {control.options?.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -485,6 +619,88 @@ export function PlayPage() {
             ) : (
               <p>No engine controls are exposed while this runtime is unavailable.</p>
             )}
+            {isSupertonic && supertonicDescription !== null ? (
+              <div className="supertonic-consent">
+                <details>
+                  <summary>Review exact selection</summary>
+                  <div className="supertonic-consent__disclosure">
+                    <p>
+                      <strong>
+                        Selected backend:{' '}
+                        {supertonicSnapshot.backend === 'webgpu' ? 'WebGPU' : 'WASM'}. No automatic
+                        fallback.
+                      </strong>
+                    </p>
+                    <dl className="supertonic-consent__facts">
+                      <dt>Model closure</dt>
+                      <dd>{supertonicDescription.modelBytes.toLocaleString('en-US')} bytes</dd>
+                      <dt>ONNX Runtime</dt>
+                      <dd>{supertonicDescription.runtimeBytes.toLocaleString('en-US')} bytes</dd>
+                      <dt>Selected closure</dt>
+                      <dd>{supertonicDescription.selectedBytes.toLocaleString('en-US')} bytes</dd>
+                      <dt>Conservative upper bound</dt>
+                      <dd>{supertonicDescription.upperBoundBytes.toLocaleString('en-US')} bytes</dd>
+                    </dl>
+                    <p>
+                      Your script, inference, and generated audio stay on this device. The selected
+                      closure is the exact initial pinned asset download from reviewed sources. The
+                      conservative upper bound is the browser storage allowance checked before
+                      preparation.
+                    </p>
+                    <p>
+                      Selection ID: <code>{supertonicDescription.selectionId}</code>
+                      <br />
+                      Selection digest: <code>{supertonicDescription.selectionDigest}</code>
+                    </p>
+                    <p>
+                      The selected model weights require acceptance of{' '}
+                      <a href={supertonicLicense?.url} rel="noreferrer" target="_blank">
+                        OpenRAIL-M
+                      </a>
+                      . ONNX Runtime is provided under the MIT license; this is a notice, not
+                      another click-through.
+                    </p>
+                    <p>
+                      Preset voices only. No reference audio, voice upload, or voice cloning is
+                      supported.
+                    </p>
+                  </div>
+                </details>
+                <label className="supertonic-consent__check">
+                  <input
+                    checked={selectionReviewed}
+                    disabled={busy}
+                    onChange={(event) => setSelectionReviewed(event.currentTarget.checked)}
+                    type="checkbox"
+                  />
+                  <span>I reviewed the exact selection and pinned OpenRAIL-M terms</span>
+                </label>
+                <button
+                  className="button button--secondary"
+                  disabled={busy || !selectionReviewed || supertonicAccepted}
+                  onClick={acceptSupertonicSelection}
+                  type="button"
+                >
+                  Accept exact selection
+                </button>
+                <p
+                  aria-label="Supertonic consent status"
+                  aria-atomic="true"
+                  aria-live="polite"
+                  className="supertonic-consent__status"
+                  role="status"
+                >
+                  {supertonicAccepted
+                    ? `Exact ${supertonicSnapshot.backend === 'webgpu' ? 'WebGPU' : 'WASM'} selection accepted.`
+                    : 'Accept the current exact selection before generating.'}
+                </p>
+                {consentMessage === null ? null : (
+                  <p className="supertonic-consent__error" role="alert">
+                    {consentMessage}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -494,6 +710,7 @@ export function PlayPage() {
             <h2 id="output-heading">Output</h2>
           </div>
           <p
+            aria-label="Generation status"
             aria-live="polite"
             className={`generation-status generation-status--${generationStatus}`}
             role="status"
@@ -505,10 +722,32 @@ export function PlayPage() {
             <progress id="generation-progress" max="100" value={progress} />
             <span>{progress}%</span>
           </label>
+          {currentManagedOutput === null ? null : (
+            <div className="generated-audio">
+              <audio
+                aria-describedby="machine-generated-audio-notice shared-audio-disclosure-notice"
+                aria-label="Generated audio"
+                controls
+                src={currentManagedOutput.url}
+              />
+              <p id="machine-generated-audio-notice">
+                Machine-generated audio — not a human recording.
+              </p>
+              <p id="shared-audio-disclosure-notice">
+                Shared copies need an AI-generated disclosure and applicable notices. Nonconsensual
+                impersonation is prohibited.
+              </p>
+            </div>
+          )}
           <div className="workbench__actions">
             <button
               className="button button--primary"
-              disabled={busy || capabilityStatus !== 'ready' || capability?.available !== true}
+              disabled={
+                busy ||
+                capabilityStatus !== 'ready' ||
+                capability?.available !== true ||
+                (isSupertonic && !supertonicAccepted)
+              }
               onClick={() => void generate()}
               type="button"
             >
@@ -522,14 +761,16 @@ export function PlayPage() {
             >
               Cancel generation
             </button>
-            <button
-              className="button button--quiet"
-              disabled={output === null}
-              onClick={download}
-              type="button"
-            >
-              <DownloadIcon /> Download WAV
-            </button>
+            {currentManagedOutput === null ? null : (
+              <a
+                aria-describedby="machine-generated-audio-notice shared-audio-disclosure-notice"
+                className="button button--quiet"
+                download={currentManagedOutput.filename}
+                href={currentManagedOutput.url}
+              >
+                <DownloadIcon /> Download WAV
+              </a>
+            )}
           </div>
           <p className="capability-disclosure">
             Audio is created only when the selected adapter reports available. This shell never
